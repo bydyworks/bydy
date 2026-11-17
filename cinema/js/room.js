@@ -1,0 +1,496 @@
+// 방(= 약속 한 건의 영화관): 누가 와 있는지, 어디 앉았는지, 상영 시각이 어떻게 바뀌었는지.
+//
+// 서버가 없다. 모든 참가자가 자기 상태를 주기적으로 방송하고(3초마다 + 바뀔 때마다),
+// 받은 쪽은 "마지막으로 들은 상태"를 그대로 믿는다. 메시지는 사라지거나 늦게 올 수 있으므로
+// 어떤 메시지도 "꼭 한 번 도착한다"고 가정하지 않는다 — 상태는 통째로 다시 보내면 복구된다.
+import { createNet, DEFAULT_BROKERS } from './net.js';
+import { signText, verifyText } from './sign.js';
+import { createClock } from './clock.js';
+import { emitter, store, cleanText, isInt, clamp, sleep } from './util.js';
+import { normalizeAvatar, normalizeName } from './me.js';
+import { isVideoId } from './link.js';
+
+export const SEAT_ROWS = 4;
+export const SEAT_COLS = 6;
+export const SEAT_COUNT = SEAT_ROWS * SEAT_COLS;
+// 이 영화관은 조용하다. 자유 채팅 대신 이모지와 정해진 한마디만 주고받는다.
+// (서버가 없어 신고·차단을 할 수 없으니, 링크가 새도 안전한 방식만 쓴다)
+export const EMOTES = ['🙇', '😂', '😢', '😱', '👏', '❤️', '🤫'];      // 0번은 "꾸벅 인사"
+export const PHRASES = ['왔어?', '여기야', '팝콘 살게', '곧 시작해', '들어가자', '잠깐만', 'ㅋㅋㅋ', '소름', '대박', '재밌다', '무서워', '화장실'];
+export const LOBBY_PHRASES = [0, 1, 2, 3, 4, 5];
+export const HALL_PHRASES = [6, 7, 8, 9, 10, 11];
+export const POPCORN_FULL = 20;               // 한 통에 들어 있는 팝콘 알 수
+export const POPCORN_KINDS = 3;
+export const DRINK_KINDS = 3;
+export const LOBBY = { w: 390, h: 560, minX: 22, maxX: 368, minY: 234, maxY: 524 };  // 걸어다닐 수 있는 바닥 (art.js 의 LOBBY_ANCHORS.walk)
+
+const HEARTBEAT_MS = 3000;
+const PEER_TIMEOUT_MS = 12000;                // 소식이 끊긴 사람을 지우기까지
+const AWAY_TIMEOUT_MS = 5 * 60000;            // "잠깐 자리 비움"을 알리고 나간 사람은 자리를 5분 맡아 둔다
+const PING_MS = 20000;
+const MAX_PEERS = 60;
+export const PAUSE_MAX_MS = 10 * 60000;       // 쉬는 시간은 길어도 10분 — 영사기사가 사라져도 영화는 이어진다
+const MAX_UNKNOWN_SEC = 6 * 3600;             // 길이를 모르는 영상은 6시간이 지나면 끝난 것으로 본다
+const MAX_MSGS_PER_SEC = 40;
+
+/**
+ * @typedef {Object} PeerState  남들에게 보이는 내 상태 (전선 위에서도 이 짧은 키 그대로)
+ * @property {string} n   닉네임
+ * @property {number[]} a 아바타 [hair, hairColor, outfit, skin]
+ * @property {string} u   기기 ID (같은 사람이 탭 두 개로 들어왔는지 판별)
+ * @property {number} j   입장 시각 (방 시계)
+ * @property {'lobby'|'hall'} sc  지금 있는 곳
+ * @property {number} x   로비에서 걸어가는 목적지 x (0..390)
+ * @property {number} y   로비에서 걸어가는 목적지 y (0..560)
+ * @property {number} s   앉은 좌석 번호 (0..23), 서 있으면 -1
+ * @property {number} sa  그 좌석을 잡은 시각 (방 시계) — 동시에 잡으면 먼저 잡은 사람이 이긴다
+ * @property {number} p   팝콘 종류 (0..2), 없으면 -1
+ * @property {number} pl  팝콘 남은 양 (0..POPCORN_FULL)
+ * @property {number} pe  오늘 먹은 팝콘 알 수 (기념 티켓과 엔딩 크레딧에 적힌다)
+ * @property {number} dk  음료 종류 (0..2), 없으면 -1
+ * @property {number} tk  검표(표 받기)를 마쳤으면 1
+ * @property {number} aw  잠깐 자리 비움이면 1
+ * @property {number} v   상태 번호. 보낼 때마다 커진다 — 늦게 도착한 옛 상태가 새 상태를 덮어쓰지 못하게 한다
+ */
+
+/** @typedef {{ id: string, st: PeerState, seenAt: number, isSelf?: boolean }} Peer */
+
+/**
+ * @typedef {Object} Ctl  영사실 상태. 초대 링크의 값에서 시작해, 영사기사(호스트)만 바꿀 수 있다.
+ * @property {number} rev        몇 번째 변경인지 (0 = 링크 그대로)
+ * @property {number} at         상영 시작 시각 (방 시계, epoch ms)
+ * @property {number|null} pause 쉬는 시간이면 멈춘 위치(ms), 아니면 null
+ * @property {string} vid
+ * @property {number} dur        초 (모르면 0)
+ * @property {string} title
+ */
+
+function normalizeState(s) {
+  if (!s || typeof s !== 'object') return null;
+  const num = (v, d = 0) => (Number.isFinite(v) ? v : d);
+  return {
+    n: normalizeName(s.n),
+    a: normalizeAvatar(s.a),
+    u: typeof s.u === 'string' ? s.u.slice(0, 24) : '',
+    j: num(s.j),
+    sc: s.sc === 'hall' ? 'hall' : 'lobby',
+    x: clamp(num(s.x, 195), 0, LOBBY.w),
+    y: clamp(num(s.y, 400), 0, LOBBY.h),
+    s: isInt(s.s, 0, SEAT_COUNT - 1) ? s.s : -1,
+    sa: num(s.sa),
+    p: isInt(s.p, 0, POPCORN_KINDS - 1) ? s.p : -1,
+    pl: isInt(s.pl, 0, POPCORN_FULL) ? s.pl : 0,
+    pe: isInt(s.pe, 0, 99999) ? s.pe : 0,
+    dk: isInt(s.dk, 0, DRINK_KINDS - 1) ? s.dk : -1,
+    tk: s.tk ? 1 : 0,
+    aw: s.aw ? 1 : 0,
+    v: num(s.v),
+  };
+}
+
+// 서명 대상 문자열. 방 ID를 넣어 다른 방의 서명을 가져다 쓰지 못하게 한다.
+const ctlText = (room, c) => `dsy1|ctl|${room}|${c.r}|${c.t}|${c.p == null ? '' : c.p}|${c.v}|${c.d}|${c.n}`;
+
+function validCtlPacket(c) {
+  return c && typeof c === 'object'
+    && isInt(c.r, 1, 1e9)
+    && Number.isFinite(c.t) && c.t > 1.5e12 && c.t < 4.2e12
+    && (c.p === null || (Number.isFinite(c.p) && c.p >= 0 && c.p < 1.8e8))
+    && isVideoId(c.v)
+    && isInt(c.d, 0, 172800)
+    && typeof c.n === 'string' && c.n.length <= 200
+    && typeof c.g === 'string' && c.g.length <= 200;
+}
+
+const packetToCtl = (c) => ({ rev: c.r, at: c.t, pause: c.p, vid: c.v, dur: c.d, title: cleanText(c.n, 60) || '제목 없는 상영' });
+
+/**
+ * 방에 들어간다.
+ * @param {{ scr: import('./link.js').Screening, me: import('./me.js').Me, brokers?: string[], start?: Partial<PeerState> }} opts
+ */
+export async function joinRoom({ scr, me, brokers, start }) {
+  const ev = emitter();
+  const clock = createClock();
+  const selfId = me.tab;
+  /** @type {Map<string, Peer>} */
+  const peers = new Map();
+  /** 상영관에 있었던 사람들 (엔딩 크레딧용): id → 닉네임 */
+  const seenInHall = new Map();
+  let closed = false;
+
+  /** @type {PeerState} */
+  const self = {
+    n: me.name, a: me.av.slice(), u: me.device, j: 0,
+    sc: 'lobby', x: 195, y: 470, s: -1, sa: 0, p: -1, pl: 0, pe: 0, dk: -1, tk: 0, aw: 0, v: 0,
+    ...(normalizeState({ ...(start || {}), n: me.name, a: me.av, u: me.device }) || {}),
+    // 입장 시각은 연결하기 전에 정해 둔다 (같은 기기의 옛 탭과 "누가 나중에 왔나"를 비교하므로)
+    j: clock.now(), aw: 0,
+  };
+  // 예전에 앉았던 자리로 돌아오더라도, 자리 주장은 지금 시각으로 새로 한다 (그 사이 앉은 사람이 우선)
+  if (self.s >= 0) { self.sc = 'hall'; self.sa = self.j; }
+  const joinedPerf = performance.now();
+
+  // ---------- 영사실 상태 ----------
+  /** @type {Ctl} */
+  let ctl = { rev: 0, at: scr.at, pause: null, vid: scr.vid, dur: scr.dur, title: scr.title };
+  let ctlPacket = null;
+  const hostRec = store.get('host.' + scr.room);
+  const hostJwk = scr.hk && hostRec && hostRec.jwk ? hostRec.jwk : null;
+  const verifying = new Set();
+
+  async function offerCtl(pkt) {
+    if (!scr.hk || !validCtlPacket(pkt) || pkt.r <= ctl.rev) return;
+    const key = pkt.r + '|' + pkt.g;
+    if (verifying.has(key)) return;
+    verifying.add(key);
+    try {
+      const ok = await verifyText(scr.hk, ctlText(scr.room, pkt), pkt.g);
+      if (!ok || closed || pkt.r <= ctl.rev) return;
+      ctl = packetToCtl(pkt);
+      ctlPacket = { r: pkt.r, t: pkt.t, p: pkt.p, v: pkt.v, d: pkt.d, n: pkt.n, g: pkt.g };
+      store.set('ctl.' + scr.room, ctlPacket);
+      ev.emit('ctl', ctl);
+    } catch { /* 서명 확인 실패는 무시 */ } finally {
+      verifying.delete(key);
+    }
+  }
+
+  let ctlChain = Promise.resolve();
+  /** 영사기사만: 상영 시각/쉬는 시간 등을 바꾼다. @param {Partial<Ctl>} patch */
+  function setCtl(patch) {
+    if (!hostJwk) return Promise.resolve(false);
+    ctlChain = ctlChain.then(async () => {
+      if (closed) return false;
+      const next = { ...ctl, ...patch, rev: ctl.rev + 1 };
+      const pkt = { r: next.rev, t: Math.round(next.at), p: next.pause == null ? null : Math.round(next.pause), v: next.vid, d: next.dur || 0, n: next.title };
+      pkt.g = await signText(hostJwk, ctlText(scr.room, pkt));
+      ctl = packetToCtl(pkt);
+      ctlPacket = pkt;
+      store.set('ctl.' + scr.room, pkt);
+      ev.emit('ctl', ctl);
+      send('ct', { c: pkt });
+      return true;
+    }).catch((e) => { console.error('[ctl]', e); return false; });
+    return ctlChain;
+  }
+
+  // 지난번에 들었던 변경(예: 상영 시각을 미룸)을 기억해 둔다 — 혼자 다시 들어와도 유지되도록.
+  await offerCtl(store.get('ctl.' + scr.room));
+
+  // ---------- 좌석 ----------
+  const everyone = () => [{ id: selfId, st: self, seenAt: 0, isSelf: true }, ...peers.values()];
+
+  /** 그 좌석의 주인 (먼저 잡은 사람, 같으면 ID가 앞선 사람). 없으면 null */
+  function seatOwner(idx) {
+    let best = null;
+    for (const p of everyone()) {
+      if (p.st.s !== idx || p.st.sc !== 'hall') continue;
+      if (!best || p.st.sa < best.st.sa || (p.st.sa === best.st.sa && p.id < best.id)) best = p;
+    }
+    return best;
+  }
+
+  function resolveMySeat() {
+    if (self.s < 0 || self.sc !== 'hall') return;
+    const owner = seatOwner(self.s);
+    if (owner && owner.id !== selfId) {
+      const lost = self.s;
+      update({ s: -1, sa: 0 });
+      ev.emit('seat:lost', lost);
+    }
+  }
+
+  // ---------- 보내기 ----------
+  /** @type {Awaited<ReturnType<typeof createNet>> | null} */
+  let net = null;
+  // 연결 객체가 만들어지기 전에 도착한 메시지에 답하려다 터지지 않게 감싼다.
+  const send = (type, data) => { if (net) net.send(type, data); };
+  let stateTimer = 0;
+  function sendStateNow() {
+    clearTimeout(stateTimer); stateTimer = 0;
+    if (closed) return;
+    self.v = Math.max(self.v + 1, Date.now());
+    send('st', { s: self, c: ctlPacket });
+  }
+  function sendStateSoon(delay = 80) {
+    if (stateTimer || closed) return;
+    stateTimer = setTimeout(sendStateNow, delay);
+  }
+
+  /** 내 상태를 바꾸고 방송한다. @param {Partial<PeerState>} patch */
+  function update(patch) {
+    Object.assign(self, patch);
+    if (self.sc === 'hall') seenInHall.set(selfId, self.n);
+    ev.emit('self', self);
+    sendStateSoon();
+  }
+
+  /** 순간적인 행동(이모지, 말풍선, 팝콘 한 입)을 알린다. 내 화면에도 같은 경로로 그려진다. */
+  function act(type, data = {}) {
+    if (closed) return;
+    send(type, data);
+    ev.emit('act', selfId, type, data);
+  }
+
+  // ---------- 받기 ----------
+  const rate = new Map();
+  function rateOk(from) {
+    const sec = Math.floor(performance.now() / 1000);
+    let r = rate.get(from);
+    if (!r || r.sec !== sec) { r = { sec, n: 0 }; rate.set(from, r); }
+    return ++r.n <= MAX_MSGS_PER_SEC;
+  }
+
+  // 이모지·한마디 도배 방지 (보내는 쪽 화면을 고쳐 써도 받는 쪽에서 걸러진다)
+  const lastAct = new Map();
+  function notTooOften(from, kind, gapMs) {
+    const key = from + kind, now = performance.now();
+    if (now - (lastAct.get(key) || -Infinity) < gapMs) return false;
+    lastAct.set(key, now);
+    return true;
+  }
+
+  function removePeer(id, why) {
+    const peer = peers.get(id);
+    if (!peer) return;
+    peers.delete(id);
+    clock.dropPeer(id);
+    rate.delete(id);
+    ev.emit('peer:leave', peer, why);
+  }
+
+  function handleState(from, d) {
+    const st = normalizeState(d && d.s);
+    if (!st) return;
+    if (d.c) offerCtl(d.c);
+    let peer = peers.get(from);
+    if (!peer) {
+      if (peers.size >= MAX_PEERS) return;
+      peer = { id: from, st, seenAt: performance.now() };
+      peers.set(from, peer);
+      if (st.sc === 'hall') seenInHall.set(from, st.n);
+      ev.emit('peer:join', peer);
+      setTimeout(ping, 200 + Math.random() * 400);
+    } else {
+      peer.seenAt = performance.now();
+      if (st.v < peer.st.v) return;            // 늦게 도착한 옛 상태
+      const prev = peer.st;
+      peer.st = st;
+      if (st.sc === 'hall') seenInHall.set(from, st.n);
+      ev.emit('peer:update', peer, prev);
+    }
+    if (st.u) {
+      // 같은 기기에서 영화관을 한 번 더 열었다면, 나중에 연 쪽만 남는다.
+      if (st.u === self.u && (st.j > self.j || (st.j === self.j && from > selfId))) {
+        ev.emit('kicked', 'dup');
+        leave();
+        return;
+      }
+      // 남의 기기도 마찬가지: 닫힌 옛 창이 "자리 비움" 유령으로 남아 자기 자리를 막지 않게 한다.
+      for (const other of Array.from(peers.values())) {
+        if (other.id !== from && other.st.u === st.u && other.st.j <= st.j) removePeer(other.id, 'replaced');
+      }
+    }
+    resolveMySeat();
+  }
+
+  function onMessage(from, type, d) {
+    if (closed || typeof from !== 'string' || from === selfId || !rateOk(from)) return;
+    d = d && typeof d === 'object' ? d : {};
+    switch (type) {
+      case 'st': handleState(from, d); break;
+      case 'hi': sendStateSoon(100 + Math.random() * 500); break;
+      case 'by': removePeer(from, 'bye'); break;
+      case 'em': if (peers.has(from) && isInt(d.e, 0, EMOTES.length - 1) && notTooOften(from, 'em', 300)) ev.emit('act', from, 'em', { e: d.e }); break;
+      case 'sy': if (peers.has(from) && isInt(d.i, 0, PHRASES.length - 1) && notTooOften(from, 'sy', 1200)) ev.emit('act', from, 'sy', { i: d.i }); break;
+      case 'ea': if (peers.has(from)) ev.emit('act', from, 'ea', {}); break;
+      case 'pi': if (Number.isFinite(d.t)) send('po', { to: from, t: d.t, r: clock.local() }); break;
+      case 'po': if (d.to === selfId && Number.isFinite(d.t) && Number.isFinite(d.r)) clock.addSample(from, d.t, d.r, clock.local()); break;
+      case 'ct': offerCtl(d.c); break;
+      default: break;
+    }
+  }
+
+  function ping() { if (!closed) send('pi', { t: clock.local() }); }
+
+  let netStatus = { connected: false, brokers: [] };
+  function onStatus(s) {
+    const was = netStatus.connected;
+    netStatus = s;
+    ev.emit('net', s);
+    if (s.connected && !was && !closed) {
+      // (다시) 연결되면 인사하고 내 상태를 알린다
+      send('hi', {});
+      sendStateNow();
+      setTimeout(ping, 300);
+    }
+  }
+
+  // 연결하는 동안 기기 시계가 크게 틀리지 않았는지도 함께 확인한다 (최대 2.5초만 기다린다).
+  const [created] = await Promise.all([
+    createNet({
+      secret: scr.room,
+      peerId: selfId,
+      brokers: brokers && brokers.length ? brokers : DEFAULT_BROKERS,
+      onMessage,
+      onStatus,
+    }),
+    Promise.race([clock.syncWithServer(), sleep(3000)]),
+  ]);
+  net = created;
+  if (closed) { try { Promise.resolve(net.close()).catch(() => {}); } catch { /* 무시 */ } }   // 연결되는 사이에 이미 나간 경우
+  // 만들자마자 이미 연결돼 있는 경우(상태 변화 알림이 따로 오지 않는다)를 위해 현재 상태를 한 번 읽는다.
+  // 이 호출이 "연결됨"으로 바뀌는 순간이면 인사와 내 상태가 함께 나간다.
+  onStatus(net.status());
+
+  let lastEatSent = 0;
+
+  // ---------- 주기 작업 ----------
+  // 모두가 같은 박자로 보내 몰리지 않게 ±20% 흔든다
+  let beatTimer = 0;
+  (function beat() {
+    beatTimer = setTimeout(() => { sendStateNow(); beat(); }, HEARTBEAT_MS * (0.8 + Math.random() * 0.4));
+  })();
+  const timers = [
+    setInterval(ping, PING_MS),
+    setInterval(() => {
+      const now = performance.now();
+      for (const p of Array.from(peers.values())) {
+        const limit = p.st.aw ? AWAY_TIMEOUT_MS : PEER_TIMEOUT_MS;
+        if (now - p.seenAt > limit) removePeer(p.id, 'timeout');
+      }
+    }, 1000),
+  ];
+
+  function onVisibility() {
+    if (closed) return;
+    if (document.hidden) {
+      self.aw = 1;
+      sendStateNow();
+    } else {
+      // 화면이 꺼져 있던 동안에는 타이머가 멈춘다. 돌아오자마자 남들을 "끊겼다"고 오해하지 않도록 시계를 다시 맞춘다.
+      const now = performance.now();
+      for (const p of peers.values()) p.seenAt = now;
+      self.aw = 0;
+      send('hi', {});
+      sendStateNow();
+      ping();
+      ev.emit('resume');
+    }
+  }
+  function onPageHide() { if (!closed) send('by', {}); }
+  document.addEventListener('visibilitychange', onVisibility);
+  window.addEventListener('pagehide', onPageHide);
+
+  function leave() {
+    if (closed) return;
+    try { send('by', {}); } catch { /* 무시 */ }
+    closed = true;
+    timers.forEach(clearInterval);
+    clearTimeout(beatTimer);
+    clearTimeout(stateTimer);
+    document.removeEventListener('visibilitychange', onVisibility);
+    window.removeEventListener('pagehide', onPageHide);
+    // close() 는 방금 보낸 'by' 까지 내보낸 뒤에 연결을 닫는다
+    try { if (net) Promise.resolve(net.close()).catch(() => {}); } catch { /* 무시 */ }
+    ev.emit('closed');
+    ev.clear();
+  }
+
+  return {
+    scr,
+    selfId,
+    self,
+    peers,
+    seenInHall,
+    isHost: !!hostJwk,
+    clock,
+    /** 방 시각 (epoch ms) */
+    now: () => clock.now(),
+    /** 막 들어왔을 때 남들의 상태(누가 어디 앉았는지)가 도착하기를 기다릴 시간(ms). 0이면 이미 충분히 기다렸다. */
+    settleMs: () => Math.max(0, 1500 - (performance.now() - joinedPerf)),
+    get ctl() { return ctl; },
+    get net() { return netStatus; },
+    get closed() { return closed; },
+    on: ev.on,
+    off: ev.off,
+    everyone,
+    seatOwner,
+    update,
+    act,
+    setCtl,
+    leave,
+
+    /** 좌석에 앉기. 이미 주인이 있으면 false */
+    sit(idx) {
+      if (!isInt(idx, 0, SEAT_COUNT - 1)) return false;
+      const owner = seatOwner(idx);
+      if (owner && owner.id !== selfId) return false;
+      update({ sc: 'hall', s: idx, sa: clock.now() });
+      return true;
+    },
+    stand() { if (self.s >= 0) update({ s: -1, sa: 0 }); },
+
+    /** 팝콘 한 알. 남은 게 없으면 false */
+    eat() {
+      if (self.p < 0 || self.pl <= 0) return false;
+      update({ pl: self.pl - 1, pe: Math.min(99999, self.pe + 1) });
+      // 내 화면엔 바로, 남들에겐 0.4초에 한 번만 알린다 (공용 중계 서버에 폐 끼치지 않게)
+      const now = performance.now();
+      if (now - lastEatSent > 400) { lastEatSent = now; send('ea', {}); }
+      ev.emit('act', selfId, 'ea', {});
+      return true;
+    },
+  };
+}
+
+/** @typedef {Awaited<ReturnType<typeof joinRoom>>} Room */
+
+/**
+ * 지금 상영이 어디쯤인지. 통신과 무관한 순수 함수.
+ * @param {Ctl} ctl @param {number} now 방 시각(ms) @param {number} [knownDur] 플레이어가 알려준 실제 길이(초)
+ * @returns {{ phase: 'before'|'playing'|'paused'|'ended', pos: number, until: number, resumeIn?: number }}
+ *   pos = 재생 위치(초), until = 시작까지 남은 ms (before 일 때만 양수), resumeIn = 쉬는 시간이 저절로 끝나기까지 ms
+ */
+export function showPosition(ctl, now, knownDur) {
+  const dur = knownDur > 0 ? knownDur : ctl.dur;
+  const elapsed = now - ctl.at;
+  const ended = { phase: 'ended', pos: dur > 0 ? dur : 0, until: 0 };
+  // 쉬는 시간: 영사기사가 멈출 때 at 을 "10분 뒤에 이 위치에서 이어지도록" 맞춰 둔다.
+  // 그래서 영사기사가 자리를 비워도 시간이 되면(elapsed 가 멈춘 위치를 따라잡으면) 저절로 이어진다.
+  if (ctl.pause != null && elapsed < ctl.pause) {
+    const pos = ctl.pause / 1000;
+    if (dur > 0 && pos >= dur) return ended;
+    return { phase: 'paused', pos, until: 0, resumeIn: ctl.pause - elapsed };
+  }
+  if (elapsed < 0) return { phase: 'before', pos: 0, until: -elapsed };
+  const pos = elapsed / 1000;
+  if (dur > 0 ? pos >= dur : pos > MAX_UNKNOWN_SEC) return ended;
+  return { phase: 'playing', pos, until: 0 };
+}
+
+/** 영사기사가 쉬는 시간을 줄 때 쓸 값: 지금 위치에서 멈추고, 최대 PAUSE_MAX_MS 뒤에 저절로 이어진다 */
+export function pausePatch(ctl, now, knownDur) {
+  const p = showPosition(ctl, now, knownDur);
+  const posMs = Math.round(p.pos * 1000);
+  return { pause: posMs, at: Math.round(now + PAUSE_MAX_MS - posMs) };
+}
+
+/** 쉬는 시간을 끝내고 (2초 앞에서부터) 이어 가기 */
+export function resumePatch(ctl, now) {
+  return { pause: null, at: Math.round(now - (ctl.pause || 0) + 2000) };
+}
+
+/**
+ * 방에 들어가지 않고도, 지난번에 들은 영사실 변경(예: 미뤄진 상영 시각)을 서명 확인 후 돌려준다.
+ * @param {import('./link.js').Screening} scr
+ * @returns {Promise<Ctl>} 변경이 없거나 확인할 수 없으면 링크에 적힌 값 그대로
+ */
+export async function storedCtl(scr) {
+  const base = { rev: 0, at: scr.at, pause: null, vid: scr.vid, dur: scr.dur, title: scr.title };
+  const pkt = store.get('ctl.' + scr.room);
+  if (!scr.hk || !validCtlPacket(pkt)) return base;
+  try {
+    return (await verifyText(scr.hk, ctlText(scr.room, pkt), pkt.g)) ? packetToCtl(pkt) : base;
+  } catch { return base; }
+}

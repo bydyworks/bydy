@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>동시상영 · 온라인 영화관</title>
+<meta name="description" content="약속 잡고, 팝콘 사고, 자리 잡고. 친구랑 같은 시간에 같은 영상을 보는 작은 온라인 영화관.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="동시상영 · 온라인 영화관">
+<meta property="og:description" content="영화 약속에 초대받았어요. 표 받고 입장하세요 🎟️">
+<meta name="theme-color" content="#17142b">
+<meta name="color-scheme" content="dark">
+<!-- 유튜브 플레이어가 Referer 를 받을 수 있게 (오류 153 방지) -->
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317142b'/%3E%3Cpath d='M18 26h28l-4 28H22z' fill='%23fff3d6'/%3E%3Cpath d='M26 26l2 28h4l-1-28zM37 26l-1 28h4l2-28z' fill='%23c2283a'/%3E%3Ccircle cx='24' cy='22' r='6' fill='%23ffd766'/%3E%3Ccircle cx='33' cy='17' r='7' fill='%23ffe9a8'/%3E%3Ccircle cx='41' cy='22' r='6' fill='%23ffd766'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app">
+  <main id="screen" aria-live="off"></main>
+</div>
+<div id="sheet-root"></div>
+<div id="toast-root" role="status" aria-live="polite"></div>
+<noscript><p style="padding:24px;color:#fff3d6">이 영화관은 자바스크립트가 켜져 있어야 문을 열어요.</p></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
