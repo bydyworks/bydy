@@ -71,13 +71,26 @@ export function listStubs() {
   return (Array.isArray(raw) ? raw : []).map(normalizeStub).filter(Boolean);
 }
 
-/** 같은 약속의 티켓은 한 장만 (다시 받으면 갱신) */
+/**
+ * 같은 약속의 티켓은 한 장만. 다시 받아도 그날의 기록은 지우지 않는다:
+ * 함께 본 사람은 합치고, 자리·팝콘은 적혀 있던 쪽을 살린다 (나중에 혼자 다시 들러 받아도 "혼자 조용히"로 바뀌지 않게).
+ * @returns {Stub|null} 실제로 저장된 티켓
+ */
 export function saveStub(stub) {
   const s = normalizeStub(stub);
-  if (!s) return;
-  const list = listStubs().filter((x) => x.room !== s.room);
+  if (!s) return null;
+  const all = listStubs();
+  const old = all.find((x) => x.room === s.room);
+  if (old) {
+    s.with = Array.from(new Set([...old.with, ...s.with])).slice(0, 30);
+    if (s.seat === '입석') s.seat = old.seat;
+    if (s.pop < 0) s.pop = old.pop;
+    s.pe = Math.max(s.pe, old.pe);
+  }
+  const list = all.filter((x) => x.room !== s.room);
   list.unshift(s);
   store.set('stubs', list.slice(0, MAX_TICKETS));
+  return s;
 }
 
 export const hasStub = (room) => listStubs().some((s) => s.room === room);

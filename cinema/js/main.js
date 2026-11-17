@@ -2,7 +2,7 @@
 import { $, h, session, store, randomId, sleep } from './util.js';
 import { loadMe } from './me.js';
 import { decodeInvite } from './link.js';
-import { joinRoom, showPosition, storedCtl } from './room.js';
+import { joinRoom, showPosition } from './room.js';
 import { rememberScreening } from './data.js';
 import { toast, closeSheet } from './ui.js';
 import { sfx } from './sfx.js';
@@ -48,36 +48,46 @@ export const app = {
 
   /** 약속의 영화관에 들어간다 (로비부터. 이미 상영 중이면 곧장 상영관으로). */
   async enter(scr, code) {
-    if (entering) return;
-    entering = true;
+    if (enteringCode === code) return;         // 같은 약속의 입장 버튼을 연달아 누른 경우만 무시한다
+    const seq = ++enterSeq;
+    enteringCode = code;
+    const dupNotice = () => mount('notice', { emoji: '🚪', title: '다른 탭에서 입장했어요', text: '같은 기기에서 영화관을 한 번 더 열어서, 이 탭은 조용히 퇴장했어요.', action: '여기서 다시 입장', onAction: () => app.enter(scr, code) });
     try {
       if (app.room) dropRoom();
       await mount('loading', { text: '영화관 문을 여는 중…' });
       // 창을 닫았다 다시 열어도(카카오톡 인앱 브라우저 등) 팝콘·검표·자리를 잃지 않게 기기에 적어 둔다.
       const saved = store.get('in.' + scr.room);
-      let start = saved && typeof saved === 'object' ? saved : undefined;
-      if (!start) {
-        // 처음 들어오는데 이미 상영 중이면, 로비를 거치지 않고 바로 상영관으로 안내한다.
-        const phase = showPosition(await storedCtl(scr), Date.now()).phase;
-        if (phase === 'playing' || phase === 'paused') { start = { sc: 'hall', tk: 1 }; lateEntry = true; }
-      }
+      const start = saved && typeof saved === 'object' ? saved : undefined;
       const room = await joinRoom({ scr, me: app.me, brokers: app.brokers, start });
+      // 문이 열리기를 기다리는 사이 다른 화면으로 갔다면(뒤로 가기, 다른 약속 열기) 없던 일로 한다.
+      if (seq !== enterSeq) { room.leave(); return; }
       app.room = room; app.scr = scr; app.code = code;
       session.set('inroom', code);
       room.on('self', (st) => store.set('in.' + scr.room, { sc: st.sc, x: st.x, y: st.y, s: st.s, p: st.p, pl: st.pl, pe: st.pe, dk: st.dk, tk: st.tk }));
       room.on('kicked', () => {
         dropRoom();
-        mount('notice', { emoji: '🚪', title: '다른 탭에서 입장했어요', text: '같은 기기에서 영화관을 한 번 더 열어서, 이 탭은 조용히 퇴장했어요.', action: '여기서 다시 입장', onAction: () => app.enter(scr, code) });
+        // 안내문은 방에 들어오기 전의 기록 위에 띄운다 (뒤로 가기가 한 번 헛돌지 않게)
+        if (history.state && history.state.inRoom) history.back();
+        dupNotice();
       });
+      // 처음 들어오는데 이미 상영 중이면, 로비를 거치지 않고 바로 상영관으로 안내한다.
+      // (기기 시계가 아니라 방 시계와, 방금 방에서 들은 상영 시각으로 판단한다)
+      let late = false;
+      if (!start) {
+        const phase = showPosition(room.ctl, room.now()).phase;
+        if (phase === 'playing' || phase === 'paused') { room.update({ sc: 'hall', tk: 1 }); late = true; }
+      }
       if (!(history.state && history.state.inRoom)) history.pushState({ inRoom: true }, '');
       await app.scene(room.self.sc === 'hall' && room.self.tk ? 'hall' : 'lobby');
-      if (lateEntry) { lateEntry = false; toast('이미 시작했어요. 허리 숙이고 조용히 빈자리로…', 3500); }
+      if (late && seq === enterSeq && app.room === room) toast('이미 시작했어요. 허리 숙이고 조용히 빈자리로…', 3500);
     } catch (e) {
-      console.error('[enter]', e);
+      if (seq !== enterSeq) return;
       dropRoom();
+      if (e && e.code === 'dup') { await dupNotice(); return; }   // 문을 여는 사이 같은 기기의 새 탭이 들어왔다
+      console.error('[enter]', e);
       await mount('notice', { emoji: '🔌', title: '영화관 문이 안 열려요', text: '연결에 실패했어요. 잠시 뒤에 다시 시도해 주세요.', action: '다시 시도', onAction: () => app.enter(scr, code) });
     } finally {
-      entering = false;
+      if (seq === enterSeq) enteringCode = '';
     }
   },
 
@@ -99,8 +109,8 @@ export const app = {
 // 개발자 도구와 자동 점검에서 들여다볼 수 있게 열어 둔다 (비밀값은 원래 이 페이지 주소에 다 있다)
 window.__dsy = app;
 
-let entering = false;
-let lateEntry = false;
+let enterSeq = 0;          // 입장 시도 번호. 화면이 바뀌면 올라가서, 기다리던 입장을 무효로 만든다
+let enteringCode = '';
 let unmount = null;
 let mountSeq = 0;
 
@@ -153,6 +163,7 @@ function parseRoute() {
 }
 
 async function render() {
+  enterSeq++; enteringCode = '';
   if (app.room) dropRoom();
   const r = parseRoute();
   if (r.name === 'ticket') {
@@ -165,7 +176,7 @@ async function render() {
     // 새로고침으로 다시 열린 경우엔 바로 다시 입장한다.
     if (session.get('inroom') === r.code && !reenteredOnce) {
       reenteredOnce = true;
-      history.replaceState(null, '');
+      // (기록의 inRoom 표시는 그대로 둔다 — 지우면 입장할 때 기록이 한 칸 더 쌓여, 나간 뒤 '뒤로'가 한 번 헛돈다)
       await app.enter(scr, r.code);
       return;
     }

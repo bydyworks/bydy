@@ -24,13 +24,18 @@ export function createClock() {
   const local = () => Date.now() + base;
 
   function recompute() {
-    const offs = [0];
+    const all = [0];
+    const synced = [];
     for (const list of samples.values()) {
       if (!list.length) continue;
       // 왕복 시간이 가장 짧았던 측정이 가장 믿을 만하다
       const best = list.reduce((a, b) => (b.rtt < a.rtt ? b : a));
-      if (Math.abs(best.offset) <= PEER_OFFSET_LIMIT) offs.push(best.offset);
+      if (Math.abs(best.offset) > PEER_OFFSET_LIMIT) continue;
+      all.push(best.offset);
+      if (best.synced) synced.push(best.offset);
     }
+    // 서버에 시계를 맞춘 사람이 있으면 그 사람들만 따른다 (맞추지 못한 내 시계를 평균에 섞으면 반쯤 어긋난 채로 남는다)
+    const offs = synced.length ? synced : all;
     offs.sort((a, b) => a - b);
     const mid = offs.length >> 1;
     roomOffset = offs.length % 2 ? offs[mid] : (offs[mid - 1] + offs[mid]) / 2;
@@ -47,14 +52,15 @@ export function createClock() {
 
     /**
      * pong 을 받았을 때 호출. t0 = 내가 ping 보낸 시각(local), t1 = 상대가 답한 시각(상대 local), t2 = 내가 받은 시각(local)
+     * synced = 상대가 서버에 시계를 맞췄다고 알려 왔는지
      */
-    addSample(peerId, t0, t1, t2) {
+    addSample(peerId, t0, t1, t2, synced = false) {
       const rtt = t2 - t0;
       if (!(rtt >= 0) || rtt > 8000 || !Number.isFinite(t1)) return;
       const offset = t1 - (t0 + t2) / 2;
       let list = samples.get(peerId);
       if (!list) samples.set(peerId, (list = []));
-      list.push({ offset, rtt });
+      list.push({ offset, rtt, synced: !!synced });
       if (list.length > SAMPLES_PER_PEER) list.shift();
       recompute();
     },

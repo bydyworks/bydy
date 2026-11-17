@@ -4,6 +4,7 @@ import { marqueeSVG } from '../art.js';
 import { button, avatarNode } from '../ui.js';
 import { listScreenings, listStubs, statusOf } from '../data.js';
 import { thumbUrl } from '../link.js';
+import { storedCtl, showPosition } from '../room.js';
 import { openMeEditor } from './me-editor.js';
 
 export function mount(root, app) {
@@ -13,29 +14,42 @@ export function mount(root, app) {
   function drawMe() {
     meCard.replaceChildren(
       h('span', { class: 'me-card-av' }, avatarNode(app.me.av, { mood: 'happy' })),
-      h('span', { class: 'me-card-text' }, h('small', null, '오늘의 관객'), h('strong', null, `나 : ${app.me.name}`)),
+      h('span', { class: 'me-card-text' }, h('small', null, '오늘의 관객'), h('strong', null, `나: ${app.me.name}`)),
       h('span', { class: 'me-card-edit' }, '바꾸기'),
     );
   }
 
+  // 영사기사가 상영 시각을 미루거나 당겼으면(지난번에 방에서 들은 변경) 그 값으로 보여 준다.
+  const ctls = new Map();
+  let alive = true;
+  const withCtl = (scr) => {
+    const c = ctls.get(scr.room);
+    return c && c.rev > 0 ? { ...scr, at: c.at, dur: c.dur, title: c.title } : scr;
+  };
+  function statusNow(scr, now) {
+    const c = ctls.get(scr.room);
+    if (c && c.rev > 0 && showPosition(c, now).phase === 'paused') return { key: 'playing', label: '쉬는 시간', until: 0 };
+    return statusOf(withCtl(scr), now);
+  }
+
   function drawUpcoming() {
     const now = Date.now();
-    const list = listScreenings(now).filter((r) => statusOf(r.scr, now).key !== 'ended');
+    const list = listScreenings(now)
+      .map((r) => ({ ...r, eff: withCtl(r.scr), st: statusNow(r.scr, now) }))
+      .filter((r) => r.st.key !== 'ended')
+      .sort((a, b) => a.eff.at - b.eff.at);
     if (!list.length) {
       upcoming.replaceChildren(h('p', { class: 'empty' }, '아직 잡힌 약속이 없어요.', h('br'), '보고 싶은 영상 하나만 있으면 돼요.'));
       return;
     }
-    upcoming.replaceChildren(...list.map(({ scr, code, mine }) => {
-      const st = statusOf(scr, now);
-      return h('a', { class: 'appt', href: '#/s/' + code },
-        h('img', { class: 'appt-thumb', src: thumbUrl(scr.vid, 'mqdefault'), alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }),
-        h('span', { class: 'appt-text' },
-          h('strong', null, scr.title),
-          h('span', null, fmtDateTime(scr.at)),
-          h('span', { class: 'appt-status ' + st.key }, st.label, mine ? ' · 내가 잡은 약속' : ''),
-        ),
-      );
-    }));
+    upcoming.replaceChildren(...list.map(({ eff, code, mine, st }) => h('a', { class: 'appt', href: '#/s/' + code },
+      h('img', { class: 'appt-thumb', src: thumbUrl(eff.vid, 'mqdefault'), alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }),
+      h('span', { class: 'appt-text' },
+        h('strong', null, eff.title),
+        h('span', null, fmtDateTime(eff.at)),
+        h('span', { class: 'appt-status ' + st.key }, st.label, mine ? ' · 내가 잡은 약속' : ''),
+      ),
+    )));
   }
 
   const stubs = listStubs();
@@ -53,6 +67,9 @@ export function mount(root, app) {
   ));
   drawMe();
   drawUpcoming();
+  Promise.all(listScreenings().map(async (r) => { ctls.set(r.scr.room, await storedCtl(r.scr)); }))
+    .then(() => { if (alive) drawUpcoming(); })
+    .catch(() => {});
   const timer = setInterval(drawUpcoming, 15000);
-  return () => clearInterval(timer);
+  return () => { alive = false; clearInterval(timer); };
 }
