@@ -324,6 +324,7 @@ export function mount(root, app) {
     actionBar({ phrases: LOBBY_PHRASES, onEmote: emote, onPhrase: phrase }),
   ));
 
+  let prevCtl = room.ctl;
   for (const p of room.everyone()) syncPeer(p);
   // 화면을 돌리거나 창 크기를 바꾸면 무대 폭이 달라진다: 이름표를 얼마나 밀지도 다시 잰다
   const onResize = () => crowd.forEach((entry) => clampTag(entry));
@@ -336,7 +337,12 @@ export function mount(root, app) {
     room.on('peer:leave', (p) => removePeer(p)),
     room.on('act', onAct),
     room.on('net', () => top.update()),
-    room.on('ctl', () => { top.update(); toast('영사기사가 상영 일정을 바꿨어요'); }),
+    room.on('ctl', (ctl) => {
+      top.update();
+      // 상영 시각·쉬는 시간이 바뀐 것만 알린다 (영상 길이를 알려 온 것은 일정 변경이 아니다)
+      if (ctl.at !== prevCtl.at || ctl.pause !== prevCtl.pause) toast('영사기사가 상영 일정을 바꿨어요');
+      prevCtl = ctl;
+    }),
   );
 
   // 상영이 다가오면 알려 준다

@@ -366,6 +366,58 @@ await group('기록', async () => {
   });
 });
 
+await group('예매와 표', async () => {
+  const a = await person('예매하는 A', { ytMock: { duration: 30 } });
+  await a.goto(base()); await a.waitForSelector('.home');
+
+  await rep.check('확인된 영상 주소를 유튜브가 아닌 주소로 바꾸면 표를 끊을 수 없다 (앞 영상으로 끊기지 않는다)', async () => {
+    await a.click('.home .btn-xl'); await a.waitForSelector('.booking');
+    await a.fill('input[type=url]', 'https://youtu.be/aaaaaaaaaaa');
+    await a.dispatchEvent('input[type=url]', 'change');
+    await a.waitForSelector('.note.good', { timeout: 15000 });
+    assert(!(await a.isDisabled('.booking .btn-xl')), '확인된 영상인데 표 끊기가 막혀 있다');
+    await a.fill('input[type=url]', 'https://example.com/not-a-video');
+    await a.dispatchEvent('input[type=url]', 'change');
+    await a.waitForSelector('.note.bad', { timeout: 3000 });
+    assert(await a.isDisabled('.booking .btn-xl'), '유튜브 주소가 아닌데 표 끊기가 눌린다');
+    assert(await a.locator('.booking .preview').isHidden(), '앞 영상의 미리보기가 남아 있다');
+    await a.fill('input[type=url]', 'https://youtu.be/bbbbbbbbbbb');
+    await a.dispatchEvent('input[type=url]', 'change');
+    await a.waitForSelector('.note.good', { timeout: 15000 });
+    assert(!(await a.isDisabled('.booking .btn-xl')), '다시 올바른 주소를 넣었는데 표 끊기가 막혀 있다');
+  });
+
+  await rep.check('표 화면도 서버 시각을 따른다: 기기 시계가 2분 빨라도 1분 남은 상영을 "상영 중"이라 하지 않는다', async () => {
+    const code = await createInvite(a, { inMs: 60000, dur: 300 });
+    const f = await person('빠른 시계', { clockSkewMs: 120000 });
+    await f.goto(`${base()}#/s/${code}`); await f.waitForSelector('.ticket');
+    await until(async () => (await f.textContent('.ticket-status')).includes('상영 시작까지'), { timeout: 5000, what: '서버 시각으로 고쳐 보여 줌' });
+    assert((await f.textContent('.ticket-actions .btn-xl')).trim() === '입장하기', await f.textContent('.ticket-actions .btn-xl'));
+  });
+
+  await rep.check('쉬는 시간에는 표 화면이 "쉬는 시간"이라고 알려 준다 (상영 전으로 보이지 않는다)', async () => {
+    const code = await createInvite(a, { inMs: -60000, dur: 300 });
+    await enter(a, base(), code);
+    await a.evaluate(async () => { const R = await import('./js/room.js'); const r = window.__dsy.room; await r.setCtl(R.pausePatch(r.ctl, r.now())); });
+    await a.evaluate(() => window.__dsy.leave());
+    await a.waitForSelector('.ticket');
+    await until(async () => (await a.textContent('.ticket-status')).includes('쉬는 시간'), { timeout: 4000, what: '쉬는 시간 표시' });
+  });
+
+  await rep.check('링크에 길이가 없는 약속: 영사기사의 플레이어가 알아낸 길이가 로비의 관객에게도 전해지고, "일정 변경" 알림은 뜨지 않는다', async () => {
+    const code = await createInvite(a, { inMs: 5000, dur: 0, title: '길이 모르는 영화' });
+    const g = await person('로비의 관객');
+    await enter(a, base(), code); await enter(g, base(), code);
+    await g.evaluate(() => { window.__t = []; new MutationObserver(() => { const t = document.getElementById('toast-root').textContent; if (t) window.__t.push(t); }).observe(document.getElementById('toast-root'), { childList: true, subtree: true }); });
+    await toHall(a);
+    await until(async () => (await peek(a)).ctl.dur === 30 && (await peek(g)).ctl.dur === 30, { timeout: 15000, what: '길이(30초)가 모두에게 전해짐' });
+    await sleep(500);
+    const seen = await g.evaluate(() => window.__t);
+    assert(!seen.some((t) => t.includes('일정을 바꿨어요')), '일정 변경 알림이 떴다: ' + seen.join(' | '));
+    assert((await peek(a)).ctl.rev === 1, `rev ${(await peek(a)).ctl.rev}`);
+  });
+});
+
 await group('도배 방어', async () => {
   const v = await person('관객');
   await v.goto(base()); await v.waitForSelector('.home');

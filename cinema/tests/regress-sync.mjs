@@ -366,6 +366,24 @@ await group('꾸중과 안내', async () => {
     assert(p.state === 1 && Math.abs(p.drift) < 0.9, `after returning: state ${p.state}, drift ${p.drift.toFixed(2)}s`);
     assert((await scolds(a, from)).length === 0, 'scolded after returning: ' + JSON.stringify(await scolds(a, from)));
   });
+
+  await rep.check('다른 탭에 가 있는 사이 쉬는 시간이 끝나도 영상은 다시 재생된다 (소리로 듣는 관객)', async () => {
+    const host = await person('다른 탭의 영사기사', { ytMock: { duration: 600 } });
+    await open(host, { inMs: -60000, dur: 600 });
+    await host.waitForSelector('.mock-yt', { timeout: 10000 });
+    await sleep(3000);
+    await booth(host, '쉬는 시간');
+    await until(async () => (await look(host)).state === 2, { timeout: 5000, what: 'paused for the intermission' });
+    // 데스크톱의 뒤쪽 탭: 페이지는 가려졌지만 브라우저가 영상을 건드리지는 않는다
+    await host.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await sleep(1500);
+    await host.evaluate(async () => { const R = await import('./js/room.js'); const r = window.__dsy.room; await r.setCtl(R.resumePatch(r.ctl, r.now())); });
+    await until(async () => (await look(host)).state === 1, { timeout: 6000, what: 'playing again while the tab is hidden' });
+  });
 });
 
 // ------------------------------------------------------------------

@@ -118,8 +118,14 @@ export function mount(root, app) {
   function onUrl() {
     const parsed = parseYouTube(urlInput.value);
     if (!parsed) {
+      // 앞서 확인한 영상이 있더라도, 지금 칸에 적힌 주소가 아니면 그 영상으로 표를 끊지 않는다
+      previewSeq++;
+      if (player) { player.destroy(); player = null; }
+      Object.assign(st, { vid: '', dur: 0, ok: false, checking: false, error: '' });
+      previewBox.hidden = true;
       if (urlInput.value.trim()) setNote('유튜브 영상 주소가 아닌 것 같아요. 공유 → 링크 복사로 받은 주소를 넣어 주세요.', 'bad');
       else setNote('');
+      drawSubmit();
       return;
     }
     if (parsed.id === st.vid) return;

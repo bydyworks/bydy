@@ -219,6 +219,8 @@ export function createSync({ player, target, onStatus, onEnded, onUserMeddle, au
     if (lastPhase !== 'playing') {
       // 쉬는 시간이 끝난 순간에는 모두가 정확히 같은 곳에서 다시 출발한다
       if (lastPhase === 'paused' && !live) seekAhead(tgt, now);
+      // 우리가 세운 영상은 화면이 가려져 있어도 우리가 다시 튼다 (다른 탭에서 소리로 듣고 있는 관객)
+      if (lastPhase === 'paused' && !playing) player.play();
       // 우리가 세워 둔 동안은 "재생이 막혔다"거나 "관객이 멈췄다"로 세지 않는다
       if (!playing) notPlayingSince = now;
       quietUntil = Math.max(quietUntil, now + 2000);

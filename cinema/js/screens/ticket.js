@@ -1,13 +1,17 @@
 // 표 화면: 초대 링크를 열면 가장 먼저 보이는 곳. 여기서 입장한다.
 import { h, setChildren, session, fmtDateTime, fmtDuration, fmtCountdown } from '../util.js';
 import { thumbUrl, inviteUrl, icsFor } from '../link.js';
-import { storedCtl } from '../room.js';
+import { storedCtl, showPosition } from '../room.js';
+import { createClock } from '../clock.js';
 import { statusOf, hasStub, endOf } from '../data.js';
 import { button, sheet, toast, copyText } from '../ui.js';
 import { sfx } from '../sfx.js';
 
 export function mount(root, app, { scr, code }) {
   let view = scr;                       // 영사기사가 시각을 바꿨다면 반영된 값
+  let ctl = null;                       // 지난번에 방에서 들은 영사실 상태 (없으면 null)
+  // 기기 시계가 몇 분 틀려도 "상영 전/상영 중"을 바르게 보여 주도록 서버 시각에 맞춘 시계를 쓴다 (맞추기 전에는 기기 시계 그대로)
+  const clock = createClock();
   const isHost = !!(scr.hk && localStorageHasHost(scr.room));
   const url = inviteUrl(scr);
 
@@ -19,8 +23,10 @@ export function mount(root, app, { scr, code }) {
   const more = h('div', { class: 'ticket-more' });
 
   function draw() {
-    const now = Date.now();
-    const st = statusOf(view, now);
+    const now = clock.now();
+    // 쉬는 시간에는 시작 시각이 뒤로 밀려 있어 "상영 전"처럼 보인다: 영사실 상태로 직접 확인한다
+    const paused = ctl && showPosition(ctl, now).phase === 'paused';
+    const st = paused ? { key: 'playing', label: '쉬는 시간', until: 0 } : statusOf(view, now);
     whenEl.textContent = fmtDateTime(view.at) + (view.at !== scr.at ? ' (변경됨)' : '');
     if (st.key === 'ended') {
       statusEl.textContent = '이 상영은 끝났어요';
@@ -130,8 +136,10 @@ export function mount(root, app, { scr, code }) {
 
   // 지난번에 들은 시각 변경이 있으면 반영
   let alive = true;
-  storedCtl(scr).then((ctl) => {
-    if (!alive || ctl.rev === 0) return;
+  clock.syncWithServer().then(() => { if (alive) { lastKey = ''; tick(); } });
+  storedCtl(scr).then((c) => {
+    if (!alive || c.rev === 0) return;
+    ctl = c;
     view = { ...scr, at: ctl.at, title: ctl.title, dur: ctl.dur, vid: ctl.vid };
     titleEl.textContent = view.title;
     durEl.textContent = view.dur ? fmtDuration(view.dur) : '상영관에서 확인';

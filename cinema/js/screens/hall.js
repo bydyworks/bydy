@@ -67,8 +67,15 @@ export function mount(root, app) {
       if (player.isLive()) learnedDur = 0;
       else if (player.duration() > 0) learnedDur = player.duration();
     }
+    // 링크에 길이가 안 적힌 약속(예매 때 미리보기가 막혔던 경우): 영사기사의 플레이어가 알아낸 길이를 한 번 알려 둔다.
+    // 그래야 로비에 있는 사람과 나중에 오는 사람도 영화가 언제 끝나는지 안다.
+    if (room.isHost && learnedDur >= 1 && room.ctl.dur === 0 && room.net.connected && toldDurRev !== room.ctl.rev) {
+      toldDurRev = room.ctl.rev;
+      room.setCtl({ dur: Math.round(learnedDur) });
+    }
     return learnedDur;
   }
+  let toldDurRev = -1;         // 길이를 알린 때의 ctl.rev (같은 상태에서 두 번 알리지 않는다)
 
   /** 지금 상영이 어디쯤인지. 크레딧을 올린 뒤에는 영사기사가 뭔가 바꾸기 전까지 끝난 것으로 본다 (끝과 상영 사이를 오가지 않게). */
   function where() {
@@ -249,19 +256,20 @@ export function mount(root, app) {
 
   function openSouvenir() {
     const names = Array.from(room.seenInHall.entries()).filter(([id]) => id !== room.selfId).map(([, n]) => n);
-    const stub = {
+    const draft = {
       room: room.scr.room, title: room.ctl.title, vid: room.ctl.vid, at: room.ctl.at,
       seat: seatLabel(room.self.s), with: names, pop: room.self.p, pe: room.self.pe, name: room.self.n,
     };
-    saveStub(stub);
+    // 예전에 받아 둔 티켓이 있으면 그날의 기록(함께 본 사람·자리)과 합쳐진 것이 저장된다. 보여 주는 것도 그 티켓이다.
+    const kept = saveStub(draft) || draft;
     sfx.stamp();
     const close = sheet({
       title: '기념 티켓이 나왔어요',
       content: [
-        h('div', { class: 'stub-wrap stamped' }, stubCard(stub)),
+        h('div', { class: 'stub-wrap stamped' }, stubCard(kept)),
         h('p', { class: 'sheet-text' }, '티켓북에 넣어 뒀어요.'),
         h('div', { class: 'row gap' },
-          button('이미지로 저장 · 공유', { kind: 'soft', cls: 'grow', onClick: async () => { if (!(await shareStub(stub))) toast('이미지를 만들지 못했어요.'); } }),
+          button('이미지로 저장 · 공유', { kind: 'soft', cls: 'grow', onClick: async () => { if (!(await shareStub(kept))) toast('이미지를 만들지 못했어요.'); } }),
           button('닫기', { kind: 'primary', cls: 'grow', onClick: () => close() }),
         ),
       ],
