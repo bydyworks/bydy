@@ -1,5 +1,5 @@
 // 로비: 걸어 다니고, 매점에서 팝콘을 사고, 검표를 받고 1관으로 들어간다.
-import { h, svg, clamp } from '../util.js';
+import { h, svg, clamp, prefersReducedMotion } from '../util.js';
 import { lobbySVG, npcSVG, popcornSVG, LOBBY_ANCHORS } from '../art.js';
 import { LOBBY, EMOTES, PHRASES, LOBBY_PHRASES, POPCORN_FULL, showPosition } from '../room.js';
 import { thumbUrl } from '../link.js';
@@ -101,12 +101,15 @@ export function mount(root, app) {
     return { x: m.m41 / r.width * W, y: m.m42 / r.width * W };
   }
 
+  // 움직임 줄이기를 켠 기기에서는 걷지 않고 바로 그 자리에 선다 (걷는 시간만큼 멍하니 기다리게 하지 않는다)
+  const walkMs = (dist) => (prefersReducedMotion() ? 0 : Math.round(dist / WALK_SPEED * 1000));
+
   function place(entry, x, y, animate) {
     let dur = 0;
     if (animate) {
       const from = currentPos(entry);
       const dist = Math.hypot(x - from.x, y - from.y);
-      dur = Math.round(dist / WALK_SPEED * 1000);
+      dur = walkMs(dist);
       if (dist > 2) entry.body.classList.toggle('flip', x < from.x);
     }
     entry.x = x; entry.y = y;
@@ -121,6 +124,15 @@ export function mount(root, app) {
     return dur;
   }
 
+  /** 벽 가까이 서 있으면 이름표가 무대 밖으로 잘린다: 도착할 자리를 기준으로 안쪽으로 민다 (css 의 --tag-shift) */
+  function clampTag(entry) {
+    const sw = stage.clientWidth;
+    if (!sw) return;
+    const half = entry.tag.offsetWidth / 2 + 4, px = entry.x / W * sw;
+    const shift = Math.max(0, half - px) - Math.max(0, px + half - sw);
+    entry.tag.style.setProperty('--tag-shift', `${shift.toFixed(1)}px`);
+  }
+
   function syncPeer(p) {
     const st = p.st;
     let entry = crowd.get(p.id);
@@ -133,7 +145,6 @@ export function mount(root, app) {
       const body = h('div', { class: 'av-body' });
       const tag = h('div', { class: 'av-tag' });
       const el = h('div', { class: 'av' + (p.isSelf ? ' me' : '') }, tag, body);
-      if (p.isSelf) el.addEventListener('click', (e) => { e.stopPropagation(); emote(0); });
       entry = { el, body, tag, x, y, key: '', walkTimer: 0 };
       crowd.set(p.id, entry);
       stage.appendChild(el);
@@ -142,8 +153,9 @@ export function mount(root, app) {
     } else if (entry.x !== x || entry.y !== y) {
       place(entry, x, y, true);
     }
-    entry.tag.textContent = p.isSelf ? `나 : ${st.n}` : st.n;
+    entry.tag.textContent = p.isSelf ? `나: ${st.n}` : st.n;
     entry.el.classList.toggle('away', !!st.aw);
+    clampTag(entry);
     const key = lookKey(st);
     if (key !== entry.key) {
       entry.key = key;
@@ -168,7 +180,7 @@ export function mount(root, app) {
     ({ x, y } = walkable(x, y));
     const entry = crowd.get(room.selfId);
     const from = entry ? currentPos(entry) : { x, y };
-    const dur = Math.round(Math.hypot(x - from.x, y - from.y) / WALK_SPEED * 1000);
+    const dur = walkMs(Math.hypot(x - from.x, y - from.y));
     room.update({ x: Math.round(x), y: Math.round(y) });
     if (then) arriveTimer = later(() => { if (alive) then(); }, dur + 60);
   }
@@ -195,7 +207,9 @@ export function mount(root, app) {
     if (!entry) return;
     if (type === 'em') {
       if (d.e === 0) {
-        entry.body.classList.remove('bow'); void entry.body.offsetWidth; entry.body.classList.add('bow');
+        // 꾸벅 인사는 몸짓(애니메이션)뿐이라, 움직임 줄이기를 켠 기기에서는 아무 일도 없어 보인다: 그때는 말풍선으로 보여 준다
+        if (prefersReducedMotion()) bubble(entry.el, EMOTES[0]);
+        else { entry.body.classList.remove('bow'); void entry.body.offsetWidth; entry.body.classList.add('bow'); }
         const now = performance.now();
         if (id !== room.selfId && now - lastGreetToast > 4000) {
           lastGreetToast = now;
@@ -231,7 +245,7 @@ export function mount(root, app) {
           toast(`${name} 한 통 나왔어요 🍿`);
         }))),
         h('h3', { class: 'menu-h' }, '음료'),
-        h('div', { class: 'menu-grid' }, DRINK_NAMES.map((name, k) => item(h('span', { class: 'menu-emoji' }, ['🥤', '🥤', '🧋'][k]), name, MENU_DRINK[k], () => {
+        h('div', { class: 'menu-grid' }, DRINK_NAMES.map((name, k) => item(h('span', { class: 'menu-emoji' }, ['🥤', '🥤', '🍹'][k]), name, MENU_DRINK[k], () => {
           close();
           sfx.coin();
           room.update({ dk: k });
@@ -311,7 +325,11 @@ export function mount(root, app) {
   ));
 
   for (const p of room.everyone()) syncPeer(p);
+  // 화면을 돌리거나 창 크기를 바꾸면 무대 폭이 달라진다: 이름표를 얼마나 밀지도 다시 잰다
+  const onResize = () => crowd.forEach((entry) => clampTag(entry));
+  window.addEventListener('resize', onResize);
   offs.push(
+    () => window.removeEventListener('resize', onResize),
     room.on('self', () => syncPeer(selfPeer())),
     room.on('peer:join', (p) => { syncPeer(p); if (p.st.sc === 'lobby') toast(`${p.st.n} 님이 들어왔어요`); }),
     room.on('peer:update', (p) => syncPeer(p)),

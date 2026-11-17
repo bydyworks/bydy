@@ -69,7 +69,7 @@ input[type="datetime-local"] { color-scheme: dark; }
 .field { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
 .field .input { flex: none; }
 .field-label { font-size: 12px; color: var(--muted); font-weight: 600; }
-.note { font-size: 13px; color: var(--cream-2); margin-top: 8px; line-height: 1.55; }
+.note { font-size: 13px; color: var(--cream-2); margin-top: 8px; line-height: 1.55; word-break: keep-all; overflow-wrap: anywhere; }
 .note:empty { display: none; }
 .note.good { color: var(--ok); }
 .note.bad { color: var(--bad); }
@@ -86,26 +86,41 @@ input[type="datetime-local"] { color-scheme: dark; }
 .spinner { width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--butter); animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 토스트·바텀시트는 유튜브 플레이어 위에 그리지 않는다 (유튜브 정책).
+   상영관에 플레이어가 걸려 있는 동안 js/ui.js 가 --clear-top(스크린이 위에 있을 때 그 아래 끝) 또는
+   --clear-left/--clear-right(스크린이 옆에 있을 때 객석 칸)를 알려 주고, 두 층은 그 안에만 놓인다. 그 밖에서는 값이 없어 화면 전체를 쓴다. */
 /* 토스트 */
-#toast-root { position: fixed; left: 0; right: 0; bottom: calc(154px + var(--safe-b)); display: flex; justify-content: center; pointer-events: none; z-index: 200; padding: 0 16px; }
+#toast-root {
+  position: fixed; top: var(--clear-top, auto); left: var(--clear-left, 0px); right: var(--clear-right, 0px); bottom: calc(154px + var(--safe-b));
+  display: flex; justify-content: center; pointer-events: none; z-index: 200; padding: 0 16px;
+}
 body:not([data-screen="lobby"]):not([data-screen="hall"]) #toast-root { bottom: calc(28px + var(--safe-b)); }
+/* margin-top: auto — 평소엔 맨 아래에 붙고, 스크린 아래 자리가 모자라면 스크린 쪽이 아니라 아래로 넘친다 */
 .toast {
-  max-width: 420px; background: var(--cream); color: var(--ink); font-size: 13px; font-weight: 700; padding: 10px 14px;
+  max-width: 420px; background: var(--cream); color: var(--ink); font-size: 13px; font-weight: 700; padding: 10px 14px; margin-top: auto;
   border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); animation: toast-in .22s ease-out; text-align: center; word-break: keep-all;
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 /* 바텀시트 */
-.sheet-wrap { position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, 0); transition: background .2s; }
+.sheet-wrap {
+  position: fixed; inset: var(--clear-top, 0px) var(--clear-right, 0px) 0 var(--clear-left, 0px); z-index: 100; overflow: hidden;
+  display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, 0); transition: background .2s;
+}
 .sheet-wrap.open { background: rgba(0, 0, 0, .58); }
 .sheet {
-  width: min(100%, 480px); max-height: 88vh; max-height: 88dvh; overflow-y: auto; background: var(--night-2);
+  width: min(100%, 480px); max-height: min(88vh, 100%); max-height: min(88dvh, 100%); overflow-y: auto; background: var(--night-2);
   border-radius: 22px 22px 0 0; padding: 8px 16px calc(18px + var(--safe-b)); transform: translateY(100%); transition: transform .22s ease-out;
 }
+.sheet:focus { outline: none; }   /* 열릴 때 초점은 시트로 옮기지만(키보드·화면 낭독기), 판 전체에 테두리를 두르지는 않는다 */
 .sheet-wrap.open .sheet { transform: none; }
 .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 12px; }
 .sheet-title { font-size: 17px; margin-bottom: 10px; }
 .sheet-body { display: flex; flex-direction: column; gap: 10px; }
+/* 시트가 화면보다 길어 안에서 스크롤될 때도 마지막 버튼 줄(완료·닫기·확인)은 아래에 붙어 있다. 그림자는 줄 아래 여백으로 비치는 내용을 가린다. */
+.sheet-body > .row:last-child { position: sticky; bottom: 0; z-index: 1; padding-top: 8px; background: var(--night-2); box-shadow: 0 calc(18px + var(--safe-b)) 0 var(--night-2); }
+/* 좁은 시트(가로 모드의 객석 칸)에서 긴 버튼 글이 밖으로 넘치지 않게 줄을 바꾼다 */
+.sheet .btn-block { white-space: normal; height: auto; min-height: 48px; padding-top: 6px; padding-bottom: 6px; text-align: center; word-break: keep-all; }
 .sheet-text { font-size: 14px; color: var(--cream-2); line-height: 1.6; word-break: keep-all; }
 .sheet-text.strong { color: var(--cream); font-weight: 700; font-size: 16px; }
 
@@ -166,7 +181,7 @@ body:not([data-screen="lobby"]):not([data-screen="hall"]) #toast-root { bottom: 
 .ticket-title { font-size: 22px; font-weight: 800; line-height: 1.3; margin: 4px 0 14px; word-break: keep-all; overflow-wrap: anywhere; }
 .ticket-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
 .ticket-info dt { font-size: 11px; color: var(--paper-ink); font-weight: 600; }
-.ticket-info dd { font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.ticket-info dd { font-size: 14px; font-weight: 700; word-break: keep-all; overflow-wrap: anywhere; }
 .ticket-tear { border-top: 2px dashed var(--paper-line); margin: 0 14px; position: relative; }
 .ticket-tear::before, .ticket-tear::after { content: ''; position: absolute; top: -12px; width: 22px; height: 22px; border-radius: 50%; background: var(--night); }
 .ticket-tear::before { left: -25px; }
@@ -174,7 +189,14 @@ body:not([data-screen="lobby"]):not([data-screen="hall"]) #toast-root { bottom: 
 .ticket-stub { padding: 14px 16px 16px; text-align: center; }
 .ticket-status { font-family: var(--display); font-size: 20px; font-variant-numeric: tabular-nums; color: var(--red-dark); word-break: keep-all; }
 .ticket-status.far, .ticket-status.ended { color: var(--ink); }
-.ticket-actions { display: flex; flex-direction: column; gap: 8px; }
+/* 입장 버튼은 표가 길어도(긴 제목·작은 화면) 첫 화면 아래쪽에 붙어 있다. 나머지 버튼은 그 아래(.ticket-more)에 온다. */
+.ticket-actions {
+  position: sticky; bottom: 0; z-index: 2; margin: -10px 0 calc(-1 * var(--safe-b)); padding: 10px 0 calc(8px + var(--safe-b));
+  background: linear-gradient(to bottom, transparent, var(--night) 10px);
+}
+.ticket-more { position: relative; z-index: 3; display: flex; flex-direction: column; gap: 8px; }
+/* 세로가 짧은 화면에서는 표의 그림을 낮춰, 웬만한 표는 입장 버튼까지 첫 화면에 들어오게 한다 */
+@media (max-height: 700px) { .ticket-thumb-wrap { aspect-ratio: 16 / 7; } }
 
 /* 기념 티켓 */
 .stub { position: relative; background: var(--cream); color: var(--ink); border-radius: 16px; overflow: hidden; }
@@ -183,7 +205,7 @@ body:not([data-screen="lobby"]):not([data-screen="hall"]) #toast-root { bottom: 
 .stub-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; word-break: keep-all; overflow-wrap: anywhere; }
 .stub-info div { display: flex; gap: 10px; font-size: 13px; padding: 2px 0; }
 .stub-info dt { color: var(--paper-ink); width: 30px; flex: none; }
-.stub-info dd { font-weight: 600; min-width: 0; overflow-wrap: anywhere; padding-right: 70px; }
+.stub-info dd { font-weight: 600; min-width: 0; word-break: keep-all; overflow-wrap: anywhere; padding-right: 70px; }
 .stub-foot { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-top: 2px dashed var(--paper-line); font-size: 12px; color: var(--paper-ink); }
 .stub-foot span:first-child { font-family: var(--display); color: var(--ink); font-size: 16px; }
 .stub-stamp {
@@ -215,7 +237,7 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .room-top { flex: none; display: flex; align-items: center; gap: 8px; padding: calc(6px + var(--safe-t)) 10px 6px; min-height: 56px; }
 .room-title { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
 .room-title-text { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.room-sub { font-size: 12px; color: var(--butter); font-variant-numeric: tabular-nums; font-weight: 600; }
+.room-sub { font-size: 12px; color: var(--butter); font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .net-pill { flex: none; display: flex; gap: 6px; align-items: center; height: 36px; padding: 0 12px; border-radius: 999px; background: var(--night-3); border: 0; font-size: 12px; font-weight: 700; }
 .net-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
 .net-pill[data-net="on"] .net-dot { background: var(--ok); }
@@ -228,7 +250,7 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .lobby-stage { width: min(100cqw, calc(100cqh * 390 / 560)); aspect-ratio: 390 / 560; cursor: pointer; }
 .hall-stage { width: min(100cqw, calc(100cqh * 390 / 300)); aspect-ratio: 390 / 300; }
 .room.hall .stage-wrap { align-items: flex-start; }
-.stage-hint { position: absolute; bottom: 8px; left: 12px; right: 12px; text-align: center; font-size: 12px; color: var(--cream); pointer-events: none; transition: opacity 1s; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); z-index: 700; }
+.stage-hint { position: absolute; bottom: 8px; left: 12px; right: 12px; text-align: center; font-size: 12px; color: var(--cream); pointer-events: none; transition: opacity 1s; text-shadow: 0 1px 3px rgba(0, 0, 0, .8); z-index: 700; word-break: keep-all; }
 .stage-hint.fade { opacity: 0; }
 
 .room-bottom { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px calc(8px + var(--safe-b)); background: var(--night-2); border-top: 1px solid var(--line); }
@@ -257,8 +279,8 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .poster-thumb { position: absolute; object-fit: cover; z-index: 1; pointer-events: none; }
 .lobby-front { pointer-events: none; }
 /* 아바타: 그림 48x60 을 54x67.5 로 그린다. 발끝(24,58)이 서 있는 지점에 오도록 당긴다. */
+/* 아바타는 (내 것도) 누름을 받지 않는다: 매점·문 앞에 서 있을 때 그 아래의 "팝콘 사기"·"입장하기"를 가로막지 않게 */
 .av { position: absolute; left: 0; top: 0; width: 13.846cqw; height: 17.308cqw; margin: -16.73cqw 0 0 -6.923cqw; will-change: transform; pointer-events: none; }
-.av.me { pointer-events: auto; cursor: pointer; }
 .av-body { width: 100%; height: 100%; transform-origin: 50% 100%; }
 .av-body svg { width: 100%; height: 100%; overflow: visible; }
 .av-body.flip svg { transform: scaleX(-1); }
@@ -271,12 +293,14 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .av.pop-out { opacity: 0; transition: opacity .25s; }
 .av.away { opacity: .45; }
 .av.away .av-tag::after { content: ' 💤'; }
+/* --tag-shift: 벽 가까이 서 있을 때 이름표가 무대 밖으로 잘리지 않게 안쪽으로 미는 양 (lobby.js 가 정한다) */
 .av-tag {
   position: absolute; bottom: calc(100% - 1.4cqw); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: max(10px, 2.6cqw);
   line-height: 1.7; padding: 0 1.9cqw; border-radius: 999px; background: rgba(18, 23, 47, .84); color: var(--cream); font-weight: 700;
+  margin-left: var(--tag-shift, 0px); transition: margin-left .3s;
 }
 .av.me .av-tag { background: var(--butter); color: var(--ink); font-weight: 800; }
-.av.me .av-tag::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: -4px; border: 4px solid transparent; border-top-color: var(--butter); border-bottom: 0; }
+.av.me .av-tag::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: calc(-4px - var(--tag-shift, 0px)); border: 4px solid transparent; border-top-color: var(--butter); border-bottom: 0; }
 .av.away.me .av-tag::after { content: ' 💤'; position: static; border: 0; margin: 0; }
 .npc-tag { display: none; }
 .hotspot { position: absolute; background: none; border: 0; z-index: 220; border-radius: 3cqw; }   /* 계산대(앞 레이어)보다 위, 걸어 다니는 사람들보다 아래 */
@@ -287,6 +311,9 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
   animation: nudge 2.4s ease-in-out infinite;
 }
 .hotspot-label:empty { display: none; }
+/* 문 오른쪽에 서 있는 검표원에게 가리지 않게: 가운데가 아니라 오른쪽 끝을 문 가운데쯤에 맞춘다 (무대가 작아 표시가 상대적으로 커져도 닿지 않는다) */
+.hs-gate .hotspot-label { left: 44%; transform: translateX(-100%); animation-name: nudge-end; }
+@keyframes nudge-end { 50% { transform: translateX(-100%) translateY(-12%); } }
 @keyframes nudge { 50% { transform: translateX(-50%) translateY(-12%); } }
 .tap-mark { position: absolute; width: 7cqw; height: 3.5cqw; margin: -1.75cqw 0 0 -3.5cqw; border-radius: 50%; border: 2px solid var(--butter); animation: tap-mark .5s ease-out forwards; pointer-events: none; z-index: 3; }
 @keyframes tap-mark { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.2); opacity: 0; } }
@@ -321,7 +348,7 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .room.hall[data-lights="dim"] { background: #0c1022; }
 .room.hall[data-lights="off"] { background: #07091a; }
 .screen-wrap { flex: none; display: flex; justify-content: center; background: #000; }
-.screen { position: relative; width: 100%; aspect-ratio: 16 / 9; min-height: 200px; background: #000; overflow: hidden; }
+.screen { position: relative; width: 100%; aspect-ratio: 16 / 9; min-width: 200px; min-height: 200px; background: #000; overflow: hidden; }   /* 유튜브 플레이어는 200x200 보다 작으면 안 된다 */
 .screen > .yt-mount { position: absolute; inset: 0; }
 .screen-card { position: absolute; inset: 0; container-type: size; }
 .hall-strip { flex: none; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 5px 12px; font-size: 13px; text-align: center; flex-wrap: wrap; }
@@ -382,9 +409,9 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .seat { position: absolute; background: none; border: 0; }
 .seat-front { position: absolute; inset: 0; z-index: 2; }
 .seat-front svg { width: 100%; height: 100%; overflow: visible; }
-/* 앉은 사람은 등받이 위로 솟아 앞줄 좌석과 겹친다. 빈자리일 때는 그 영역이 앞줄 좌석을 누르는 걸 가로막지 않게 한다. */
+/* 앉은 사람은 등받이 위로 솟아 앞줄 좌석과 겹친다. 그 그림은 (사람이 앉아 있어도) 누름을 받지 않는다:
+   받으면 앞줄 빈자리를 눌러도 뒷사람이 가로채서 앉을 수 없다. 누구 자리인지는 그 좌석 자체를 누르면 알려 준다. */
 .seat-av { position: absolute; z-index: 1; transform-origin: 50% 100%; pointer-events: none; }
-.seat[data-state="taken"] .seat-av, .seat[data-state="mine"] .seat-av { pointer-events: auto; }
 .seat-av svg, .stander-av svg { width: 100%; height: 100%; overflow: visible; }
 .seat-av.sit-in { animation: sit-in .35s cubic-bezier(.3, 1.4, .5, 1); }
 @keyframes sit-in { from { transform: translateY(-28%); opacity: 0; } }
@@ -403,14 +430,15 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .room.hall[data-lights="off"] .seat-tag { opacity: 0; }
 .room.hall[data-lights="off"] .seat[data-state="mine"] .seat-tag, .room.hall[data-lights="off"] .stander.me .seat-tag { opacity: .75; }
 .seat[data-state="empty"]:active .seat-front { transform: scale(.94); }
-/* 아직 앉지 않은 사람들은 가운데 통로에 한 줄로 서 있다 (뒤쪽부터) */
-.standing { position: absolute; left: 50%; width: 9.2cqw; margin-left: -4.6cqw; top: 6cqw; bottom: .8cqw; display: flex; flex-direction: column-reverse; align-items: center; gap: 4.2cqw; z-index: 40; pointer-events: none; overflow: hidden; }
+/* 아직 앉지 않은 사람들은 가운데 통로에 한 줄로 서 있다 (뒤쪽부터). 줄이 길면 위쪽만 자른다 — 옆으로는 이름표·말풍선이 통로보다 넓다. */
+.standing { position: absolute; left: 50%; width: 9.2cqw; margin-left: -4.6cqw; top: 6cqw; bottom: .8cqw; display: flex; flex-direction: column-reverse; align-items: center; gap: 4.2cqw; z-index: 40; pointer-events: none; clip-path: inset(0 -14cqw); }
 .stander { position: relative; flex: none; width: 9.2cqw; height: 11.5cqw; }
 .stander .seat-tag { top: -3.6cqw; max-width: 22cqw; }
 .stander-av { display: block; width: 100%; height: 100%; transform-origin: 50% 100%; }
 
-/* 넓은 화면(가로 모드·데스크톱): 스크린을 크게, 객석은 옆으로 */
-@media (min-width: 820px) and (min-aspect-ratio: 1/1), (orientation: landscape) and (max-height: 540px) {
+/* 넓은 화면(가로 모드·데스크톱): 스크린을 크게, 객석은 옆으로.
+   min-width: 480px — 그보다 좁은 가로 창(휴대폰 분할 화면 등)에서 옆으로 나누면 플레이어가 200px 보다 좁아진다. 거기서는 세로 배치로 둔다. */
+@media (min-width: 820px) and (min-aspect-ratio: 1/1), (orientation: landscape) and (max-height: 540px) and (min-width: 480px) {
   body[data-screen="hall"] #app { max-width: min(1280px, 100vw); }
   .room.hall {
     display: grid; grid-template-columns: minmax(0, 1fr) 372px; grid-template-rows: auto minmax(0, 1fr) auto;
@@ -423,31 +451,51 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
   .room.hall .stage-wrap { grid-area: side; }
   .room.hall .room-bottom { grid-area: bottom; border-top: 0; background: none; }
 }
-@media (orientation: landscape) and (max-height: 540px) {
-  .room.hall { grid-template-columns: minmax(0, 1fr) 236px; }
-  .room.hall .room-top { min-height: 44px; padding: 4px 8px; }
+/* 휴대폰 가로 모드 */
+@media (orientation: landscape) and (max-height: 540px) and (min-width: 480px) {
+  /* 상영관: 객석 칸은 화면 폭의 1/3쯤 (스크린이 남는 높이를 다 쓰는 선에서 좌석을 가장 크게). 좁은 칸이라 위 막대는 한 줄로 줄인다. */
+  .room.hall { grid-template-columns: minmax(0, 1fr) clamp(264px, 35.5vw, 300px); }
+  .room.hall .room-top { min-height: 44px; padding: 4px 6px; gap: 4px; }
+  .room.hall .room-top .icon-btn { width: 36px; height: 36px; border-radius: 11px; }
   .room.hall .room-title-text { font-size: 12px; }
+  .room.hall .room-top:has(.booth-btn) .room-title-text { display: none; }   /* 영사실 버튼이 있으면 제목 자리가 없다: 상영 상태 한 줄만 남긴다 */
+  .room.hall .booth-btn, .room.hall .net-pill { padding: 0 8px; }
   .room.hall .hall-strip { min-height: 38px; padding: 2px 8px; font-size: 12px; }
   .room.hall .room-bottom { padding: 4px 6px; gap: 4px; }
   .room.hall .pop-btn { width: 50px; height: 78px; }
   .room.hall .emote-btn { width: 36px; height: 36px; font-size: 18px; }
   .room.hall .phrase-btn { height: 34px; padding: 0 9px; font-size: 12px; }
+  body[data-screen="hall"] #toast-root { bottom: calc(94px + var(--safe-b)); }
+
+  /* 로비: 무대가 화면 높이를 다 쓰고, 위·아래 막대는 옆 칸에 쌓는다 (세로 배치 그대로면 무대가 손톱만 해진다) */
+  body[data-screen="lobby"] #app { max-width: min(760px, 100vw); }
+  .room.lobby {
+    display: grid; grid-template-columns: calc(100vh * 390 / 560) minmax(0, 1fr); grid-template-columns: calc(100dvh * 390 / 560) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "stage top" "stage bottom";
+  }
+  .room.lobby .room-top { grid-area: top; }
+  .room.lobby .stage-wrap { grid-area: stage; }
+  .room.lobby .room-bottom { grid-area: bottom; align-self: end; border-top: 0; background: none; }
+  body[data-screen="lobby"] #toast-root { bottom: calc(118px + var(--safe-b)); }
+}
+/* 아주 작은 가로 창: 세로 배치로는 객석·아래 막대가 화면 밖으로 밀려난다. 플레이어는 그대로 두고 그 아래를 스크롤해서 쓴다. */
+@media (orientation: landscape) and (max-height: 540px) and (max-width: 479.98px) {
+  .room.hall { overflow-y: auto; }
+  .room.hall .stage-wrap { flex: none; height: 60vw; }
 }
 
-/* 세로가 짧은 휴대폰: 아래 막대를 한 줄로 줄여 객석에 자리를 내준다 */
+/* 세로가 짧은 휴대폰: 위·아래 막대를 조금씩 낮춰 무대에 자리를 내준다. 한마디 줄은 숨기지 않는다 (화면 밖에 있으면 있는 줄도 모른다). */
 @media (orientation: portrait) and (max-height: 720px) {
   .room-top { min-height: 50px; }
   .room-top .icon-btn { width: 40px; height: 40px; }
   .hall-strip { min-height: 40px; font-size: 12.5px; }
   .room-bottom { padding-top: 6px; padding-bottom: calc(6px + var(--safe-b)); }
-  .bar-scroll { flex-direction: row; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
-  .bar-scroll::-webkit-scrollbar { display: none; }
-  .bar-scroll .emotes, .bar-scroll .phrases { overflow: visible; flex: none; }
-  .phrase-btn { height: 44px; }
-  .pop-btn { width: 56px; height: 56px; border-radius: 14px; gap: 0; }
-  .pop-pic svg { width: 27px; height: 32px; }
-  .pop-count { font-size: 11px; }
-  #toast-root { bottom: calc(96px + var(--safe-b)); }
+  .room.hall .bar-scroll { gap: 4px; }
+  .room.hall .emote-btn { width: 40px; height: 40px; font-size: 20px; }
+  .room.hall .phrase-btn { height: 36px; }
+  .room.hall .pop-btn { width: 56px; height: 80px; border-radius: 14px; }
+  .room.hall .pop-pic svg { width: 34px; height: 41px; }
+  #toast-root { bottom: calc(116px + var(--safe-b)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

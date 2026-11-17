@@ -151,8 +151,9 @@ export function mount(root, app) {
   }
   const CHIPS = [
     { key: 'now', label: '지금 바로', at: () => Math.ceil((Date.now() + 60000) / 10000) * 10000 },
-    { key: '10', label: '10분 뒤', at: () => Math.ceil((Date.now() + 10 * 60000) / 60000) * 60000 },
-    { key: '30', label: '30분 뒤', at: () => Math.ceil((Date.now() + 30 * 60000) / 60000) * 60000 },
+    // 가장 가까운 정각 분으로 맞춘다. 올림하면 길게는 10분 59초 뒤가 되어 바로 아래 안내가 "11분 뒤"로 나온다.
+    { key: '10', label: '10분 뒤', at: () => Math.round((Date.now() + 10 * 60000) / 60000) * 60000 },
+    { key: '30', label: '30분 뒤', at: () => Math.round((Date.now() + 30 * 60000) / 60000) * 60000 },
     { key: '9pm', label: () => (new Date(tonight9()).getDate() === new Date().getDate() ? '오늘 밤 9시' : '내일 밤 9시'), at: tonight9 },
   ];
 

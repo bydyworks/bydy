@@ -14,7 +14,9 @@ export function mount(root, app, { scr, code }) {
   const statusEl = h('p', { class: 'ticket-status' });
   const whenEl = h('dd');
   const enterBtn = button('입장하기', { kind: 'primary', cls: 'btn-xl', onClick: () => { sfx.door(); app.enter(scr, code); } });
-  const actions = h('div', { class: 'ticket-actions' });
+  // 입장 버튼만 따로 둔다: 표가 길어 화면을 넘겨도 아래쪽에 붙어 있게 (css 의 .ticket-actions)
+  const actions = h('div', { class: 'ticket-actions' }, enterBtn);
+  const more = h('div', { class: 'ticket-more' });
 
   function draw() {
     const now = Date.now();
@@ -76,8 +78,7 @@ export function mount(root, app, { scr, code }) {
   }
 
   function drawActions(st) {
-    setChildren(actions,
-      enterBtn,
+    setChildren(more,
       st.key === 'ended'
         ? button('같은 영화로 새 약속 잡기', { kind: 'primary', cls: 'btn-block', onClick: rebook })
         : h('div', { class: 'row gap' },
@@ -113,6 +114,7 @@ export function mount(root, app, { scr, code }) {
       h('div', { class: 'ticket-stub' }, statusEl),
     ),
     actions,
+    more,
     h('p', { class: 'fineprint' }, isHost
       ? '영사기사는 상영관 안에서 상영을 바로 시작하거나, 미루거나, 쉬는 시간을 줄 수 있어요.'
       : '상영은 정시에 시작해요. 로비에서 팝콘을 사고, 검표를 받고, 자리를 잡아 주세요.'),

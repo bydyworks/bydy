@@ -199,7 +199,7 @@ await group('함께 있기 (로비)', async () => {
   await rep.check('서로의 아바타와 이름표가 보인다 (실제 MQTT 중계 경유)', async () => {
     await until(async () => (await a.locator('.av:not(.npc)').count()) === 2 && (await b.locator('.av:not(.npc)').count()) === 2, { what: 'two avatars on both screens' });
     const tagsA = await a.locator('.av:not(.npc) .av-tag').allTextContents();
-    assert(tagsA.includes('나 : 호스트 A') && tagsA.includes('친구 B'), 'tags on A: ' + tagsA.join('|'));
+    assert(tagsA.includes('나: 호스트 A') && tagsA.includes('친구 B'), 'tags on A: ' + tagsA.join('|'));
     assert((await a.getAttribute('.net-pill', 'data-net')) === 'on', 'A not shown as connected');
     const pa = await peek(a);
     assert(pa.isHost && !(await peek(b)).isHost, 'host flag wrong');

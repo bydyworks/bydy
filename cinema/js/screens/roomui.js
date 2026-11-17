@@ -53,7 +53,7 @@ export function openPeople(app) {
   function draw() {
     const rows = room.everyone().sort((a, b) => a.st.j - b.st.j).map((p) => h('li', { class: p.st.aw ? 'away' : '' },
       h('span', { class: 'people-av' }, avatarNode(p.st.a)),
-      h('span', { class: 'people-name' }, p.isSelf ? `나 : ${p.st.n}` : p.st.n),
+      h('span', { class: 'people-name' }, p.isSelf ? `나: ${p.st.n}` : p.st.n),
       h('span', { class: 'people-where' }, p.st.aw ? '잠깐 자리 비움' : p.st.sc === 'hall' ? (p.st.s >= 0 ? '상영관 · 착석' : '상영관') : '로비'),
     ));
     list.replaceChildren(...rows);

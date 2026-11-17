@@ -3,9 +3,9 @@
 // 화면(스크린) 자리에는 두 가지가 번갈아 들어간다 — 절대 겹치지 않는다(유튜브 플레이어 위엔 아무것도 덮지 않는다).
 //   · 카드: 상영 전 커튼·카운트다운·관람 예절, 상영 후 엔딩 크레딧
 //   · 유튜브 플레이어: 상영 중과 쉬는 시간에만
-import { h, svg, store, fmtCountdown, fmtTime } from '../util.js';
+import { h, svg, store, fmtCountdown, fmtTime, prefersReducedMotion } from '../util.js';
 import { hallSVG, hallSeatRects, hallAvatarBox, seatSVG, curtainSVG, popcornSVG } from '../art.js';
-import { SEAT_ROWS, SEAT_COLS, EMOTES, PHRASES, HALL_PHRASES, POPCORN_FULL, showPosition, pausePatch, resumePatch } from '../room.js';
+import { SEAT_ROWS, SEAT_COLS, EMOTES, PHRASES, HALL_PHRASES, POPCORN_FULL, PAUSE_MAX_MS, showPosition, pausePatch, resumePatch } from '../room.js';
 import { createPlayer, ytErrorText } from '../yt.js';
 import { createSync } from '../sync.js';
 import { saveStub } from '../data.js';
@@ -25,6 +25,9 @@ const ETIQUETTE = [
   '비상구는 뒤로 가기 버튼입니다.',
 ];
 const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const OPEN_BEFORE_MS = 2000;       // 상영 이만큼 전에 커튼을 열기 시작한다 (여는 데 1.5초 + 박자 한 번) — 정시에는 다 열려 있게
+const MOUNT_LEAD = 1;              // 늦게 거는 플레이어는 이만큼(초) 앞에서 시작한다 (불러오는 동안 흐르는 시간만큼)
+const WAKE_BEFORE_MS = 10 * 60000; // 상영 10분 전부터 화면이 꺼지지 않게 한다
 
 export function mount(root, app) {
   const room = app.room;
@@ -51,9 +54,54 @@ export function mount(root, app) {
   let syncStatus = null;
   let watched = !!store.get('watched.' + room.scr.room);
   let chimed = false;
+  let learnedDur = 0;          // 플레이어가 알려 준 실제 길이(초). 플레이어를 내린 뒤에도 기억한다 — 링크에 길이가 없어도 끝을 알도록
+  let learnedVid = '';
+  let endedRev = -1;           // 엔딩 크레딧을 올린 때의 ctl.rev
+  let openTimer = 0;           // 커튼을 열고 정시에 플레이어를 걸려고 기다리는 타이머
+
+  /** 지금 아는 영상 길이(초). 모르거나 라이브면 0 */
+  function knownDur() {
+    if (learnedVid !== room.ctl.vid) { learnedVid = room.ctl.vid; learnedDur = 0; }
+    if (player && player.isReady) {
+      // 라이브의 getDuration() 은 길이가 아니라 "방송이 시작된 뒤 흐른 시간"이다
+      if (player.isLive()) learnedDur = 0;
+      else if (player.duration() > 0) learnedDur = player.duration();
+    }
+    return learnedDur;
+  }
+
+  /** 지금 상영이 어디쯤인지. 크레딧을 올린 뒤에는 영사기사가 뭔가 바꾸기 전까지 끝난 것으로 본다 (끝과 상영 사이를 오가지 않게). */
+  function where() {
+    const p = showPosition(room.ctl, room.now(), knownDur());
+    if (endedRev === room.ctl.rev && p.phase !== 'before') return { phase: 'ended', pos: p.pos, until: 0 };
+    return p;
+  }
+
+  // 화면이 꺼지지 않게 (지원하는 브라우저에서만). 상영 직전부터 끝날 때까지만 잡는다 —
+  // 몇 시간 전부터 기다리는 동안이나 크레딧이 끝난 뒤까지 켜 두면 배터리만 닳는다.
+  let wake = null;
+  let wakeWanted = false;
+  let wakeAsking = false;
+  const letGo = (lock) => { try { Promise.resolve(lock.release()).catch(() => {}); } catch { /* 무시 */ } };
+  async function setWake(on) {
+    wakeWanted = on;
+    if (!on) {
+      if (wake) { letGo(wake); wake = null; }
+      return;
+    }
+    if (wakeAsking || (wake && !wake.released) || !navigator.wakeLock || document.hidden) return;
+    wakeAsking = true;
+    try {
+      const got = await navigator.wakeLock.request('screen');
+      // 기다리는 사이 상영관을 나갔거나 상영이 끝났다면 바로 놓는다
+      if (alive && wakeWanted) wake = got; else letGo(got);
+    } catch { /* 무시 */ }
+    wakeAsking = false;
+  }
 
   function dropPlayer() {
     playerSeq++;
+    clearTimeout(openTimer);
     if (sync) { sync.stop(); sync = null; }
     if (player) { player.destroy(); player = null; }
     syncStatus = null;
@@ -105,18 +153,16 @@ export function mount(root, app) {
   }
 
   // --- 상영 ---
-  function enterShow(fromPre) {
-    if (fromPre && preEls) {
-      // 커튼이 열리는 동안에는 플레이어가 아직 없다. 다 열린 뒤에 플레이어를 건다.
-      mode = 'opening';
-      preEls.box.classList.add('gone');
-      preEls.curtain.classList.add('open');
-      sfx.dim();
-      drawStrip();
-      later(mountPlayer, 1500);
-    } else {
-      mountPlayer();
-    }
+  /** 상영 직전: 커튼을 미리 열어 두고 정시에 플레이어를 건다. 그래야 영화의 첫 장면부터 보인다. */
+  function openCurtain(until) {
+    mode = 'opening';
+    void preEls.curtain.offsetWidth;          // 방금 그린 커튼도 열리는 모습이 보이게
+    preEls.box.classList.add('gone');
+    preEls.curtain.classList.add('open');
+    sfx.dim();
+    drawStrip();
+    // 그 사이 상영 시각이 바뀌어 커튼이 다시 닫혔다면 걸지 않는다
+    openTimer = later(() => { if (mode === 'opening') mountPlayer(); }, until);
   }
 
   async function mountPlayer() {
@@ -127,9 +173,11 @@ export function mount(root, app) {
     drawStrip();
     const seq = playerSeq;
     const vid = room.ctl.vid;
-    const pos = showPosition(room.ctl, room.now()).pos;
+    const at = showPosition(room.ctl, room.now());
+    // 정시에 걸면 0초부터. 늦게 걸면 조금 앞에서 시작해, 불러온 뒤에 건너뛰지 않고 속도만으로 맞출 수 있게 한다.
+    const start = at.phase === 'playing' && at.pos > 1 ? at.pos + MOUNT_LEAD : at.pos;
     try {
-      const p = await createPlayer(ytMount, { videoId: vid, start: pos, autoplay: true, muted: true });
+      const p = await createPlayer(ytMount, { videoId: vid, start, autoplay: true, muted: true });
       if (seq !== playerSeq || !alive) { p.destroy(); return; }
       player = p;
       p.on('error', (code) => { if (seq === playerSeq) showError(ytErrorText(code)); });
@@ -137,7 +185,7 @@ export function mount(root, app) {
       if (seq !== playerSeq || !alive) return;
       sync = createSync({
         player: p,
-        target: (dur) => showPosition(room.ctl, room.now(), dur),
+        target: where,
         autoUnmute: !isIOS,
         onStatus: (s) => {
           syncStatus = s;
@@ -155,6 +203,7 @@ export function mount(root, app) {
 
   function showError(text) {
     dropPlayer();
+    setWake(false);
     mode = 'error';
     showCard(h('div', { class: 'screen-msg' },
       h('p', { class: 'screen-msg-title' }, '이 필름은 우리 영사기에 걸 수 없대요'),
@@ -164,7 +213,7 @@ export function mount(root, app) {
     drawStrip();
   }
 
-  let lastMeddle = 0;
+  let lastMeddle = -Infinity;    // 0 으로 두면 페이지를 연 뒤 첫 6초 동안의 안내가 통째로 삼켜진다
   function meddle(kind) {
     const now = performance.now();
     if (now - lastMeddle < 6000) return;
@@ -175,8 +224,11 @@ export function mount(root, app) {
   // --- 상영 후: 엔딩 크레딧 ---
   function enterEnd() {
     dropPlayer();
+    setWake(false);
     preEls = null;
     mode = 'end';
+    endedRev = room.ctl.rev;
+    top.update();                // 위 막대도 곧바로 "상영 종료"로
     const people = Array.from(room.seenInHall.entries());
     const eaten = new Map(room.everyone().map((p) => [p.id, p.st.pe]));
     const lines = [
@@ -220,14 +272,16 @@ export function mount(root, app) {
   function drawStrip() {
     const nodes = [];
     const s = syncStatus;
-    const p = showPosition(room.ctl, room.now(), player && player.isReady ? player.duration() : 0);
+    const p = where();
     if (mode === 'pre') {
       nodes.push(h('span', { class: 'strip-text' }, room.self.s >= 0 ? '자리에서 기다리는 중이에요. 팝콘은 미리 사 두셨나요?' : (room.peers.size ? '빈자리를 눌러 앉아 보세요.' : '오늘은 전세 냈네요. 아무 데나 앉으세요.')));
     } else if (mode === 'opening') {
       nodes.push(h('span', { class: 'strip-text' }, '조명이 꺼집니다. 곧 영화가 시작됩니다.'));
     } else if (mode === 'show') {
       if (p.phase === 'paused') {
-        nodes.push(h('span', { class: 'strip-text' }, `☕ 잠시 쉬어 갑니다. 영사기사가 필름을 갈고 있어요. (길어도 ${fmtCountdown(p.resumeIn || 0)} 뒤엔 이어져요)`));
+        nodes.push(h('span', { class: 'strip-text' },
+          `☕ 잠시 쉬어 갑니다. 영사기사가 필름을 갈고 있어요. 길어도 ${Math.round(PAUSE_MAX_MS / 60000)}분 안에 이어져요. `,
+          h('span', { class: 'strip-text dim' }, `남은 시간 ${fmtCountdown(p.resumeIn || 0)}`)));
       } else if (!s) {
         nodes.push(h('span', { class: 'strip-text' }, '필름을 거는 중…'));
       } else if (s.needTap) {
@@ -351,7 +405,8 @@ export function mount(root, app) {
     const el = elOf(id);
     if (!el) return;
     if (type === 'em') {
-      if (d.e === 0) { el.classList.remove('nod'); void el.offsetWidth; el.classList.add('nod'); }
+      // 꾸벅 인사는 몸짓으로. 움직임을 줄인 기기에서는 몸짓이 보이지 않으니 이모지 말풍선으로 대신한다.
+      if (d.e === 0 && !prefersReducedMotion()) { el.classList.remove('nod'); void el.offsetWidth; el.classList.add('nod'); }
       else bubble(el, EMOTES[d.e]);
       if (id === room.selfId || mode !== 'show') (d.e === 4 ? sfx.clap : sfx.pop)();
     } else if (type === 'sy') {
@@ -388,20 +443,27 @@ export function mount(root, app) {
       toast('지금은 다른 관객과 연결이 끊겨 있어요. 연결된 뒤에 바꿀 수 있어요.', 3200);
       return;
     }
-    const knownDur = () => (player && player.isReady ? player.duration() : 0);
-    const p = showPosition(room.ctl, room.now(), knownDur());
+    const built = where().phase;         // 이 버튼들이 만들어진 때의 상황
+    let used = false;                    // 시트 하나로는 한 번만 바꾼다 (닫히는 사이의 연타 방지)
     const act = (label, patch, done) => button(label, {
       kind: 'soft', cls: 'btn-block',
-      onClick: async () => { close(); if (await room.setCtl(patch())) toast(done); else toast('바꾸지 못했어요. 다시 시도해 주세요.'); },
+      onClick: async () => {
+        if (used) return;
+        used = true;
+        close();
+        // 시트를 열어 둔 사이 상황이 바뀌었다면(쉬는 시간이 저절로 끝남 등) 옛 버튼대로 바꾸지 않는다
+        if (where().phase !== built) { toast('그 사이 상황이 바뀌었어요. 영사실을 다시 열어 주세요.', 3200); return; }
+        if (await room.setCtl(patch())) toast(done); else toast('바꾸지 못했어요. 다시 시도해 주세요.');
+      },
     });
     const items = [];
-    if (p.phase === 'before') {
+    if (built === 'before') {
       items.push(act('지금 바로 시작 (10초 뒤)', () => ({ at: room.now() + 10000, pause: null }), '10초 뒤에 상영을 시작해요.'));
       items.push(act('5분 미루기', () => ({ at: room.ctl.at + 5 * 60000 }), '상영을 5분 미뤘어요.'));
-    } else if (p.phase === 'playing') {
+    } else if (built === 'playing') {
       items.push(act('쉬는 시간 주기 (모두 일시정지, 최대 10분)', () => pausePatch(room.ctl, room.now(), knownDur()), '쉬는 시간이에요. 10분 안에 [다시 상영]을 누르지 않으면 저절로 이어져요.'));
       items.push(act('처음부터 다시 상영 (10초 뒤)', () => ({ at: room.now() + 10000, pause: null }), '10초 뒤에 처음부터 다시 상영해요.'));
-    } else if (p.phase === 'paused') {
+    } else if (built === 'paused') {
       items.push(act('다시 상영', () => resumePatch(room.ctl, room.now()), '상영을 이어 갑니다.'));
     } else {
       items.push(act('한 번 더 상영 (10초 뒤)', () => ({ at: room.now() + 10000, pause: null }), '10초 뒤에 다시 상영해요.'));
@@ -409,7 +471,17 @@ export function mount(root, app) {
     const close = sheet({
       title: '영사실',
       content: [h('p', { class: 'sheet-text' }, '영사기사만 들어올 수 있는 곳이에요. 여기서 바꾸면 모든 관객의 화면이 함께 바뀌어요.'), ...items],
+      onClose: () => { if (booth && booth.close === close) booth = null; },
     });
+    booth = { close, phase: built, rev: room.ctl.rev };
+  }
+  /** @type {{ close: () => void, phase: string, rev: number } | null} 열려 있는 영사실 시트와, 그 버튼들이 만들어진 때의 상황 */
+  let booth = null;
+  /** 영사실을 열어 둔 사이 상황이 바뀌면(상영 시작·종료, 쉬는 시간이 저절로 끝남, 일정 변경) 버튼을 지금에 맞게 다시 만든다 */
+  function refreshBooth(phase) {
+    if (!booth || (booth.phase === phase && booth.rev === room.ctl.rev)) return;
+    booth.close();
+    openBooth();
   }
 
   // ---------- 조립 ----------
@@ -417,7 +489,8 @@ export function mount(root, app) {
     backLabel: '로비로 나가기',
     onBack: () => { room.update({ sc: 'lobby', s: -1, sa: 0 }); app.scene('lobby'); },
     extra: room.isHost ? h('button', { type: 'button', class: 'booth-btn', onclick: () => { sfx.tap(); openBooth(); } }, '🎬 영사실') : null,
-    knownDur: () => (player && player.isReady ? player.duration() : 0),
+    // 크레딧을 올린 뒤에는 위 막대도 "상영 종료"로 (길이를 끝내 모르는 라이브도)
+    knownDur: () => (endedRev === room.ctl.rev ? 0.001 : knownDur()),
   });
   const el = h('div', { class: 'room hall', dataset: { lights: 'on' } },
     top.el,
@@ -431,28 +504,36 @@ export function mount(root, app) {
   // ---------- 흐름 ----------
   function tick() {
     if (!alive) return;
-    const dur = player && player.isReady ? player.duration() : 0;
-    const p = showPosition(room.ctl, room.now(), dur);
+    const p = where();
     top.update();
+    refreshBooth(p.phase);
     if (mode === '' && room.settleMs() > 0) {
       // 막 들어왔다: 영사기사가 상영 시각을 바꿨을 수도 있으니 소식을 잠깐 기다린 뒤에 스크린을 정한다
       if (card.childElementCount === 0) showCard(h('div', { class: 'screen-msg' }, h('div', { class: 'spinner' }), h('p', null, '상영 정보를 확인하는 중…')));
       return;
     }
     if (p.phase === 'before') {
-      if (mode !== 'pre') enterPre();
-      updatePre(p.until);
-      el.dataset.lights = p.until <= 10000 ? 'dim' : 'on';
+      // 상영 직전에 연 커튼과 정시에 건 플레이어는 그대로 둔다 (방 시계가 살짝 되감겨도 다시 닫지 않는다).
+      // 그 밖에 '시작 전'으로 돌아왔다면(영사기사가 미룸·다시 상영) 커튼을 닫고 다시 기다린다.
+      const soon = p.until <= OPEN_BEFORE_MS;
+      if (mode !== 'pre' && !(soon && (mode === 'opening' || mode === 'show'))) enterPre();
+      if (mode === 'pre') {
+        updatePre(p.until);
+        if (soon) openCurtain(p.until);
+      }
+      el.dataset.lights = mode !== 'pre' ? 'off' : p.until <= 10000 ? 'dim' : 'on';
     } else if (p.phase === 'ended') {
       if (mode !== 'end') enterEnd();
       el.dataset.lights = 'on';
     } else {
-      if (mode === 'pre') enterShow(true);
-      else if (mode === '' || mode === 'end') enterShow(false);
+      // 커튼을 여는 중이면 곧 타이머가 건다. 그 밖에는(늦게 들어옴, 박자를 놓침) 바로 건다.
+      if (mode === 'pre' || mode === '' || mode === 'end' || (mode === 'opening' && p.pos > 1)) mountPlayer();
       el.dataset.lights = p.phase === 'paused' ? 'dim' : 'off';
       if (p.phase === 'paused' || wasPaused) drawStrip();      // 쉬는 시간 남은 시간 표시를 갱신
       wasPaused = p.phase === 'paused';
     }
+    // 화면은 상영 직전부터 끝날 때까지만 켜 둔다
+    setWake(mode === 'opening' || mode === 'show' || (mode === 'pre' && p.until <= WAKE_BEFORE_MS));
   }
 
   let wasPaused = false;
@@ -465,7 +546,7 @@ export function mount(root, app) {
     room.on('seat:lost', () => { sfx.nope(); toast('앗, 방금 다른 분이 앉았어요. 다른 자리를 골라 주세요.'); }),
     room.on('act', onAct),
     room.on('net', () => top.update()),
-    room.on('resume', () => { acquireWake(); tick(); }),
+    room.on('resume', tick),       // 화면 켜 두기도 여기서 다시 잡힌다 (가려지면 브라우저가 풀어 버린다)
     room.on('ctl', (ctl) => {
       if (!room.isHost) {
         if (ctl.pause != null && prevCtl.pause == null) toast('쉬는 시간이에요 ☕');
@@ -480,13 +561,6 @@ export function mount(root, app) {
     }),
   );
 
-  // 화면이 꺼지지 않게 (지원하는 브라우저에서만)
-  let wake = null;
-  async function acquireWake() {
-    try { if (navigator.wakeLock && !document.hidden) wake = await navigator.wakeLock.request('screen'); } catch { /* 무시 */ }
-  }
-  acquireWake();
-
   drawSeats();
   drawPop();
   tick();
@@ -498,6 +572,6 @@ export function mount(root, app) {
     timers.forEach(clearTimeout);
     offs.forEach((off) => off());
     dropPlayer();
-    try { wake && wake.release(); } catch { /* 무시 */ }
+    setWake(false);
   };
 }

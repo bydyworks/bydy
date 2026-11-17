@@ -113,7 +113,8 @@ export async function createPlayer(mount, opts) {
     pause: () => call('pauseVideo'),
     seek: (sec) => call('seekTo', Math.max(0, sec), true),
     mute: () => call('mute'),
-    unmute: () => { call('unMute'); call('setVolume', 100); },
+    // 관객이 유튜브 컨트롤에서 줄여 둔 음량은 건드리지 않는다. 0 이라 켜도 안 들릴 때만 올린다.
+    unmute: () => { call('unMute'); if (call('getVolume') === 0) call('setVolume', 100); },
     isMuted: () => !!call('isMuted'),
     /** 재생 속도 (0.75 / 1 / 1.25 만 쓴다) */
     rate: (r) => call('setPlaybackRate', r),
@@ -121,9 +122,12 @@ export async function createPlayer(mount, opts) {
       if (destroyed) return;
       destroyed = true;
       ev.clear();
+      // 내 iframe 만 치운다. mount 를 통째로 비우면 같은 자리에 이미 걸린 새 플레이어까지 뜯겨 나간다.
+      let frame = null;
+      try { frame = player && typeof player.getIframe === 'function' ? player.getIframe() : null; } catch { /* 무시 */ }
       try { player && player.destroy && player.destroy(); } catch { /* 무시 */ }
+      if (frame) frame.remove();
       holder.remove();
-      mount.replaceChildren();
     },
   };
 }
