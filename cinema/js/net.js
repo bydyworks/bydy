@@ -160,6 +160,8 @@ const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
  *   'local:' (BroadcastChannel between same-origin pages of one browser profile;
  *   'local:<name>' selects a separate channel namespace). Defaults to DEFAULT_BROKERS.
  * @property {(fromPeerId: string, type: string, data: any, info: MessageInfo) => void} [onMessage]
+ * @property {() => void} [onEcho]  Called whenever one of our own messages comes back from an MQTT relay
+ *   (never for 'local:' transports). A long pause between echoes while sending means nobody heard us.
  * @property {(status: NetStatus) => void} [onStatus]  Called on every status change.
  *   It is NOT called for the initial state - read status() once after createNet().
  * @property {string | URL} [mqttUrl]  Where to load the MQTT.js browser bundle (UMD, global
@@ -187,6 +189,7 @@ export async function createNet(options) {
     brokers = DEFAULT_BROKERS,
     onMessage = noop,
     onStatus = noop,
+    onEcho = noop,
     mqttUrl,
   } = options || {};
 
@@ -252,7 +255,15 @@ export async function createNet(options) {
     const { i: from, q: seq, y: type, d: data } = envelope;
     if (typeof from !== 'string' || from === '' || from.length > MAX_ID_LENGTH) return;
     if (typeof type !== 'string' || !Number.isSafeInteger(seq) || seq < 0) return;
-    if (from === peerId) return; // our own message echoed back by the relay
+    if (from === peerId) {
+      // Our own message echoed back by the relay: proof that what we send still reaches it.
+      try {
+        onEcho();
+      } catch (err) {
+        console.error('[net] onEcho handler threw:', err);
+      }
+      return;
+    }
     const verdict = classify(from, seq);
     if (verdict === DUPLICATE) return; // second copy via another relay, or stale
     try {

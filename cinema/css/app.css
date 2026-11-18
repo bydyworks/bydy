@@ -112,6 +112,7 @@ body:not([data-screen="lobby"]):not([data-screen="hall"]) #toast-root { bottom: 
   width: min(100%, 480px); max-height: min(88vh, 100%); max-height: min(88dvh, 100%); overflow-y: auto; background: var(--night-2);
   border-radius: 22px 22px 0 0; padding: 8px 16px calc(18px + var(--safe-b)); transform: translateY(100%); transition: transform .22s ease-out;
 }
+.sheet { scroll-padding-bottom: calc(74px + var(--safe-b)); }   /* 초점이 간 입력 칸이 아래에 붙은 버튼 줄(56px + 여백 18px) 밑에 깔리지 않게 */
 .sheet:focus { outline: none; }   /* 열릴 때 초점은 시트로 옮기지만(키보드·화면 낭독기), 판 전체에 테두리를 두르지는 않는다 */
 .sheet-wrap.open .sheet { transform: none; }
 .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 4px auto 12px; }
@@ -297,10 +298,10 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
 .av-tag {
   position: absolute; bottom: calc(100% - 1.4cqw); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: max(10px, 2.6cqw);
   line-height: 1.7; padding: 0 1.9cqw; border-radius: 999px; background: rgba(18, 23, 47, .84); color: var(--cream); font-weight: 700;
-  margin-left: var(--tag-shift, 0px); transition: margin-left .3s;
+  margin-left: var(--tag-shift, 0px); transition: margin-left var(--tag-dur, .3s) var(--tag-ease, ease);   /* 걷는 동안에는 걸음과 같은 박자로 (lobby.js) */
 }
 .av.me .av-tag { background: var(--butter); color: var(--ink); font-weight: 800; }
-.av.me .av-tag::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: calc(-4px - var(--tag-shift, 0px)); border: 4px solid transparent; border-top-color: var(--butter); border-bottom: 0; }
+.av.me .av-tag::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: calc(-4px - var(--tag-shift, 0px)); border: 4px solid transparent; border-top-color: var(--butter); border-bottom: 0; transition: margin-left var(--tag-dur, .3s) var(--tag-ease, ease); }
 .av.away.me .av-tag::after { content: ' 💤'; position: static; border: 0; margin: 0; }
 .npc-tag { display: none; }
 .hotspot { position: absolute; background: none; border: 0; z-index: 220; border-radius: 3cqw; }   /* 계산대(앞 레이어)보다 위, 걸어 다니는 사람들보다 아래 */
@@ -450,6 +451,11 @@ body[data-screen="lobby"], body[data-screen="hall"] { overflow: hidden; }
   .room.hall .hall-strip { grid-area: strip; }
   .room.hall .stage-wrap { grid-area: side; }
   .room.hall .room-bottom { grid-area: bottom; border-top: 0; background: none; }
+}
+/* 넓고 높은 화면(데스크톱·태블릿)의 상영관 옆 칸: 이모지와 한마디가 칸 밖으로 잘리지 않게 줄을 바꾼다.
+   (휴대폰 가로 모드는 높이가 모자라 줄을 늘릴 수 없다 — 거기서는 그대로 옆으로 민다) */
+@media (min-width: 820px) and (min-aspect-ratio: 1/1) and (min-height: 541px) {
+  .room.hall .emotes, .room.hall .phrases { flex-wrap: wrap; overflow: visible; }
 }
 /* 휴대폰 가로 모드 */
 @media (orientation: landscape) and (max-height: 540px) and (min-width: 480px) {

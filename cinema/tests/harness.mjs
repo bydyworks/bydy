@@ -106,7 +106,8 @@ export function watchErrors(page, bag, label) {
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const text = m.text();
-    if (/Failed to load resource|net::ERR_|fonts\.g/.test(text)) return;   // 바깥 네트워크 차단은 시험 대상이 아님
+    // 바깥 네트워크 차단은 시험 대상이 아니다. 중계 서버를 일부러 끊는 시험에서는 브라우저가 웹소켓 실패를 콘솔에 적는다 — 그것도 앱의 오류가 아니다.
+    if (/Failed to load resource|net::ERR_|fonts\.g|WebSocket connection to '[^']*' failed/.test(text)) return;
     bag.push(`[${label}] console.error: ${text}`);
   });
 }

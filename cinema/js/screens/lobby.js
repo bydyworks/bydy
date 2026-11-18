@@ -116,12 +116,22 @@ export function mount(root, app) {
     entry.el.style.transition = dur ? `transform ${dur}ms linear` : 'none';
     entry.el.style.transform = `translate(${cq(x)}, ${cq(y)})`;
     entry.el.style.zIndex = String(Math.round(y));
+    // 이름표를 안쪽으로 미는 양(clampTag)은 도착할 자리 기준이다. 걷는 동안에는 걸음과 같은 박자로 옮겨 가야
+    // 벽에서 벽으로 걸을 때 이름표가 먼저 반대쪽으로 쏠려 잘리지 않는다 (css 의 --tag-dur, --tag-ease).
+    clearTimeout(entry.walkTimer);
     if (dur > 60) {
       entry.el.classList.add('walking');
-      clearTimeout(entry.walkTimer);
-      entry.walkTimer = later(() => entry.el.classList.remove('walking'), dur);
-    }
+      entry.el.style.setProperty('--tag-dur', `${dur}ms`);
+      entry.el.style.setProperty('--tag-ease', 'linear');
+      entry.walkTimer = later(() => endWalk(entry), dur);
+    } else endWalk(entry);
     return dur;
+  }
+
+  function endWalk(entry) {
+    entry.el.classList.remove('walking');
+    entry.el.style.removeProperty('--tag-dur');
+    entry.el.style.removeProperty('--tag-ease');
   }
 
   /** 벽 가까이 서 있으면 이름표가 무대 밖으로 잘린다: 도착할 자리를 기준으로 안쪽으로 민다 (css 의 --tag-shift) */

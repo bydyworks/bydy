@@ -40,6 +40,8 @@ const MAX_SEEN = 100;                         // 엔딩 크레딧에 올릴 이�
 const SETTLE_MS = 1500;                       // 막 연결된 뒤 남들 소식을 기다리는 시간
 const SETTLE_CAP_MS = 4000;                   // 연결이 안 되면 이만큼만 기다리고 혼자라도 시작한다
 const SEAT_BACKDATE_MS = 10000;               // 뒤늦게 들은 자리 주장은 최대 이만큼만 과거로 쳐 준다
+const GONE_MS = PEER_TIMEOUT_MS - HEARTBEAT_MS * 1.2;   // 내 소식이 이만큼 끊겼으면 남들이 나를 지웠을 수 있다
+const DROPPED_KEEP_MS = 120000;               // 내가 지운 사람을 기억해 두는 시간
 
 /**
  * @typedef {Object} PeerState  남들에게 보이는 내 상태 (전선 위에서도 이 짧은 키 그대로)
@@ -114,9 +116,10 @@ const packetToCtl = (c) => ({ rev: c.r, at: c.t, pause: c.p, vid: c.v, dur: c.d,
 
 /**
  * 방에 들어간다.
- * @param {{ scr: import('./link.js').Screening, me: import('./me.js').Me, brokers?: string[], start?: Partial<PeerState> }} opts
+ * @param {{ scr: import('./link.js').Screening, me: import('./me.js').Me, brokers?: string[], start?: Partial<PeerState>, wanted?: () => boolean }} opts
+ *   wanted: 문이 열리기를 기다리는 사이 사용자가 마음을 바꿨으면(뒤로 가기 등) false 를 돌려준다 — 그러면 들어가지 않고 code:'cancelled' 로 던진다.
  */
-export async function joinRoom({ scr, me, brokers, start }) {
+export async function joinRoom({ scr, me, brokers, start, wanted }) {
   const ev = emitter();
   const clock = createClock();
   const selfId = me.tab;
@@ -137,6 +140,7 @@ export async function joinRoom({ scr, me, brokers, start }) {
   // 예전에 앉았던 자리는 일단 내려놓고 들어간다. 남들 소식을 들은 뒤에도 비어 있을 때만 다시 앉는다
   // (그 사이 앉은 사람이 우선 — 기기 시계가 틀려도 뺏지 않도록 시각 비교에 기대지 않는다).
   const wantSeat = self.s;
+  let heldSeat = wantSeat;            // 되찾으려고 기다리는 자리 (기다림이 끝나면 -1)
   self.s = -1; self.sa = 0;
   if (wantSeat >= 0) self.sc = 'hall';
   const joinedPerf = performance.now();
@@ -195,6 +199,8 @@ export async function joinRoom({ scr, me, brokers, start }) {
   await offerCtl(store.get('ctl.' + scr.room));
 
   // ---------- 좌석 ----------
+  /** 소식이 끊기거나 작별하고 나가서 내가 지운 사람: id → 지운 시각(방 시계) */
+  const dropped = new Map();
   const everyone = () => [{ id: selfId, st: self, seenAt: 0, isSelf: true }, ...peers.values()];
 
   // 자리를 잡은 시각. 남의 것은 "내가 처음 들은 때"를 감안한 값(peer.sa)을 쓴다 — noteSeat 참고.
@@ -219,6 +225,10 @@ export async function joinRoom({ scr, me, brokers, start }) {
     const st = peer.st;
     if (st.s < 0) { peer.sa = null; return; }
     if (prev && prev.s === st.s && prev.sa === st.sa) return;
+    // 내가 지웠던 사람이 "지워지기 전의 주장"을 그대로 들고 돌아왔다 (연결이 조용히 멎었다 풀리면 밀린 옛 소식이 먼저 쏟아진다).
+    // 그 사이 앉은 사람이 우선이므로 조금도 과거로 쳐 주지 않는다.
+    const goneAt = prev ? undefined : dropped.get(peer.id);
+    if (goneAt !== undefined && st.sa < goneAt) { peer.sa = clock.now(); return; }
     peer.sa = settleMs() > 0 ? st.sa : Math.max(st.sa, clock.now() - SEAT_BACKDATE_MS);
   }
 
@@ -303,6 +313,7 @@ export async function joinRoom({ scr, me, brokers, start }) {
     const peer = peers.get(id);
     if (!peer) return;
     peers.delete(id);
+    if (why === 'timeout' || why === 'bye') dropped.set(id, clock.now());
     clock.dropPeer(id);
     rate.delete(id);
     for (const kind of ['em', 'sy', 'ea']) lastAct.delete(id + kind);
@@ -322,9 +333,10 @@ export async function joinRoom({ scr, me, brokers, start }) {
       peer = { id: from, st, seenAt: performance.now(), sa: null };
       peers.set(from, peer);
       noteSeat(peer, null);
+      dropped.delete(from);
       if (st.sc === 'hall') seen(from, st.n);
       ev.emit('peer:join', peer);
-      setTimeout(ping, 200 + Math.random() * 400);
+      pingSoon();
     } else {
       peer.seenAt = performance.now();
       if (st.v < peer.st.v) return;            // 늦게 도착한 옛 상태
@@ -345,8 +357,12 @@ export async function joinRoom({ scr, me, brokers, start }) {
   }
 
   function onMessage(from, type, d) {
-    if (closed || typeof from !== 'string' || from === selfId || !totalOk() || !rateOk(from)) return;
+    if (closed || typeof from !== 'string' || from === selfId) return;
     d = d && typeof d === 'object' ? d : {};
+    // 남에게 가는 시계 답장은 어차피 버리는 것이라 한도에 세지 않는다. (꽉 찬 방에 한 명이 들어오면 이런 답장이 수백 통 오간다 —
+    // 그걸 한도에 넣으면 그 1초 동안 다른 사람들의 이모지·인사가 버려진다)
+    if (type === 'po' && d.to !== selfId) return;
+    if (!totalOk() || !rateOk(from)) return;
     switch (type) {
       case 'st': handleState(from, d); break;
       case 'hi': sendStateSoon(100 + Math.random() * 500); break;
@@ -363,6 +379,11 @@ export async function joinRoom({ scr, me, brokers, start }) {
   }
 
   function ping() { if (!closed) send('pi', { t: clock.local() }); }
+  // 새로 온 사람과 시계를 맞춰 본다. 여럿이 한꺼번에 보여도(꽉 찬 방에 막 들어왔을 때) 한 번만 묻는다 — 물음 하나에 모두가 답한다.
+  let pingTimer = 0;
+  function pingSoon() {
+    if (!pingTimer) pingTimer = setTimeout(() => { pingTimer = 0; ping(); }, 200 + Math.random() * 400);
+  }
 
   let netStatus = { connected: false, brokers: [] };
   let greeted = false;                // 이번 연결에서 인사(hi)와 내 상태를 보냈는지
@@ -371,7 +392,26 @@ export async function joinRoom({ scr, me, brokers, start }) {
   let hiddenAt = 0;                   // 화면이 가려진 시각 (기기 시계)
 
   /** 한동안 사라졌다 돌아왔으면(남들이 나를 지웠을 수 있다) 자리 주장을 지금 시각으로 새로 한다 — 그 사이 앉은 사람이 우선. */
-  function restampSeat() { if (self.s >= 0) self.sa = clock.now(); }
+  function restampSeat() {
+    // 사라졌던 건 나다. 그동안 내가 "끊겼다"고 지운 사람들의 주장은 방금 들어온 사람처럼 보낸 그대로 믿는다.
+    dropped.clear();
+    for (const p of peers.values()) if (p.st.s >= 0) p.sa = p.st.sa;
+    if (self.s >= 0) self.sa = clock.now();
+  }
+
+  // 연결(소켓)은 붙어 있는데 길이 조용히 막히는 일이 있다 (터널·엘리베이터, 와이파이↔LTE 전환). 끊겼다는 알림이 오지 않으니
+  // "내가 보낸 소식이 중계 서버를 돌아 나오는지"로 안다: 한동안 돌아오지 않았다면 그동안 남들도 나를 듣지 못했다.
+  let echoAt = 0;                     // 내 소식이 마지막으로 돌아온 시각 (기기 시계)
+  function onEcho() {
+    if (closed) return;
+    const now = Date.now();
+    const silent = echoAt && now - echoAt > GONE_MS;
+    echoAt = now;
+    if (!silent) return;
+    restampSeat();
+    resolveMySeat();                  // 그 사이 누가 앉았으면 바로 비켜 준다
+    sendStateNow();
+  }
 
   function greet() {
     greeted = true;
@@ -403,7 +443,10 @@ export async function joinRoom({ scr, me, brokers, start }) {
   // ---------- 같은 기기의 다른 탭 ----------
   // 같은 브라우저에서 영화관을 한 번 더 열면 나중에 연 탭만 남는다.
   // 이 판단은 같은 브라우저 안에서만 통하는 채널로 한다 — 전선으로 온 기기 ID 는 누구나 흉내 낼 수 있기 때문.
+  // 다른 탭을 밀어내는 알림은 이 탭이 정말로 방에 들어온 뒤에만 보낸다 (tabsLive).
+  // 문을 열다 만 탭(연결 실패, 기다리다 뒤로 가기, 닫기)이 잘 보고 있던 탭을 쫓아내면 안 된다.
   let tabs = null;
+  let tabsLive = false;
   function watchTabs() {
     if (typeof BroadcastChannel !== 'function') return;   // 없으면 생략: 아바타가 둘 보일 뿐 해롭지 않다
     try {
@@ -414,11 +457,10 @@ export async function joinRoom({ scr, me, brokers, start }) {
         if (d.j > self.j || (d.j === self.j && d.tab > selfId)) { ev.emit('kicked', 'dup'); leave(); }
         else announceTab();           // 내가 더 나중에 왔다 → 옛 탭에게 다시 알린다
       };
-      announceTab();
     } catch { tabs = null; }
   }
-  function announceTab() { try { if (tabs) tabs.postMessage({ tab: selfId, j: self.j }); } catch { /* 무시 */ } }
-  watchTabs();
+  function announceTab() { try { if (tabs && tabsLive) tabs.postMessage({ tab: selfId, j: self.j }); } catch { /* 무시 */ } }
+  watchTabs();                        // 채널은 일찍 연다 — 이미 들어와 있는 더 새 탭이 이 입장을 돌려보낼 수 있게
 
   // 기기 시계가 크게 틀리지 않았는지 확인하는 동안(최대 3초) 연결은 먼저 해 둔다.
   // 인사가 일찍 나가야, 화면이 뜨기 전에 남들의 답이 도착한다.
@@ -433,6 +475,7 @@ export async function joinRoom({ scr, me, brokers, start }) {
       brokers: brokers && brokers.length ? brokers : DEFAULT_BROKERS,
       onMessage,
       onStatus,
+      onEcho,
     });
   } catch (e) {
     leave();                          // 탭 채널을 닫는다 — 들어오지도 못한 탭이 다른 탭을 밀어내면 안 된다
@@ -444,6 +487,12 @@ export async function joinRoom({ scr, me, brokers, start }) {
   onStatus(net.status());
   await syncing;
   if (closed) throw dupError();
+  if (typeof wanted === 'function' && !wanted()) {
+    leave();
+    throw Object.assign(new Error('join cancelled'), { code: 'cancelled' });
+  }
+  tabsLive = true;
+  announceTab();
 
   let lastEatSent = 0;
 
@@ -463,16 +512,21 @@ export async function joinRoom({ scr, me, brokers, start }) {
       // 지나간 초의 도배 계수기는 버린다 (지어낸 ID 가 쌓이지 않게)
       const sec = Math.floor(now / 1000);
       for (const [id, r] of rate) if (r.sec !== sec) rate.delete(id);
+      const old = clock.now() - DROPPED_KEEP_MS;
+      for (const [id, at] of dropped) if (at < old) dropped.delete(id);
     }, 1000),
   );
 
   // 예전에 앉았던 자리: 남들 소식을 들을 만큼 기다린 뒤에도 비어 있으면 다시 앉는다.
+  // (기다릴 시간은 연결되는 순간 바뀐다 — 일찍 연결되면 줄고, 늦게 연결되면 늘어난다. 그래서 한 번 재고 마는 대신 조금씩 다시 본다)
   if (wantSeat >= 0) {
-    const reclaim = () => {
-      if (closed || self.s >= 0 || self.sc !== 'hall' || seatOwner(wantSeat)) return;
-      update({ s: wantSeat, sa: clock.now() });
-    };
-    if (settleMs() > 0) timers.push(setTimeout(reclaim, settleMs() + 30)); else reclaim();
+    (function reclaim() {
+      if (closed || self.s >= 0 || self.sc !== 'hall') { heldSeat = -1; return; }
+      const wait = settleMs();
+      if (wait > 0) { timers.push(setTimeout(reclaim, Math.min(wait + 30, 200))); return; }
+      heldSeat = -1;
+      if (!seatOwner(wantSeat)) update({ s: wantSeat, sa: clock.now() });
+    })();
   }
 
   function onVisibility() {
@@ -502,6 +556,7 @@ export async function joinRoom({ scr, me, brokers, start }) {
     if (closed || !gone) return;
     gone = false;                     // 뒤로-앞으로 캐시에서 되살아났다
     self.aw = document.hidden ? 1 : 0;
+    restampSeat();                    // 작별 인사를 하고 나갔으니 남들은 나를 바로 지웠다
     greeted = false;
     if (netStatus.connected) greet(); // 끊겨 있으면 다시 연결될 때 onStatus 가 인사한다
     announceTab();
@@ -517,6 +572,7 @@ export async function joinRoom({ scr, me, brokers, start }) {
     timers.forEach(clearTimeout);     // (clearTimeout 은 setInterval 로 만든 것도 지운다)
     clearTimeout(beatTimer);
     clearTimeout(stateTimer);
+    clearTimeout(pingTimer);
     document.removeEventListener('visibilitychange', onVisibility);
     window.removeEventListener('pagehide', onPageHide);
     window.removeEventListener('pageshow', onPageShow);
@@ -539,6 +595,8 @@ export async function joinRoom({ scr, me, brokers, start }) {
     now: () => clock.now(),
     /** 막 들어왔을 때 남들의 상태(누가 어디 앉았는지)가 도착하기를 기다릴 시간(ms). 0이면 이미 충분히 기다렸다. */
     settleMs,
+    /** 지난번에 앉았던 자리를 되찾으려고 기다리는 중이면 그 좌석 번호, 아니면 -1 */
+    get heldSeat() { return heldSeat >= 0 && self.s < 0 && self.sc === 'hall' ? heldSeat : -1; },
     get ctl() { return ctl; },
     get net() { return netStatus; },
     get closed() { return closed; },

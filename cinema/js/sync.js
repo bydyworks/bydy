@@ -14,6 +14,7 @@ const NUDGE_MAX_MS = 10000;
 const SEEK_FROM = 1.5;        // 이보다 크게 어긋나면 그 위치로 바로 건너뛴다
 const SEEK_LEAD = 0.3;        // 건너뛴 뒤 버퍼링으로 뒤처지는 만큼 살짝 앞을 겨냥 (처음 값 — 실제로 걸린 시간을 재서 고쳐 쓴다)
 const SEEK_LEAD_MAX = 3;
+const RESUME_LEARN_MS = 4000; // 다시 출발한 뒤 이 안에 재생돼야 "다시 출발하는 데 걸린 시간"으로 친다
 const SEEK_COOLDOWN = 3000;
 const CHASE_MAX = 5;          // 이만큼(초)까지 뒤처진 것은 건너뛰지 않고 빠르게 감아 따라잡을 수 있다 (chasing 참고)
 const CHASE_CHECK_MS = 4000;  // 따라잡는 동안 이 간격으로 정말 줄어들고 있는지 본다
@@ -45,8 +46,9 @@ const UNMUTE_CHECK_MS = 1200;
  */
 export function createSync({ player, target, onStatus, onEnded, onUserMeddle, autoUnmute = true }) {
   let lastSeek = -Infinity;
-  let lead = SEEK_LEAD;       // 다음에 건너뛸 때 앞서 겨냥할 시간(초)
-  let sought = null;          // 방금 건너뛴 곳 { pos, lead(앞서 겨냥한 초, 없으면 null) } — 다시 재생되면 제대로 갔는지, 얼마나 걸렸는지 본다
+  let lead = SEEK_LEAD;       // 재생 중에 건너뛸 때 앞서 겨냥할 시간(초)
+  let resumeLead = SEEK_LEAD; // 쉬는 시간이 끝나 다시 출발할 때 앞서 겨냥할 시간(초) — 멈춰 둔 곳은 이미 받아 둔 구간이라 따로 잰다
+  let sought = null;          // 방금 건너뛴 곳 { pos, lead(앞서 겨냥한 초, 재지 않을 거면 null), resume, at } — 다시 재생되면 제대로 갔는지, 얼마나 걸렸는지 본다
   let settling = false;       // 건너뛴 뒤로 아직 제자리에 맞은 적이 없다
   let chase = null;           // 빠르게 감아 따라잡는 중이면 { at, drift }
   let everPlayed = false;
@@ -85,17 +87,21 @@ export function createSync({ player, target, onStatus, onEnded, onUserMeddle, au
     if (changed && onStatus) onStatus({ ...status });
   }
 
-  function seek(pos, now, aim = null) {
+  function seek(pos, now, aim = null, resume = false) {
     setRate(0);
     player.seek(pos);
     lastSeek = now;
-    sought = { pos, lead: aim };
+    sought = { pos, lead: aim, resume, at: now };
     settling = true;
     chase = null;
   }
 
-  /** 목표보다 조금 앞으로 건너뛴다 — 다시 재생되기까지 걸리는 시간만큼 */
-  const seekAhead = (tgt, now) => seek(tgt.pos + lead, now, lead);
+  /**
+   * 목표보다 조금 앞으로 건너뛴다 — 다시 재생되기까지 걸리는 시간만큼.
+   * 걸린 시간은 재생 중에 건너뛴 것으로만 잰다. 영상이 멈춰 있거나 불러오는 중에 건너뛴 경우에는
+   * 다시 재생되기까지의 시간이 건너뛰기와 상관없는 것(회선이 끊긴 시간, 화면을 눌러 주기까지)이라 재지 않는다.
+   */
+  const seekAhead = (tgt, now) => seek(tgt.pos + lead, now, player.state() === YT_STATE.PLAYING ? lead : null);
 
   /** 라이브의 getDuration() 은 길이가 아니라 "방송이 시작된 뒤 흐른 시간"이라 길이로 쓰지 않는다 */
   const lengthOf = (live) => (live ? 0 : player.duration());
@@ -171,7 +177,12 @@ export function createSync({ player, target, onStatus, onEnded, onUserMeddle, au
       const landed = tgt.pos + drift > sought.pos - 1;
       if (!landed) settling = false;
       // 건너뛴 뒤 다시 재생되기까지 걸린 시간 = 겨냥한 만큼 − 지금 앞선 만큼. 다음에는 그만큼 앞을 겨냥한다.
-      else if (sought.lead != null) lead = Math.min(SEEK_LEAD_MAX, Math.max(SEEK_LEAD, sought.lead - drift + 0.2));
+      else if (sought.lead != null) {
+        const took = Math.min(SEEK_LEAD_MAX, Math.max(SEEK_LEAD, sought.lead - drift + 0.2));
+        if (!sought.resume) lead = took;
+        // 다시 출발할 때는 재생이 막혀 있었을 수도 있다(가려진 화면, 눌러 줘야 하는 브라우저). 그렇게 오래 걸린 것은 회선 탓이 아니니 배우지 않는다.
+        else if (now - sought.at < RESUME_LEARN_MS) resumeLead = took;
+      }
       sought = null;
     }
     if (abs < NUDGE_FROM) { inSyncAt = now; settling = false; chase = null; }
@@ -218,7 +229,7 @@ export function createSync({ player, target, onStatus, onEnded, onUserMeddle, au
     if (tgt.phase !== 'playing') { lastPhase = tgt.phase; return; }
     if (lastPhase !== 'playing') {
       // 쉬는 시간이 끝난 순간에는 모두가 정확히 같은 곳에서 다시 출발한다
-      if (lastPhase === 'paused' && !live) seekAhead(tgt, now);
+      if (lastPhase === 'paused' && !live) seek(tgt.pos + resumeLead, now, resumeLead, true);
       // 우리가 세운 영상은 화면이 가려져 있어도 우리가 다시 튼다 (다른 탭에서 소리로 듣고 있는 관객)
       if (lastPhase === 'paused' && !playing) player.play();
       // 우리가 세워 둔 동안은 "재생이 막혔다"거나 "관객이 멈췄다"로 세지 않는다

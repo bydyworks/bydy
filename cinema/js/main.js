@@ -58,25 +58,27 @@ export const app = {
       // 창을 닫았다 다시 열어도(카카오톡 인앱 브라우저 등) 팝콘·검표·자리를 잃지 않게 기기에 적어 둔다.
       const saved = store.get('in.' + scr.room);
       const start = saved && typeof saved === 'object' ? saved : undefined;
-      const room = await joinRoom({ scr, me: app.me, brokers: app.brokers, start });
+      const room = await joinRoom({ scr, me: app.me, brokers: app.brokers, start, wanted: () => seq === enterSeq });
+      // 처음 들어오는데 이미 상영 중이면, 로비를 거치지 않고 바로 상영관으로 안내한다.
+      // 기기 시계가 아니라 방 시계로, 그리고 초대 링크가 아니라 방에서 들은 상영 시각으로 판단한다:
+      // 링크로는 상영 중이라도, 영사기사가 상영을 미뤘을 수 있으니 방의 답을 잠깐(문 앞에서) 기다린다.
+      const running = () => { const ph = showPosition(room.ctl, room.now()).phase; return ph === 'playing' || ph === 'paused'; };
+      while (!start && seq === enterSeq && !room.closed && running() && room.settleMs() > 0) await sleep(Math.min(room.settleMs(), 150));
       // 문이 열리기를 기다리는 사이 다른 화면으로 갔다면(뒤로 가기, 다른 약속 열기) 없던 일로 한다.
       if (seq !== enterSeq) { room.leave(); return; }
+      if (room.closed) throw Object.assign(new Error('opened in a newer tab'), { code: 'dup' });   // 기다리는 사이 새 탭에 밀려났다
       app.room = room; app.scr = scr; app.code = code;
       session.set('inroom', code);
-      room.on('self', (st) => store.set('in.' + scr.room, { sc: st.sc, x: st.x, y: st.y, s: st.s, p: st.p, pl: st.pl, pe: st.pe, dk: st.dk, tk: st.tk }));
+      // (예전 자리를 되찾으려고 기다리는 중이면 그 자리를 적어 둔다 — 그 사이 다시 새로고침해도 자리를 잊지 않게)
+      room.on('self', (st) => store.set('in.' + scr.room, { sc: st.sc, x: st.x, y: st.y, s: st.s >= 0 ? st.s : room.heldSeat, p: st.p, pl: st.pl, pe: st.pe, dk: st.dk, tk: st.tk }));
       room.on('kicked', () => {
         dropRoom();
         // 안내문은 방에 들어오기 전의 기록 위에 띄운다 (뒤로 가기가 한 번 헛돌지 않게)
         if (history.state && history.state.inRoom) history.back();
         dupNotice();
       });
-      // 처음 들어오는데 이미 상영 중이면, 로비를 거치지 않고 바로 상영관으로 안내한다.
-      // (기기 시계가 아니라 방 시계와, 방금 방에서 들은 상영 시각으로 판단한다)
       let late = false;
-      if (!start) {
-        const phase = showPosition(room.ctl, room.now()).phase;
-        if (phase === 'playing' || phase === 'paused') { room.update({ sc: 'hall', tk: 1 }); late = true; }
-      }
+      if (!start && running()) { room.update({ sc: 'hall', tk: 1 }); late = true; }
       if (!(history.state && history.state.inRoom)) history.pushState({ inRoom: true }, '');
       await app.scene(room.self.sc === 'hall' && room.self.tk ? 'hall' : 'lobby');
       if (late && seq === enterSeq && app.room === room) toast('이미 시작했어요. 허리 숙이고 조용히 빈자리로…', 3500);

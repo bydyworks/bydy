@@ -99,6 +99,7 @@ export function sheet({ title, content, onClose, dismissable = true }) {
     closeCurrent = null;
     document.removeEventListener('keydown', onKey);
     document.removeEventListener('click', onOutside);
+    window.removeEventListener('resize', refit);
     wrap.classList.remove('open');
     setTimeout(() => wrap.remove(), 220);
     if (app) app.inert = false;
@@ -109,14 +110,18 @@ export function sheet({ title, content, onClose, dismissable = true }) {
   const onKey = (e) => { if (e.key === 'Escape' && dismissable) close(); };
   // 플레이어를 피해 좁아진 시트는 어두운 배경이 화면을 다 덮지 않는다: 그 밖(스크린 쪽)을 눌러도 닫힌다.
   // composedPath — 눌린 버튼이 그 누름으로 지워졌더라도(캐릭터 고르기) 시트 안에서 일어난 일인지 알 수 있다.
-  const onOutside = (e) => { if (dismissable && !e.composedPath().includes(root)) close(); };
+  // isTrusted — 사람이 누른 것만 센다. 코드가 일으킨 누름(이미지 저장이 만드는 내려받기 링크의 click())에 시트가 닫히면 안 된다.
+  const onOutside = (e) => { if (dismissable && e.isTrusted && !e.composedPath().includes(root)) close(); };
   const panel = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title || '안내', tabindex: '-1' },
     h('div', { class: 'sheet-grip' }),
     title ? h('h2', { class: 'sheet-title' }, title) : null,
     h('div', { class: 'sheet-body' }, content),
   );
   const wrap = h('div', { class: 'sheet-wrap', onclick: (e) => { if (e.target === wrap && dismissable) close(); } }, panel);
-  const restoreRoom = makeRoomForSheet();
+  let restoreRoom = makeRoomForSheet();
+  // 시트가 떠 있는 동안 창 크기가 바뀌면(화면 키보드, 회전) 자리를 다시 낸다
+  const refit = () => { if (closed) return; restoreRoom(); restoreRoom = makeRoomForSheet(); };
+  window.addEventListener('resize', refit);
   root.appendChild(wrap);
   requestAnimationFrame(() => wrap.classList.add('open'));
   document.addEventListener('keydown', onKey);

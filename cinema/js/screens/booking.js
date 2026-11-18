@@ -14,6 +14,7 @@ export function mount(root, app) {
   /** @type {import('../yt.js').Player | null} */
   let player = null;
   let previewSeq = 0;
+  let titleVid = '';   // 약속 이름 칸의 내용이 딸린 영상
   const st = {
     vid: '', title: '', titleEdited: false, dur: 0, ok: false, checking: false, error: '',
     at: 0, chip: '',
@@ -57,7 +58,11 @@ export function mount(root, app) {
   async function loadPreview(vid, presetTitle) {
     const seq = ++previewSeq;
     if (player) { player.destroy(); player = null; }
-    Object.assign(st, { vid, dur: 0, ok: false, checking: true, error: '', title: presetTitle || '', titleEdited: false });
+    // 같은 영상이 돌아온 것뿐이면(주소 칸이 잠깐 비거나 틀렸다가 고쳐진 경우) 직접 적은 약속 이름은 지우지 않는다
+    const keepTitle = st.titleEdited && vid === titleVid && presetTitle === undefined;
+    Object.assign(st, { vid, dur: 0, ok: false, checking: true, error: '' });
+    if (!keepTitle) Object.assign(st, { title: presetTitle || '', titleEdited: false });
+    titleVid = vid;
     titleInput.value = st.title;
     previewBox.hidden = false;
     titleRow.hidden = false;
