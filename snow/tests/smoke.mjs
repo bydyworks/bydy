@@ -1,4 +1,4 @@
-// 눈길 자동 점검.  node smoke.mjs [이름에 들어간 글자]
+// 뽀드득(poddk) 자동 점검.  node smoke.mjs [이름에 들어간 글자]
 // 실제 브라우저(그래픽 카드 없이)로 띄워 걷기·발자국·소리·카메라·눈 천사·하루의 흐름·저장을 확인한다.
 // 느린 기기에서도 결과가 같도록, 걷는 시간은 __snow.sim(초) 으로 한꺼번에 흘려보낸다.
 import { startStatic, launch, open, sleep, assert, until } from './harness.mjs';
@@ -181,15 +181,20 @@ try {
     await walk(p, 0, 0, 40);
     let s = await state(p);
     assert(s.snow > 0.5 && s.snow <= 1, '40초 뒤 쌓인 양: ' + s.snow.toFixed(2));
-    const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, opacity: u.shellMat.opacity, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z, hat: u.cap.visible }; });
+    // line: 눈이 쌓여 내려온 높이 (머리 꼭대기에서 시작해 발치까지)
+    const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, line: -u.snowPlane.constant, top: u.snowTop, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z, hatScale: u.cap.scale.y }; });
     const before = await look();
-    assert(!before.shell && before.hat, '아직 눈사람이 아니고, 머리에 눈 모자가 있어야 한다');
-    await walk(p, 0, 0, 110);
+    assert(!before.shell && before.hatScale > 0.6, '아직 눈사람이 아니고, 머리에 눈 모자가 있어야 한다');
+    // 눈 모자에서 이어서 쌓인다: 중간 단계에서 눈이 머리 위에서 아래로 내려오는 중이고, 모자는 줄어들지 않는다
+    await walk(p, 0, 0, 45);
+    const mid = await look();
+    assert(mid.shell && mid.line < mid.top - 0.2 && mid.line > 0.2, '눈이 위에서부터 쌓여 내려와야 한다: ' + JSON.stringify(mid));
+    assert(mid.hatScale >= before.hatScale, '쌓이는 도중에 눈 모자가 줄어들었다');
+    await walk(p, 0, 0, 70);
     s = await state(p);
     assert(s.snow > 1.95, '2분 반 서 있으면 눈사람: ' + s.snow.toFixed(2));
     const after = await look();
-    assert(after.shell && after.opacity > 0.95, '온몸이 눈에 덮이지 않았다: ' + JSON.stringify(after));
-    assert(!after.hat, '눈사람이 완성됐는데 눈 모자가 남아 있다');
+    assert(after.shell && after.line < 0.01, '온몸이 눈에 덮이지 않았다: ' + JSON.stringify(after));
     assert(after.eyeZ > before.eyeZ + 0.03 && after.beakZ > before.beakZ + 0.02, '눈과 부리가 눈 밖으로 나오지 않았다: ' + JSON.stringify(after));
     await walk(p, 0, 1, 1.5);
     assert((await state(p)).snow === 0, '걸어도 눈이 안 털렸다');
@@ -252,6 +257,37 @@ try {
     s = await state(p);
     assert(s.alive >= 3, '5시가 지났는데 발자국이 안 남는다');
     assert(s.snowfall < 0.45, '5시가 지났는데 눈발이 굵다: ' + s.snowfall.toFixed(2));
+  });
+
+  console.log('\n■ 트리의 캐롤');
+  await test('옛 캐롤 열 곡의 악보가 온전하다 (마디가 맞고, 으뜸음으로 끝난다)', async () => {
+    const p = await page(undefined, { enter: false });
+    const list = await p.evaluate(async () => {
+      const m = await import('./js/carols.js');
+      return m.CAROLS.map((c) => { const seq = m.parseNotes(c.notes); return { id: c.id, title: c.title, tempo: c.tempo, n: seq.length, beats: seq.reduce((a, [, d]) => a + d, 0), lo: Math.min(...seq.filter(([x]) => x !== null).map(([x]) => x)), hi: Math.max(...seq.filter(([x]) => x !== null).map(([x]) => x)), last: seq[seq.length - 1][0] }; });
+    });
+    assert(list.length === 10 && new Set(list.map((c) => c.id)).size === 10, '열 곡이어야 한다: ' + list.length);
+    // 곡마다: 전체 길이(4분음표 수)와 마지막 음(으뜸음)
+    const want = { jingle: [64, 60], silent: [72, 60], deck: [64, 60], joy: [38, 60], tree: [48, 72], wish: [48, 67], noel: [72, 64], manger: [48, 65], hark: [80, 67], angels: [84, 65] };
+    for (const c of list) {
+      assert(want[c.id], '모르는 곡: ' + c.id);
+      assert(Math.abs(c.beats - want[c.id][0]) < 1e-6, `${c.title}: 길이 ${c.beats} (기대 ${want[c.id][0]})`);
+      assert(c.last === want[c.id][1], `${c.title}: 마지막 음 ${c.last} (기대 ${want[c.id][1]})`);
+      assert(c.lo >= 55 && c.hi <= 84 && c.tempo >= 60 && c.tempo <= 200 && c.title, `${c.title}: 음역 ${c.lo}~${c.hi}, 빠르기 ${c.tempo}`);
+    }
+  });
+
+  await test('트리 가까이에서는 오르골 캐롤이 들리고, 멀어지면 들리지 않는다', async () => {
+    const p = await page();
+    await snow(p, () => window.__snow.teleport(0, 5));
+    await until(async () => { const c = (await state(p)).audio.carol; return c && c.notes >= 4 && c.gain > 0.2; }, { what: '캐롤 음표', timeout: 30000 });
+    await until(async () => (await p.textContent('#carol')).startsWith('♪'), { what: '캐롤 제목' });
+    await snow(p, () => window.__snow.teleport(0, 80));
+    await until(async () => (await state(p)).audio.carol.gain === 0, { what: '멀어짐' });
+    const n = (await state(p)).audio.carol.notes;
+    await sleep(2500);
+    assert((await state(p)).audio.carol.notes === n, '멀리서도 음표를 계속 만든다');
+    assert((await p.textContent('#carol')) === '', '멀리서도 제목이 보인다');
   });
 
   console.log('\n■ 다시 왔을 때');

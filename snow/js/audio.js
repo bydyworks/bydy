@@ -2,6 +2,8 @@
 // 배경으로는 눈 내리는 소리가 계속 흐르고, 눈발이 굵어지면 눈보라 바람이 섞인다.
 // 브라우저는 사용자가 한 번 누르기 전에는 소리를 낼 수 없으므로, start() 는 누름 처리 안에서 불러야 한다.
 
+import { createMusicBox } from './carols.js';
+
 // 한 파일에 여러 소리를 늘어놓았다: [시작(초), 길이(초)]
 const MAP = {
   fresh: [[0.2, 0.83], [1.23, 0.53], [1.96, 1.17], [3.33, 1.05], [4.58, 0.93], [5.71, 0.85], [6.76, 0.67], [7.63, 0.69], [8.52, 0.57], [9.29, 0.73], [10.22, 0.71], [11.13, 0.89], [12.22, 0.97], [13.39, 0.63]],
@@ -25,7 +27,9 @@ export function createAudio(baseUrl = 'audio/') {
   let started = false;
   let weather = 0.3;
   const last = { fresh: -1, packed: -1 };
-  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0 };
+  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, carol: null };
+  let box = null;               // 트리의 오르골 (carols.js)
+  let treeDistance = 999;
 
   async function load(name) {
     try {
@@ -105,6 +109,9 @@ export function createAudio(baseUrl = 'audio/') {
       master.connect(ctx.destination);
       try { await ctx.resume(); } catch { /* 나중에 다시 시도한다 */ }
       stats.started = true;
+      box = createMusicBox(ctx, master);
+      box.setDistance(treeDistance);
+      stats.carol = box.stats;
       // 발소리부터 받고, 배경은 받는 대로 흐르기 시작한다
       load('fresh'); load('packed'); load('fx');
       load('snowfall').then(() => startLoop('snowfall'));
@@ -123,6 +130,10 @@ export function createAudio(baseUrl = 'audio/') {
       const at = name === 'bodyfall' ? MAP.bodyfall : MAP.rustle[0];
       shot(buffers.fx, at, volume, 0.92 + Math.random() * 0.2);
     },
+    /** 트리까지의 거리: 가까울수록 오르골 캐롤이 크게 들린다 */
+    setTreeDistance(d) { treeDistance = d; if (box) box.setDistance(d); },
+    /** 지금 들리는 캐롤의 제목 (들리지 않으면 빈 글자) */
+    get carolTitle() { return box && box.stats.gain > 0.012 ? box.stats.title : ''; },
     /** 눈발의 세기 0..1 */
     setWeather(snowfall) { if (Math.abs(snowfall - weather) > 0.01) { weather = snowfall; applyWeather(); } },
     setMuted(on) {

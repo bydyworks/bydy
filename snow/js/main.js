@@ -1,4 +1,4 @@
-// 눈길: 눈밭을 걷는 작은 공간. (1단계 — 혼자 걷는 버전)
+// 뽀드득 (poddk) — Walking in a Winter Wonderland: 눈밭을 걷는 작은 공간. (1단계 — 혼자 걷는 버전)
 // 직접 걸어야 뽀드득 소리가 나고, 지나간 자리에 발자국이 남는다. 실제 시각에 따라 하늘과 그림자가 바뀌고,
 // 자정이 되면 폭설이 모든 발자국을 지운다.
 import * as THREE from 'three';
@@ -29,6 +29,7 @@ const canvas = $('#view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.75 : 2));
 renderer.shadowMap.enabled = true;
+renderer.localClippingEnabled = true;       // 눈사람이 될 때 "눈이 쌓인 높이" 위쪽만 그리는 데 쓴다 (penguin.js)
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -252,11 +253,14 @@ function tick(t) {
   field.tree.update(seconds, night, renderer.domElement.height, camera);
   if (frame % 2 === 0) tracks.update(now);
   audio.setWeather(snowfall);
+  if (frame % 6 === 0) audio.setTreeDistance(Math.hypot(me.x, me.z));
 
   if (t - hudAt > 500) {
     hudAt = t;
     $('#clock').textContent = clockText(now);
     $('#storm').textContent = stormText(now);
+    const carol = audio.carolTitle;
+    $('#carol').textContent = carol ? '♪ ' + carol : '';
     document.body.dataset.storm = stormPhase(now);
   }
   if (started && t - saveAt > 8000) { saveAt = t; save(); }

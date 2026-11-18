@@ -108,30 +108,38 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
   });
 
   // 눈사람: 아주 오래 서 있으면 눈이 온몸을 덮는다. 목도리도 담요도 날개도 발도 눈 속에 묻히고, 눈과 주황 부리만 밖으로 보인다.
-  const shellMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, transparent: true, opacity: 0 });
+  // 눈은 위에서부터 쌓여 내려온다: 눈 덮인 겉모습(shell)을 미리 만들어 두고, "여기까지 쌓였다"는 높이 위쪽만 보이게 자른다.
+  // 그래서 머리 위의 눈 모자가 점점 커지며 머리를 삼키고, 어깨와 몸통으로 내려가 눈사람이 된다.
+  const snowPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -99);      // 이 높이 위만 보인다 (setSnow 가 옮긴다)
+  const shellMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, clippingPlanes: [snowPlane], clipShadows: true });
   const shell = new THREE.Group(); shell.visible = false; top.add(shell);
-  const lump = (r, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), shellMat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); shell.add(m); };
-  const headShell = blanket ? 0.33 * 1.38 : 0.33 * 1.13;        // 눈 덮인 머리의 반지름
+  const lump = (r, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 18), shellMat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); shell.add(m); };
+  // 눈 덮인 머리: 눈 모자까지 품을 만큼 크고 위로 길쭉하다 [가운데 높이, 옆 반지름, 위아래 반지름]
+  const snowHead = blanket ? { y: 1.3, r: 0.47, ry: 0.58 } : { y: 1.27, r: 0.4, ry: 0.47 };
+  lump(0.33, 0, snowHead.y, 0, snowHead.r / 0.33, snowHead.ry / 0.33, snowHead.r / 0.33);
   if (blanket) {
     lump(0.5, 0, 0.6, 0, 1.52, 1.34, 1.52);                     // 담요째로 덮인 몸
-    lump(0.33, 0, 1.2, 0, 1.38, 1.32, 1.38);                    // 두건째로 덮인 머리
   } else {
     lump(0.5, 0, 0.6, 0, 1.13, 1.2, 1.12);                      // 몸
-    lump(0.33, 0, 1.2, 0, 1.13, 1.08, 1.13);                    // 머리
     lump(0.42, 0, 1.0, 0, 1.06, 0.52, 1.06);                    // 목 (목도리)
     [-1, 1].forEach((s) => lump(0.25, s * 0.52, 0.72, 0, 0.9, 1.5, 1.05));    // 날개
     if (scarf) lump(0.2, 0.16, 0.7, -0.44, 0.9, 1.75, 0.62);    // 등 뒤로 늘어진 목도리 끝
   }
   lump(0.5, 0, 0.05, 0.06, blanket ? 1.6 : 1.25, 0.3, blanket ? 1.65 : 1.35);   // 발치에 쌓인 눈
-  const HEAD = new THREE.Vector3(0, 1.2, 0);
+  // 눈과 부리가 눈 덮인 머리 겉으로 나올 자리
+  const HEAD = new THREE.Vector3(0, snowHead.y, 0);
   const eyeHome = eyes.map((e) => e.position.clone());
-  const eyeDir = eyeHome.map((p) => p.clone().sub(HEAD).normalize());
-  const eyeDist = eyeHome[0].distanceTo(HEAD);
+  const eyeOut = eyeHome.map((p) => {
+    const d = p.clone().sub(HEAD).normalize();
+    const t = 1 / Math.sqrt((d.x / snowHead.r) ** 2 + (d.y / snowHead.ry) ** 2 + (d.z / snowHead.r) ** 2);
+    return HEAD.clone().addScaledVector(d, t + 0.014);
+  });
+  const snowTop = snowHead.y + snowHead.ry + 0.02;              // 눈이 쌓이기 시작하는 높이 (머리 꼭대기)
 
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   // 눕기(눈 천사)를 위해 한 겹 더 감싼다: root 가 위치·방향을, g 가 눕는 기울기를 맡는다
   const root = new THREE.Group(); root.add(g);
-  root.userData = { body: g, top, wings, feet, scarfEnd, cape, cap, shoulders, held: !!blanket, shell, shellMat, eyes, eyeHome, eyeDir, eyeDist, headShell, beak, HEAD, capY: cap.position.y };
+  root.userData = { body: g, top, wings, feet, scarfEnd, cape, cap, shoulders, held: !!blanket, shell, snowPlane, snowTop, eyes, eyeHome, eyeOut, beak };
   return root;
 }
 
@@ -154,22 +162,21 @@ export function pose(root, t, amount = 1) {
 /**
  * 가만히 서 있을 때 쌓이는 눈. a: 0..2
  *   0..1 머리 위와 어깨에 쌓인다 (흰 모자처럼)
- *   1..2 온몸이 덮여 눈사람이 된다 — 눈과 부리만 보인다
+ *   1..2 그 눈이 계속 쌓여 내려와 온몸을 덮고 눈사람이 된다 — 눈과 부리만 보인다
  */
 export function setSnow(root, a) {
   const u = root.userData, hat = Math.min(1, a), k = Math.min(1, Math.max(0, a - 1)), on = a > 0.02;
-  const e = k * k * (3 - 2 * k);                                 // 부드럽게 덮인다
-  // 머리 위의 눈 모자는 온몸이 덮여 가면서 납작해지다가, 눈사람이 완성되면 사라진다 (둥근 눈사람 머리만 남는다)
-  u.cap.visible = on && e < 0.97;
-  u.cap.scale.set(1 + e * 0.22, (0.25 + hat * 0.75) * (1 - e * 0.96), 1 + e * 0.22);
-  u.cap.position.y = u.capY + e * 0.03;
-  u.shoulders.forEach((m) => { m.visible = on && a > 0.3 && k < 0.6; m.scale.set(1, 0.3 + hat * 0.6, 1); });
-  u.shell.visible = k > 0.01;
-  u.shellMat.opacity = e;
-  // 눈과 부리는 눈 밖으로 내민다
-  const out = u.eyeDist + (u.headShell + 0.012 - u.eyeDist) * e;
-  u.eyes.forEach((eye, i) => eye.position.copy(u.HEAD).addScaledVector(u.eyeDir[i], out));
-  u.beak.position.z = 0.4 + e * (u.held ? 0.11 : 0.035);
+  u.cap.visible = on;
+  u.cap.scale.set(1, 0.25 + hat * 0.75, 1);
+  u.shoulders.forEach((m) => { m.visible = on && a > 0.3; m.scale.set(1, 0.3 + hat * 0.6, 1); });
+  // 눈이 쌓인 높이: 머리 꼭대기에서 시작해 발치까지 내려온다 (처음엔 천천히 — 모자가 커지는 것처럼 보인다)
+  const line = u.snowTop - (u.snowTop + 0.08) * Math.pow(k, 0.8);
+  u.shell.visible = k > 0.001;
+  u.snowPlane.constant = -(root.position.y + line);
+  // 눈이 눈높이를 지나 내려가면 눈과 부리가 눈 겉으로 나온다
+  const face = Math.min(1, Math.max(0, (1.5 - line) / 0.35)), f = face * face * (3 - 2 * face);
+  u.eyes.forEach((eye, i) => eye.position.copy(u.eyeHome[i]).lerp(u.eyeOut[i], k > 0 ? f : 0));
+  u.beak.position.z = 0.4 + (k > 0 ? f : 0) * (u.held ? 0.13 : 0.06);
 }
 
 /**

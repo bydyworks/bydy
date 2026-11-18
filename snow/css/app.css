@@ -1,4 +1,4 @@
-/* 눈길: 화면은 눈밭이 전부이고, 글과 버튼은 가장자리에 작게 얹는다 */
+/* 뽀드득: 화면은 눈밭이 전부이고, 글과 버튼은 가장자리에 작게 얹는다 */
 :root {
   --ink: #2a3158;
   --paper: rgba(255, 255, 255, 0.72);
@@ -30,6 +30,8 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 }
 #clock { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
 #storm { font-size: 12px; font-weight: 600; opacity: 0.8; word-break: keep-all; }
+#carol { font-size: 12px; font-weight: 700; color: #b0533c; }       /* 트리 가까이에서 들리는 캐롤의 제목 */
+#carol:empty { display: none; }
 
 #mute {
   position: fixed; right: calc(12px + var(--safe-r)); top: calc(10px + var(--safe-t)); height: 36px; padding: 0 13px; border-radius: 18px; background: var(--paper);
@@ -60,7 +62,9 @@ body:not(.in) #mute, body:not(.in) #angel { pointer-events: none; }
 #start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(223, 230, 245, 0.28); transition: opacity .7s; }
 body.in #start { opacity: 0; pointer-events: none; }
 .start-card { width: min(100%, 320px); padding: 26px 22px 20px; border-radius: 26px; background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); text-align: center; box-shadow: 0 10px 40px rgba(42, 49, 88, 0.18); }
-.start-card h1 { margin: 0 0 8px; font-size: 34px; letter-spacing: 0.08em; }
+.start-card h1 { margin: 0 0 2px; font-size: 34px; letter-spacing: 0.06em; }
+.start-card h1 .latin { font-size: 15px; font-weight: 700; letter-spacing: 0.12em; opacity: 0.55; vertical-align: middle; margin-left: 2px; }
+.start-card .sub { margin: 0 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.7; }
 .start-card p { margin: 0 0 18px; font-size: 15px; line-height: 1.6; word-break: keep-all; }
 #enter { width: 100%; height: 54px; border-radius: 27px; background: var(--ink); color: #fff; font-size: 17px; font-weight: 800; }
 #enter:active { transform: scale(0.98); }
@@ -72,7 +76,8 @@ body.in #start { opacity: 0; pointer-events: none; }
   #angel .angel-icon { width: 33px; height: 29px; }
   #toast { bottom: calc(96px + var(--safe-b)); }
   .start-card { padding: 16px 20px 14px; }
-  .start-card h1 { font-size: 26px; margin-bottom: 4px; }
+  .start-card h1 { font-size: 26px; margin-bottom: 0; }
+  .start-card .sub { margin-bottom: 6px; font-size: 12px; }
   .start-card p { margin-bottom: 10px; font-size: 14px; }
   #enter { height: 46px; }
 }
