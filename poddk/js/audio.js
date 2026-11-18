@@ -14,7 +14,7 @@ const MAP = {
   blizzard: { start: 0.5, length: 18.0 },
 };
 const FILES = { fresh: 'steps-fresh.mp3', packed: 'steps-packed.mp3', fx: 'fx.mp3', snowfall: 'snowfall.mp3', blizzard: 'blizzard.mp3' };
-const STEP_MAX = 0.8;         // 한 걸음 소리는 이만큼만 (걸음이 이어지면 겹쳐 뭉개지므로)
+const STEP_MAX = 0.8;         // 한 걸음 소리는 보통 이만큼만 (걸음이 이어지면 겹쳐 뭉개지므로). 걷는 빠르기에 맞춰 main.js 가 정해 준다
 const VOLUME = { fresh: 0.5, packed: 0.42, snowfall: 0.55, snowfallInStorm: 0.4, wind: 0.2 };   // 발소리가 주인공, 배경은 뒤에 깔린다
 
 export function createAudio(baseUrl = 'audio/') {
@@ -117,12 +117,12 @@ export function createAudio(baseUrl = 'audio/') {
       load('snowfall').then(() => startLoop('snowfall'));
       load('blizzard').then(() => startLoop('blizzard'));
     },
-    /** 한 걸음. packed: 이미 밟힌 눈인가 */
-    step(packed) {
+    /** 한 걸음. packed: 이미 밟힌 눈인가, maxLen: 소리를 이만큼에서 끊는다(초) */
+    step(packed, maxLen = STEP_MAX) {
       stats.steps++;
       stats[packed ? 'packed' : 'fresh']++;
       const kind = packed && buffers.packed ? 'packed' : 'fresh';      // 다져진 눈 소리를 아직 못 받았으면 새 눈 소리로 대신한다
-      shot(buffers[kind], pick(kind), VOLUME[kind], 0.95 + Math.random() * 0.1, STEP_MAX);
+      shot(buffers[kind], pick(kind), VOLUME[kind], 0.95 + Math.random() * 0.1, maxLen);
     },
     /** 'bodyfall'(눈에 눕는 소리) | 'rustle'(눈을 쓰는 소리) */
     fx(name, volume = 0.6) {

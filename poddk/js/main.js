@@ -18,13 +18,16 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 const SAVE_KEY = 'snow.v1';
 const TEST_MODE = (q.has('t') || q.has('speed')) && !q.has('persist');     // 시각을 바꿔 보는 시험 중에는 기기에 저장하지 않는다
 
-const WALK_SPEED = 1.25;          // 걷는 빠르기 (단위/초) — 1초에 두 걸음 반쯤. 들판을 가로지르는 데 3분
+// 걷는 빠르기 (단위/초) — 1초에 두 걸음 반쯤. 들판을 가로지르는 데 3분. 빠르기를 견주어 볼 때는 주소에 ?walk=1.05 처럼 붙인다
+const WALK_SPEED = (() => { const v = Number(q.get('walk')); return v >= 0.6 && v <= 2 ? v : 1.25; })();
 const TURN_RATE = 9;              // 몸을 돌리는 빠르기 (라디안/초)
 const CAM_DIST = 6.6, CAM_DIST_MIN = 3.2, CAM_DIST_MAX = 18, CAM_TARGET_H = 1.05;
 const IDLE_BEFORE_SNOW = 4;       // 가만히 선 지 이만큼 지나면 눈이 쌓이기 시작한다 (초)
 const SNOW_FILL_SEC = 12;         // 머리와 어깨에 다 쌓이는 데 걸리는 시간 (폭설 때는 더 빠르다)
 const SNOWMAN_WAIT = 10;          // 다 쌓인 채로 이만큼 더 서 있으면 눈사람이 되기 시작한다
-const POP_SEC = 1.7;              // 환해지면서 눈사람으로 바뀌는 데 걸리는 시간
+const POP_SEC = 0.7;              // "뿅" 하고 눈사람으로 바뀌는 데 걸리는 시간 (움츠렸다가 튀어나와 통통 자리 잡기까지)
+
+const STEP_SOUND_MAX = Math.min(1, Math.max(0.6, 1.92 * STEP / WALK_SPEED));   // 한 걸음 소리의 길이: 걸음 사이의 두 배쯤 (걸음이 빠르면 짧게 끊어 뭉개지지 않게)
 
 // ---------- 화면 ----------
 const canvas = $('#view');
@@ -165,6 +168,7 @@ let started = false;
 let seconds = 0;                 // 흐른 시간 (눈송이의 움직임용)
 let hudAt = 0, saveAt = 0, frame = 0;
 let angelLift = 0;               // 0(평소)..1(눈 천사를 내려다보는 중)
+let manual = false;              // 자동 점검용: 켜면 화면은 그리되 시간은 sim() 으로만 흐른다
 
 function walk(dt, now) {
   const mv = controls.read();
@@ -202,7 +206,7 @@ function walk(dt, now) {
       const px = me.x + me.side * STANCE * Math.cos(me.yaw), pz = me.z - me.side * STANCE * Math.sin(me.yaw);
       const packed = tracks.isPacked(px, pz, now);
       tracks.addPrint(px, pz, me.yaw, me.side, now);
-      audio.step(packed);
+      audio.step(packed, STEP_SOUND_MAX);
     }
     // 쌓인 눈은 걷기 시작하면 털린다
     if (me.snow > 0) {
@@ -214,10 +218,14 @@ function walk(dt, now) {
     me.walk = Math.max(0, me.walk - dt * 5);
     me.idle += dt;
     if (me.idle > IDLE_BEFORE_SNOW) {
-      // 머리와 어깨에 쌓이고 → 다 쌓인 채 잠시 더 서 있으면 → 환해지면서 눈사람이 된다
+      // 머리와 어깨에 쌓이고 → 다 쌓인 채 잠시 더 서 있으면 → 뿅 하고 눈사람이 된다
       if (me.snow < 1) me.snow = Math.min(1, me.snow + dt / SNOW_FILL_SEC * (1 + 3 * Math.max(0, snowfallAt(now) - 0.35)));
       else if (me.full < SNOWMAN_WAIT) me.full += dt;
-      else me.pop = Math.min(1, me.pop + dt / POP_SEC);
+      else if (me.pop < 1) {
+        const before = me.pop;
+        me.pop = Math.min(1, me.pop + dt / POP_SEC);
+        if (before < POP_SWAP && me.pop >= POP_SWAP) crumble.puff(me.x, me.z);      // 바뀌는 순간 눈가루가 폭 퍼진다
+      }
     }
   }
   pose(penguin, me.phase, me.walk);
@@ -259,8 +267,8 @@ function tick(t) {
   const now = clock.now();
   const snowfall = snowfallAt(now);
 
-  if (started) walk(dt, now); else { pose(penguin, 0, 0); setSnow(penguin, 0, 0); }
-  crumble.update(dt);
+  if (!started) { pose(penguin, 0, 0); setSnow(penguin, 0, 0); }
+  else if (!manual) { walk(dt, now); crumble.update(dt); }
   placeCamera(started ? dt : 0);
   focus.set(me.x, 0, me.z);
   const palette = sky.update(now, focus, snowfall);
@@ -322,6 +330,8 @@ window.__snow = {
   angel: startAngel,
   teleport(x, z) { const c = field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */
-  sim(sec) { for (let i = 0, n = Math.round(sec * 60); i < n; i++) walk(1 / 60, clock.now()); },
+  sim(sec) { for (let i = 0, n = Math.round(sec * 60); i < n; i++) { walk(1 / 60, clock.now()); crumble.update(1 / 60); } },
+  /** 켜 두면 실제 프레임으로는 시간이 흐르지 않고 sim() 으로만 흐른다 (점검에서 한 순간을 정확히 붙잡을 때) */
+  get manual() { return manual; }, set manual(on) { manual = !!on; },
   ready: true,
 };
