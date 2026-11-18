@@ -322,6 +322,27 @@ try {
     assert(b.prints === a.prints && b.angels === 1, `발자국 ${a.prints} → ${b.prints}, 눈 천사 ${b.angels}`);
   });
 
+  console.log('\n■ 주소');
+  await test('주소는 /poddk/ 이고, 옛 주소(/snow/)로 와도 붙은 것까지 그대로 넘어온다', async () => {
+    assert(site.url.endsWith('/poddk/'), '게임 폴더 이름이 poddk 가 아니다: ' + site.url);
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    opened.push(ctx);
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+    for (const old of ['snow/?t=14:00&speed=0#here', 'snow?t=14:00&speed=0#here', 'snow/index.html?t=14:00&speed=0#here']) {
+      await p.goto(site.origin + old);
+      await p.waitForURL(site.url + '?t=14:00&speed=0#here', { timeout: 15000 });
+      await p.waitForFunction(() => window.__snow && window.__snow.ready, null, { timeout: 60000 });
+      assert((await p.title()) === '뽀드득 · poddk', '넘어온 곳이 게임이 아니다');
+      const at = await p.evaluate(() => new Date(window.__snow.clock.now()).toISOString().slice(11, 16));      // 한국 14:00 = UTC 05:00
+      assert(at === '05:00', `?t= 가 따라오지 않았다 (${old}): ${at}`);
+    }
+    await p.goto(site.origin + 'snow/');
+    await p.waitForURL(site.url, { timeout: 15000 });
+    await p.goBack().catch(() => {});                                             // 뒤로 가기에 옛 주소가 남아 다시 튕기지 않는다
+    assert(!p.url().includes('/snow'), '뒤로 가면 옛 주소로 돌아간다: ' + p.url());
+  });
+
   console.log('\n■ 화면 배치');
   for (const [w, h, mobile] of [[360, 640, true], [390, 844, true], [844, 390, true], [1280, 720, false]]) {
     await test(`${w}x${h}: 글과 버튼이 화면 안에 있고 서로 겹치지 않는다`, async () => {

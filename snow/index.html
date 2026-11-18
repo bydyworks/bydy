@@ -3,51 +3,13 @@
 <head>
 <meta charset="utf-8">
 <title>뽀드득 · poddk</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="description" content="뽀드득 (poddk) — Walking in a Winter Wonderland. 눈밭을 걷는 작은 공간. 지나간 자리에 발자국이 남고, 자정이 되면 폭설이 모두 지워요.">
-<meta property="og:title" content="뽀드득 · poddk">
-<meta property="og:description" content="Walking in a Winter Wonderland — 걸으면 발자국이 남아요.">
-<meta name="theme-color" content="#dfe6f5">
-<link rel="stylesheet" href="css/app.css">
-<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="../poddk/">
+<!-- 예전 주소(/snow/)로 온 사람을 새 주소(/poddk/)로 보낸다. 주소 뒤에 붙은 ?t=… 같은 것도 그대로 가져간다. -->
+<script>location.replace('../poddk/' + location.search + location.hash);</script>
+<meta http-equiv="refresh" content="0; url=../poddk/">
 </head>
 <body>
-<canvas id="view" aria-label="눈밭"></canvas>
-<div id="touch"></div>
-
-<div id="stick" aria-hidden="true"><div id="knob"></div></div>
-
-<div id="hud">
-  <div id="clock">&nbsp;</div>
-  <div id="storm">&nbsp;</div>
-  <div id="carol"></div>
-</div>
-<button id="mute" type="button" aria-pressed="false">소리 켜짐</button>
-<button id="angel" type="button" aria-label="눈 천사 만들기">
-  <!-- 눈 위에 실제로 남는 자국과 같은 모양 (js/tracks.js 의 angelGeometry: 머리, 몸통, 날개가 쓴 부채꼴 둘, 발이 쓴 부채꼴 둘) -->
-  <svg class="angel-icon" viewBox="-1.15 -1.12 2.3 2.02" aria-hidden="true">
-    <path d="M-0.25 -0.38 L-0.693 -1.07 A0.82 0.82 0 0 0 -0.693 0.31 Z"/>
-    <path d="M0.25 -0.38 L0.693 -1.07 A0.82 0.82 0 0 1 0.693 0.31 Z"/>
-    <path d="M-0.14 0.36 L-0.47 0.6805 A0.46 0.46 0 0 0 0.19 0.6805 Z"/>
-    <path d="M0.14 0.36 L-0.19 0.6805 A0.46 0.46 0 0 0 0.47 0.6805 Z"/>
-    <ellipse cx="0" cy="-0.05" rx="0.54" ry="0.6"/>
-    <circle cx="0" cy="-0.66" r="0.36"/>
-  </svg>
-  <span>눈 천사</span>
-</button>
-<div id="toast" role="status" aria-live="polite"></div>
-
-<div id="start">
-  <div class="start-card">
-    <h1>뽀드득 <span class="latin">poddk</span></h1>
-    <p class="sub">Walking in a Winter Wonderland</p>
-    <p>걸으면 발자국이 남아요.<br>자정이 되면 폭설이 모두 지워요.</p>
-    <button id="enter" type="button">걸어 들어가기</button>
-    <p class="hint">소리를 켜고 걸어 보세요</p>
-  </div>
-</div>
-
-<noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js"></script>
+<p><a href="../poddk/">뽀드득은 새 주소로 옮겼어요 →</a></p>
 </body>
 </html>
