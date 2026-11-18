@@ -14,7 +14,7 @@ const MAP = {
   blizzard: { start: 0.5, length: 18.0 },
 };
 const FILES = { fresh: 'steps-fresh.mp3', packed: 'steps-packed.mp3', fx: 'fx.mp3', snowfall: 'snowfall.mp3', blizzard: 'blizzard.mp3' };
-const STEP_MAX = 0.95;        // 한 걸음 소리는 이만큼만 (걸음이 이어지면 겹쳐 뭉개지므로)
+const STEP_MAX = 0.8;         // 한 걸음 소리는 이만큼만 (걸음이 이어지면 겹쳐 뭉개지므로)
 const VOLUME = { fresh: 0.5, packed: 0.42, snowfall: 0.55, snowfallInStorm: 0.4, wind: 0.2 };   // 발소리가 주인공, 배경은 뒤에 깔린다
 
 export function createAudio(baseUrl = 'audio/') {

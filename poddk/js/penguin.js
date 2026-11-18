@@ -24,9 +24,11 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
 
   // 걸을 때 통째로 기우뚱하는 윗몸
   const top = new THREE.Group(); g.add(top);
+  // 눈사람이 되면 눈 속에 묻혀 안 보이는 것들 (몸, 머리, 날개, 목도리, 담요, 쌓이던 눈). 눈과 부리만 밖에 남는다
+  const skin = new THREE.Group(); top.add(skin);
 
-  const body = ball(0.5, WHITE, 1, 1.12, 0.98); body.position.y = 0.6; top.add(body);
-  const head = ball(0.33, WHITE, 1, 0.95, 1); head.position.y = 1.2; top.add(head);
+  const body = ball(0.5, WHITE, 1, 1.12, 0.98); body.position.y = 0.6; skin.add(body);
+  const head = ball(0.33, WHITE, 1, 0.95, 1); head.position.y = 1.2; skin.add(head);
 
   // 얼굴: 점 눈 두 개와 주황 부리
   const eyes = [-1, 1].map((s) => { const e = ball(0.03, BLACK); e.position.set(s * 0.12, 1.26, 0.295); top.add(e); return e; });
@@ -37,7 +39,7 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
   const wings = [-1, 1].map((s) => {
     const pivot = new THREE.Group(); pivot.position.set(s * 0.4, 0.93, 0);
     const w = ball(0.2, BLACK, 0.5, 1.15, 0.72); w.position.set(s * 0.085, -0.15, 0); w.rotation.z = s * 0.5;
-    pivot.add(w); top.add(pivot); return pivot;
+    pivot.add(w); skin.add(pivot); return pivot;
   });
 
   // 납작한 발 (엉덩이 높이를 축으로 앞뒤로)
@@ -51,9 +53,9 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
   let scarfEnd = null;
   if (scarf && !blanket) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.105, 14, 30), mat(color, 1));
-    ring.rotation.x = Math.PI / 2; ring.position.y = 1.0; top.add(ring);
-    const knot = ball(0.115, color); knot.position.set(0.16, 0.99, -0.31); top.add(knot);
-    scarfEnd = new THREE.Group(); scarfEnd.position.set(0.16, 0.97, -0.36); top.add(scarfEnd);
+    ring.rotation.x = Math.PI / 2; ring.position.y = 1.0; skin.add(ring);
+    const knot = ball(0.115, color); knot.position.set(0.16, 0.99, -0.31); skin.add(knot);
+    scarfEnd = new THREE.Group(); scarfEnd.position.set(0.16, 0.97, -0.36); skin.add(scarfEnd);
     const a = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.34, 0.075), mat(color, 1)); a.position.y = -0.17; scarfEnd.add(a);
     const tip = new THREE.Group(); tip.position.y = -0.34; scarfEnd.add(tip);
     const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.24, 0.075), mat(color, 1)); b.position.y = -0.12; tip.add(b);
@@ -64,7 +66,7 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
   // 담요: 머리부터 뒤집어쓰고 등과 옆으로 흘러내린다. 얼굴 쪽만 트여 있고, 턱 밑에서 여며진다.
   let cape = null;
   if (blanket) {
-    cape = new THREE.Group(); top.add(cape);
+    cape = new THREE.Group(); skin.add(cape);
     const cloth = mat(blanketColor, 1); cloth.side = THREE.DoubleSide;
     // 머리를 덮는 두건 (앞쪽 한 조각을 비워 얼굴이 보인다)
     const hood = new THREE.Mesh(new THREE.SphereGeometry(0.4, 28, 18, Math.PI * 0.5 + 0.62, Math.PI * 2 - 1.24, 0, Math.PI * 0.6), cloth);
@@ -108,46 +110,78 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
   // 쌓이는 눈: 머리 위와 양 어깨
   const snowMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 });
   const cap = new THREE.Mesh(new THREE.SphereGeometry(blanket ? 0.36 : 0.29, 22, 10, 0, Math.PI * 2, 0, Math.PI / 2), snowMat);
-  cap.position.y = blanket ? 1.5 : 1.42; cap.visible = false; top.add(cap);
+  cap.position.y = blanket ? 1.5 : 1.42; cap.visible = false; skin.add(cap);
   const shoulders = [-1, 1].map((s) => {
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), snowMat);
-    m.position.set(s * (blanket ? 0.47 : 0.4), blanket ? 0.93 : 0.98, -0.02); m.visible = false; top.add(m); return m;
+    m.position.set(s * (blanket ? 0.47 : 0.4), blanket ? 0.93 : 0.98, -0.02); m.visible = false; skin.add(m); return m;
   });
 
-  // 눈사람: 아주 오래 서 있으면 눈이 온몸을 덮는다. 목도리도 담요도 날개도 발도 눈 속에 묻히고, 눈과 주황 부리만 밖으로 보인다.
-  // 눈은 위에서부터 쌓여 내려온다: 눈 덮인 겉모습(shell)을 미리 만들어 두고, "여기까지 쌓였다"는 높이 위쪽만 보이게 자른다.
-  // 그래서 머리 위의 눈 모자가 점점 커지며 머리를 삼키고, 어깨와 몸통으로 내려가 눈사람이 된다.
-  const snowPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -99);      // 이 높이 위만 보인다 (setSnow 가 옮긴다)
-  const shellMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, clippingPlanes: [snowPlane], clipShadows: true });
+  // 눈사람: 머리와 어깨에 눈이 다 쌓이고 조금 더 서 있으면, 잠깐 환해지면서 펭귄 모양 눈사람이 된다.
+  // 목도리를 했든 담요를 썼든 눈사람의 모양은 똑같다 (둥근 머리, 둥근 몸, 발치의 눈 더미). 눈과 주황 부리만 밖으로 보인다.
+  const shellMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, emissive: '#fff1cf', emissiveIntensity: 0 });
   const shell = new THREE.Group(); shell.visible = false; top.add(shell);
   const lump = (r, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 18), shellMat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); shell.add(m); };
-  // 눈 덮인 머리: 눈 모자까지 품을 만큼 큰, 둥근 공 [가운데 높이, 옆 반지름, 위아래 반지름]
-  const snowHead = blanket ? { y: 1.28, r: 0.5, ry: 0.5 } : { y: 1.24, r: 0.42, ry: 0.42 };
-  lump(0.33, 0, snowHead.y, 0, snowHead.r / 0.33, snowHead.ry / 0.33, snowHead.r / 0.33);
-  if (blanket) {
-    lump(0.5, 0, 0.6, 0, 1.52, 1.34, 1.52);                     // 담요째로 덮인 몸
-  } else {
-    lump(0.5, 0, 0.6, 0, 1.13, 1.2, 1.12);                      // 몸
-    lump(0.42, 0, 1.0, 0, 1.06, 0.52, 1.06);                    // 목 (목도리)
-    [-1, 1].forEach((s) => lump(0.25, s * 0.52, 0.72, 0, 0.9, 1.5, 1.05));    // 날개
-    if (scarf) lump(0.2, 0.16, 0.7, -0.44, 0.9, 1.75, 0.62);    // 등 뒤로 늘어진 목도리 끝
-  }
-  lump(0.5, 0, 0.05, 0.06, blanket ? 1.6 : 1.25, 0.3, blanket ? 1.65 : 1.35);   // 발치에 쌓인 눈
+  lump(0.33, 0, SNOW_HEAD.y, 0, SNOW_HEAD.r / 0.33, SNOW_HEAD.r / 0.33, SNOW_HEAD.r / 0.33);   // 눈 덮인 머리: 눈 모자까지 품는 둥근 공
+  lump(0.5, 0, 0.6, 0, 1.52, 1.34, 1.52);                       // 몸 (날개도 목도리도 담요도 이 안에 묻힌다)
+  lump(0.5, 0, 0.05, 0.06, 1.6, 0.3, 1.65);                     // 발치에 쌓인 눈
   // 눈과 부리가 눈 덮인 머리 겉으로 나올 자리
-  const HEAD = new THREE.Vector3(0, snowHead.y, 0);
+  const HEAD = new THREE.Vector3(0, SNOW_HEAD.y, 0);
   const eyeHome = eyes.map((e) => e.position.clone());
-  const eyeOut = eyeHome.map((p) => {
-    const d = p.clone().sub(HEAD).normalize();
-    const t = 1 / Math.sqrt((d.x / snowHead.r) ** 2 + (d.y / snowHead.ry) ** 2 + (d.z / snowHead.r) ** 2);
-    return HEAD.clone().addScaledVector(d, t + 0.014);
-  });
-  const snowTop = snowHead.y + snowHead.ry + 0.02;              // 눈이 쌓이기 시작하는 높이 (머리 꼭대기)
+  const eyeOut = eyeHome.map((p) => HEAD.clone().addScaledVector(p.clone().sub(HEAD).normalize(), SNOW_HEAD.r + 0.014));
 
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+
+  // 눈사람이 되는 순간의 빛: 몸을 감싸는 따뜻한 빛무리와, 둘레로 흩어지는 작은 반짝임
+  const fx = new THREE.Group(); fx.visible = false;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: '#fff0c4', transparent: true, opacity: 0, depthWrite: false, depthTest: false, fog: false }));
+  glow.position.y = 0.85; glow.renderOrder = 20; fx.add(glow);
+  const twinkleMat = new THREE.SpriteMaterial({ map: twinkleTexture(), color: '#ffd166', transparent: true, opacity: 1, depthWrite: false, fog: false });
+  const twinkles = Array.from({ length: TWINKLES }, (_, i) => {
+    const sp = new THREE.Sprite(twinkleMat); sp.renderOrder = 21; sp.visible = false;
+    const r = (n) => { const v = Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453; return v - Math.floor(v); };   // 늘 같은 자리에서 반짝이도록 정해 둔 흩뿌림
+    sp.userData = { angle: (i + r(1) * 0.7) / TWINKLES * Math.PI * 2, height: 0.25 + r(2) * 1.35, reach: 0.5 + r(3) * 0.55, rise: 0.25 + r(4) * 0.55, delay: r(5) * 0.3, size: 0.13 + r(6) * 0.13, phase: r(7) * 6.28 };
+    fx.add(sp); return sp;
+  });
+
   // 눕기(눈 천사)를 위해 한 겹 더 감싼다: root 가 위치·방향을, g 가 눕는 기울기를 맡는다
-  const root = new THREE.Group(); root.add(g);
-  root.userData = { body: g, top, wings, feet, scarfEnd, cape, cap, shoulders, held: !!blanket, shell, snowPlane, snowTop, eyes, eyeHome, eyeOut, beak };
+  const root = new THREE.Group(); root.add(g); root.add(fx);
+  root.userData = { body: g, top, skin, wings, feet, scarfEnd, cape, cap, shoulders, held: !!blanket, shell, shellMat, eyes, eyeHome, eyeOut, beak, fx, glow, twinkles };
   return root;
+}
+
+// 눈사람의 머리: [가운데 높이, 반지름]. 목도리 펭귄이든 담요 펭귄이든 같다
+const SNOW_HEAD = { y: 1.28, r: 0.5 };
+const BEAK_HOME = 0.4, BEAK_OUT = 0.53;      // 부리의 앞뒤 자리: 평소, 눈사람일 때
+const TWINKLES = 14;
+/** 눈사람으로 바뀌는 순간 (setSnow 의 pop 이 이 값을 지날 때). 그 앞은 빛이 차오르고, 그 뒤는 빛이 걷히며 눈사람이 통 하고 자리 잡는다 */
+export const POP_SWAP = 0.42;
+
+let glowMap = null, twinkleMap = null;
+function canvasTexture(size, paint) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  paint(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+/** 가운데가 밝고 가장자리로 갈수록 스러지는 둥근 빛 */
+function glowTexture() {
+  return glowMap || (glowMap = canvasTexture(128, (ctx, n) => {
+    const g = ctx.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+    g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,0.72)'); g.addColorStop(0.7, 'rgba(255,255,255,0.2)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, n, n);
+  }));
+}
+/** 네 갈래로 빛나는 작은 반짝임 */
+function twinkleTexture() {
+  return twinkleMap || (twinkleMap = canvasTexture(64, (ctx, n) => {
+    const h = n / 2;
+    const core = ctx.createRadialGradient(h, h, 0, h, h, h * 0.5);
+    core.addColorStop(0, 'rgba(255,255,255,1)'); core.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = core; ctx.fillRect(0, 0, n, n);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, r = i % 2 ? h * 0.13 : h * 0.98; ctx.lineTo(h + Math.cos(a) * r, h + Math.sin(a) * r); }
+    ctx.closePath(); ctx.fill();
+  }));
 }
 
 /** 걷는 자세. t: 0..1 한 주기(왼발+오른발), amount: 0(서 있음)..1(걷는 중) */
@@ -166,24 +200,48 @@ export function pose(root, t, amount = 1) {
   if (u.cape) u.cape.rotation.z = -s * 0.035;        // 담요는 몸보다 조금 늦게 따라온다
 }
 
+const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
+
 /**
- * 가만히 서 있을 때 쌓이는 눈. a: 0..2
- *   0..1 머리 위와 어깨에 쌓인다 (흰 모자처럼)
- *   1..2 그 눈이 계속 쌓여 내려와 온몸을 덮고 눈사람이 된다 — 눈과 부리만 보인다
+ * 가만히 서 있을 때 쌓이는 눈.
+ * @param {number} hat 0..1 머리 위와 어깨에 쌓인 눈 (흰 모자처럼)
+ * @param {number} pop 0..1 눈사람이 되는 효과의 진행. 0 아직 아님, POP_SWAP 에서 눈사람으로 바뀌고, 1 이면 다 된 눈사람
  */
-export function setSnow(root, a) {
-  const u = root.userData, hat = Math.min(1, a), k = Math.min(1, Math.max(0, a - 1)), on = a > 0.02;
+export function setSnow(root, hat, pop = 0) {
+  const u = root.userData, on = hat > 0.02, snowman = pop >= POP_SWAP;
   u.cap.visible = on;
   u.cap.scale.set(1, 0.2 + hat * 0.55, 1);               // 눈 모자는 납작하고 둥글게 쌓인다 (뾰족해 보이지 않게)
-  u.shoulders.forEach((m) => { m.visible = on && a > 0.3; m.scale.set(1, 0.3 + hat * 0.6, 1); });
-  // 눈이 쌓인 높이: 머리 꼭대기에서 시작해 발치까지 내려온다 (처음엔 천천히 — 모자가 커지는 것처럼 보인다)
-  const line = u.snowTop - (u.snowTop + 0.08) * Math.pow(k, 0.8);
-  u.shell.visible = k > 0.001;
-  u.snowPlane.constant = -(root.position.y + line);
-  // 눈이 눈높이를 지나 내려가면 눈과 부리가 눈 겉으로 나온다
-  const face = Math.min(1, Math.max(0, (1.5 - line) / 0.35)), f = face * face * (3 - 2 * face);
-  u.eyes.forEach((eye, i) => eye.position.copy(u.eyeHome[i]).lerp(u.eyeOut[i], k > 0 ? f : 0));
-  u.beak.position.z = 0.4 + (k > 0 ? f : 0) * (u.held ? 0.13 : 0.06);
+  u.shoulders.forEach((m) => { m.visible = on && hat > 0.3; m.scale.set(1, 0.3 + hat * 0.6, 1); });
+
+  // 눈사람이 되면 펭귄의 몸은 눈 속에 묻히고(숨긴다), 눈과 부리만 눈 겉으로 나온다
+  u.skin.visible = !snowman;
+  u.feet.forEach((f) => { f.visible = !snowman; });
+  u.shell.visible = snowman;
+  u.eyes.forEach((eye, i) => eye.position.copy(snowman ? u.eyeOut[i] : u.eyeHome[i]));
+  u.beak.position.z = snowman ? BEAK_OUT : BEAK_HOME;
+
+  const before = snowman ? 0 : smooth(pop / POP_SWAP);                  // 빛이 차오르는 동안 0→1
+  const after = snowman ? (pop - POP_SWAP) / (1 - POP_SWAP) : 0;        // 눈사람이 된 뒤 0→1
+  // 바뀌기 직전에는 몸을 살짝 움츠렸다가, 눈사람이 통 하고 조금 부풀며 자리 잡는다
+  u.top.scale.set(1 + before * 0.04, 1 - before * 0.06, 1 + before * 0.04);
+  u.shell.scale.setScalar(snowman ? 1 - 0.16 * Math.exp(-4.2 * after) * Math.cos(9.5 * after) * (1 - after) : 1);
+  u.shellMat.emissiveIntensity = snowman ? 0.55 * (1 - smooth(after / 0.8)) : 0;      // 갓 된 눈사람은 잠깐 환하다
+
+  // 빛무리와 반짝임
+  const active = pop > 0 && pop < 1;
+  u.fx.visible = active;
+  if (!active) return;
+  const light = snowman ? 1 - smooth(after / 0.75) : before;
+  u.glow.material.opacity = 0.92 * light;
+  u.glow.scale.setScalar(1.7 + 1.9 * pop);
+  u.twinkles.forEach((sp) => {
+    const d = sp.userData, q = (pop - (POP_SWAP - 0.12) - d.delay * 0.35) / 0.5;      // 저마다 조금씩 늦게 피어난다
+    sp.visible = q > 0 && q < 1;
+    if (!sp.visible) return;
+    const r = 0.62 + d.reach * q, size = d.size * Math.pow(Math.sin(Math.PI * q), 0.7) * (0.7 + 0.3 * Math.sin(q * 26 + d.phase));
+    sp.position.set(Math.sin(d.angle) * r, d.height + d.rise * q, Math.cos(d.angle) * r);
+    sp.scale.setScalar(Math.max(0.001, size));
+  });
 }
 
 /**

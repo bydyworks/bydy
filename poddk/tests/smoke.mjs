@@ -66,8 +66,8 @@ try {
     await walk(p, 0, 1, 4);
     const b = await state(p);
     const dist = Math.hypot(b.x - a.x, b.z - a.z);
-    assert(dist > 3.8 && dist < 4.6, '4초에 4단위쯤 걸어야 한다 (1초에 두 걸음): ' + dist.toFixed(2));
-    assert(b.prints >= 7 && b.prints <= 9, '발자국 수: ' + b.prints);
+    assert(dist > 4.8 && dist < 5.3, '4초에 5단위쯤 걸어야 한다 (1초에 두 걸음 반): ' + dist.toFixed(2));
+    assert(b.prints >= 9 && b.prints <= 10, '발자국 수: ' + b.prints);
     assert(b.audio.steps === b.prints, `발소리 ${b.audio.steps} ≠ 발자국 ${b.prints}`);
     assert(b.audio.packed === 0, '새 눈인데 다져진 눈 소리가 났다');
     await until(async () => (await state(p)).alive === b.prints, { what: '발자국이 보임' });
@@ -190,31 +190,107 @@ try {
     assert(!(await state(p)).angel && Math.abs(end.x - tucked.x) < 1e-6 && Math.abs(end.z - tucked.z) < 1e-6 && end.rot === 0, '일어난 뒤 날개가 제자리로 돌아오지 않았다: ' + JSON.stringify(end));
   });
 
-  await test('가만히 서 있으면 눈이 쌓이고, 아주 오래 서 있으면 눈사람이 되며, 걸으면 털린다', async () => {
+  // 쌓인 눈의 상태와, 지금 화면에 보이는 펭귄의 조각들
+  const snowLook = (p) => snow(p, () => {
+    const s = window.__snow, u = s.penguin.userData;
+    return { snow: s.me.snow, full: s.me.full, pop: s.me.pop, idle: s.me.idle, hat: u.cap.visible, hatScale: u.cap.scale.y, shoulders: u.shoulders[0].visible,
+      shell: u.shell.visible, shellScale: u.shell.scale.x, shine: u.shellMat.emissiveIntensity, skin: u.skin.visible, feet: u.feet[0].visible,
+      fx: u.fx.visible, glow: u.glow.material.opacity, twinkles: u.twinkles.filter((t) => t.visible).length,
+      eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z, squash: u.top.scale.y, crumble: s.crumble.active };
+  });
+  /** 조건이 될 때까지 조금씩 시간을 흘려보낸다 (가만히 선 채로) */
+  const stand = async (p, done, { step = 0.1, max = 60 } = {}) => { for (let t = 0; t < max; t += step) { if (done(await snowLook(p))) return snowLook(p); await walk(p, 0, 0, step); } throw new Error('기다려도 되지 않았다'); };
+
+  await test('가만히 서 있으면 머리와 어깨에 눈이 금방 쌓이고, 다 쌓인 채 10초쯤 지나면 환해지면서 눈사람이 된다', async () => {
     const p = await page();
-    await walk(p, 0, 0, 4);
-    assert((await state(p)).snow === 0, '서자마자 쌓였다');
-    await walk(p, 0, 0, 40);
-    let s = await state(p);
-    assert(s.snow > 0.5 && s.snow <= 1, '40초 뒤 쌓인 양: ' + s.snow.toFixed(2));
-    // line: 눈이 쌓여 내려온 높이 (머리 꼭대기에서 시작해 발치까지)
-    const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, line: -u.snowPlane.constant, top: u.snowTop, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z, hatScale: u.cap.scale.y }; });
-    const before = await look();
-    assert(!before.shell && before.hatScale > 0.5, '아직 눈사람이 아니고, 머리에 눈 모자가 있어야 한다');
-    // 눈 모자에서 이어서 쌓인다: 중간 단계에서 눈이 머리 위에서 아래로 내려오는 중이고, 모자는 줄어들지 않는다
-    await walk(p, 0, 0, 45);
-    const mid = await look();
-    assert(mid.shell && mid.line < mid.top - 0.2 && mid.line > 0.2, '눈이 위에서부터 쌓여 내려와야 한다: ' + JSON.stringify(mid));
-    assert(mid.hatScale >= before.hatScale, '쌓이는 도중에 눈 모자가 줄어들었다');
-    await walk(p, 0, 0, 70);
-    s = await state(p);
-    assert(s.snow > 1.95, '2분 반 서 있으면 눈사람: ' + s.snow.toFixed(2));
-    const after = await look();
-    assert(after.shell && after.line < 0.01, '온몸이 눈에 덮이지 않았다: ' + JSON.stringify(after));
-    assert(after.eyeZ > before.eyeZ + 0.03 && after.beakZ > before.beakZ + 0.02, '눈과 부리가 눈 밖으로 나오지 않았다: ' + JSON.stringify(after));
+    await walk(p, 0, 0, 3);
+    assert((await snowLook(p)).snow === 0, '서자마자 쌓였다');
+    await walk(p, 0, 0, 7);                                             // 선 지 10초: 쌓이는 중
+    let s = await snowLook(p);
+    assert(s.snow > 0.3 && s.snow < 0.8 && s.hat && !s.shell, '10초쯤 서 있으면 눈 모자가 반쯤 쌓여 있어야 한다: ' + s.snow.toFixed(2));
+    const full = await stand(p, (v) => v.snow === 1);
+    assert(full.idle > 12 && full.idle < 18.5, '머리와 어깨에 다 쌓이는 데 걸린 시간(초, 눈발에 따라 조금 다르다): ' + full.idle.toFixed(1));
+    assert(full.hat && full.shoulders && full.hatScale >= 0.74 && !full.shell && !full.fx && full.pop === 0, '다 쌓였을 때는 눈 모자를 쓴 펭귄이어야 한다: ' + JSON.stringify(full));
+    await walk(p, 0, 0, 6);
+    s = await snowLook(p);
+    assert(s.pop === 0 && !s.fx && s.skin && s.hatScale === full.hatScale, '다 쌓이고 10초가 되기 전에는 그대로여야 한다: ' + JSON.stringify(s));
+    // 효과의 앞 절반: 빛이 차오르고, 아직 펭귄 모습
+    const lit = await stand(p, (v) => v.pop > 0.15, { step: 0.05 });
+    assert(lit.full >= 10 && lit.full < 10.2, '다 쌓인 뒤 10초가 지나 효과가 시작돼야 한다: ' + lit.full.toFixed(2));
+    assert(lit.fx && lit.glow > 0.1 && lit.skin && !lit.shell && lit.squash < 1, '빛이 차오르는 중에는 아직 펭귄이어야 한다: ' + JSON.stringify(lit));
+    // 뒤 절반: 눈사람으로 바뀌어 통 하고 자리 잡는다 (빛은 걷히는 중)
+    const popped = await stand(p, (v) => v.shell, { step: 0.05 });
+    assert(popped.pop < 0.6 && popped.fx && popped.glow > 0.3 && !popped.skin && !popped.feet && popped.shellScale < 1 && popped.shine > 0, '바뀐 직후: ' + JSON.stringify(popped));
+    const twinkling = await stand(p, (v) => v.pop > 0.62, { step: 0.05 });
+    assert(twinkling.twinkles >= 6, '둘레에 반짝임이 보여야 한다: ' + twinkling.twinkles);
+    // 다 된 눈사람: 눈과 부리만 밖으로 보이고, 빛은 사라졌다
+    const done = await stand(p, (v) => v.pop === 1, { step: 0.05 });
+    assert(done.idle > 23 && done.idle < 32, '서 있기 시작해 눈사람이 되기까지(초): ' + done.idle.toFixed(1));
+    assert(done.shell && !done.skin && !done.feet && !done.fx && done.shellScale === 1 && done.shine === 0 && done.squash === 1, '다 된 눈사람: ' + JSON.stringify(done));
+    assert(done.eyeZ > full.eyeZ + 0.1 && done.beakZ > full.beakZ + 0.1, '눈과 부리가 눈 밖으로 나오지 않았다: ' + JSON.stringify(done));
+    await walk(p, 0, 0, 30);
+    s = await snowLook(p);
+    assert(s.pop === 1 && s.shell && !s.fx, '눈사람인 채로 더 서 있어도 그대로여야 한다');
+  });
+
+  await test('눈사람은 걸음을 떼면 눈덩이가 부서져 흩어지며 털리고, 효과 도중에 걸어도 탈이 없다', async () => {
+    const p = await page();
+    await stand(p, (v) => v.pop === 1, { step: 0.5 });
+    const fx0 = (await state(p)).audio.fx;
+    await walk(p, 0, 1, 0.2);
+    let s = await snowLook(p);
+    assert(!s.shell && s.skin && s.feet && s.pop === 0 && s.full === 0 && s.snow < 1 && s.eyeZ < 0.3, '걸음을 뗐는데 눈사람 그대로다: ' + JSON.stringify(s));
+    assert(s.crumble > 0, '눈덩이가 흩어지지 않았다');
+    assert((await state(p)).audio.fx === fx0 + 1, '눈 털리는 소리가 한 번 나야 한다');
+    await walk(p, 0, 1, 1.3);
+    assert((await snowLook(p)).snow === 0, '걸어도 눈이 안 털렸다');
+    await until(async () => (await snowLook(p)).crumble === 0, { what: '눈덩이가 눈밭에 스며듦', timeout: 40000 });
+    // 빛이 차오르는 도중(아직 펭귄일 때) 걸으면: 눈사람이 되지 않고, 눈덩이도 없다
+    await stand(p, (v) => v.pop > 0.2 && v.pop < 0.4, { step: 0.05 });
+    await walk(p, 0, 1, 0.2);
+    s = await snowLook(p);
+    assert(s.pop === 0 && !s.fx && !s.shell && s.skin && s.crumble === 0 && s.squash === 1, '효과 도중에 걸으면 그냥 눈만 털려야 한다: ' + JSON.stringify(s));
+    // 눈사람인 채로 눈 천사를 하면: 눈이 부서져 털리고 평소처럼 눕는다
     await walk(p, 0, 1, 1.5);
-    assert((await state(p)).snow === 0, '걸어도 눈이 안 털렸다');
-    assert(!(await look()).shell, '걸었는데 눈사람 그대로다');
+    await stand(p, (v) => v.pop === 1, { step: 0.5 });
+    await p.click('#angel');
+    await walk(p, 0, 0, 0.3);
+    s = await snowLook(p);
+    assert((await state(p)).angel && !s.shell && s.skin && s.feet && s.snow === 0 && s.pop === 0 && s.crumble > 0, '눈사람인 채로 눈 천사: ' + JSON.stringify(s));
+  });
+
+  await test('눈사람의 모습은 목도리 펭귄이든 담요 펭귄이든 똑같다 (눈과 부리만 보인다)', async () => {
+    // 화면에 그려지는 조각들을 모두 적는다: [모양, 색, 펭귄 기준 자리, 크기]
+    const pieces = (p) => snow(p, () => {
+      const root = window.__snow.penguin, out = [];
+      const r = (n) => Math.round(n * 1000) / 1000;
+      const visit = (o) => {
+        if (!o.visible) return;
+        if (o.isMesh || o.isSprite) {
+          root.updateWorldMatrix(true, true);
+          const at = root.worldToLocal(o.getWorldPosition(o.position.clone())), size = o.getWorldScale(o.scale.clone());
+          const g = o.geometry, radius = g && g.parameters ? (g.parameters.radius || 0) : 0;
+          out.push([o.isSprite ? 'sprite' : g.type, o.material.color.getHexString(), r(at.x), r(at.y), r(at.z), r(size.x * (radius || 1)), r(size.y * (radius || 1)), r(size.z * (radius || 1))].join(' '));
+        }
+        o.children.forEach(visit);
+      };
+      visit(root);
+      return out.sort();
+    });
+    const scarf = await page('t=14:00&speed=0&look=scarf&color=0');
+    const blanket = await page('t=14:00&speed=0&look=blanket&color=5');
+    const before = [await pieces(scarf), await pieces(blanket)];
+    assert(before[0].join('|') !== before[1].join('|'), '평소에는 목도리와 담요가 달라 보여야 한다');
+    for (const p of [scarf, blanket]) await stand(p, (v) => v.pop === 1, { step: 0.5 });
+    const a = await pieces(scarf), b = await pieces(blanket);
+    assert(a.join('|') === b.join('|'), '눈사람의 모습이 다르다:\n' + a.join('\n') + '\n--\n' + b.join('\n'));
+    // 눈덩이 셋(머리, 몸, 발치) + 눈 둘 + 부리 하나
+    assert(a.length === 6, '눈사람에서 보이는 조각: ' + a.length + '\n' + a.join('\n'));
+    const colors = [...new Set(a.map((x) => x.split(' ')[1]))].sort().join(',');
+    assert(colors === ['17181d', 'e0913c', 'ffffff'].sort().join(','), '눈사람에는 흰 눈, 까만 눈, 주황 부리만 보여야 한다: ' + colors);
+    // 날개처럼 옆으로 튀어나온 것이 없다: 모든 조각이 둥근 몸통 너비 안에 있다
+    const wide = a.map((x) => x.split(' ').map(Number)).filter((v) => Math.abs(v[2]) > 0.2);
+    assert(wide.length === 0, '옆으로 튀어나온 조각이 있다: ' + JSON.stringify(wide));
   });
 
   console.log('\n■ 하루의 흐름');
