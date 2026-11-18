@@ -95,7 +95,14 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
     const CREAM = '#f3e3c3';
     band(1.08, 0.5, blanketColor); band(0.5, 0.455, CREAM); band(0.455, 0.385, blanketColor); band(0.385, 0.34, CREAM); band(0.34, 0.27, blanketColor, true);
     // 날개는 담요 속에 넣고, 끝만 앞트임 밖으로 내밀어 담요를 여며 쥔다
-    wings.forEach((pivot, i) => { const sgn = i ? 1 : -1; pivot.position.set(sgn * 0.2, 0.8, 0.42); pivot.children[0].scale.set(0.42, 0.7, 0.5); pivot.children[0].rotation.set(0.5, 0, sgn * -0.9); pivot.children[0].position.set(0, 0, 0); pivot.userData.held = true; });
+    wings.forEach((pivot, i) => {
+      const sgn = i ? 1 : -1, w = pivot.children[0];
+      // 눈 천사를 할 때 돌아갈 자리(어깨 밖으로 내민 날개)를 먼저 적어 둔다
+      pivot.userData.free = { pos: new THREE.Vector3(sgn * 0.5, 0.9, 0), cpos: w.position.clone(), cscale: w.scale.clone(), crot: w.rotation.clone() };
+      pivot.position.set(sgn * 0.2, 0.8, 0.42); w.scale.set(0.42, 0.7, 0.5); w.rotation.set(0.5, 0, sgn * -0.9); w.position.set(0, 0, 0);
+      pivot.userData.tucked = { pos: pivot.position.clone(), cpos: w.position.clone(), cscale: w.scale.clone(), crot: w.rotation.clone() };
+      pivot.userData.held = true;
+    });
   }
 
   // 쌓이는 눈: 머리 위와 양 어깨
@@ -114,8 +121,8 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
   const shellMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, clippingPlanes: [snowPlane], clipShadows: true });
   const shell = new THREE.Group(); shell.visible = false; top.add(shell);
   const lump = (r, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 18), shellMat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); shell.add(m); };
-  // 눈 덮인 머리: 눈 모자까지 품을 만큼 크고 위로 길쭉하다 [가운데 높이, 옆 반지름, 위아래 반지름]
-  const snowHead = blanket ? { y: 1.3, r: 0.47, ry: 0.58 } : { y: 1.27, r: 0.4, ry: 0.47 };
+  // 눈 덮인 머리: 눈 모자까지 품을 만큼 큰, 둥근 공 [가운데 높이, 옆 반지름, 위아래 반지름]
+  const snowHead = blanket ? { y: 1.28, r: 0.5, ry: 0.5 } : { y: 1.24, r: 0.42, ry: 0.42 };
   lump(0.33, 0, snowHead.y, 0, snowHead.r / 0.33, snowHead.ry / 0.33, snowHead.r / 0.33);
   if (blanket) {
     lump(0.5, 0, 0.6, 0, 1.52, 1.34, 1.52);                     // 담요째로 덮인 몸
@@ -167,7 +174,7 @@ export function pose(root, t, amount = 1) {
 export function setSnow(root, a) {
   const u = root.userData, hat = Math.min(1, a), k = Math.min(1, Math.max(0, a - 1)), on = a > 0.02;
   u.cap.visible = on;
-  u.cap.scale.set(1, 0.25 + hat * 0.75, 1);
+  u.cap.scale.set(1, 0.2 + hat * 0.55, 1);               // 눈 모자는 납작하고 둥글게 쌓인다 (뾰족해 보이지 않게)
   u.shoulders.forEach((m) => { m.visible = on && a > 0.3; m.scale.set(1, 0.3 + hat * 0.6, 1); });
   // 눈이 쌓인 높이: 머리 꼭대기에서 시작해 발치까지 내려온다 (처음엔 천천히 — 모자가 커지는 것처럼 보인다)
   const line = u.snowTop - (u.snowTop + 0.08) * Math.pow(k, 0.8);
@@ -188,9 +195,21 @@ export function lie(root, k, flap = 0) {
   g.rotation.x = -k * Math.PI / 2;                 // 머리가 뒤(-Z)로 넘어가고 배가 하늘을 본다
   g.position.y = k * 0.44;                         // 등이 땅에 닿는 높이
   g.position.z = k * 0.55;                         // 누운 몸의 가운데가 서 있던 자리에 오도록
+  const out = Math.min(1, Math.max(0, (k - 0.5) * 2));
+  if (u.held) {
+    // 담요를 쥐고 있던 날개를 어깨 밖으로 꺼낸다 (다 일어나면 다시 여며 쥔다)
+    u.wings.forEach((pivot) => {
+      const a = pivot.userData.tucked, b = pivot.userData.free, w = pivot.children[0];
+      pivot.position.lerpVectors(a.pos, b.pos, out);
+      w.position.lerpVectors(a.cpos, b.cpos, out);
+      w.scale.lerpVectors(a.cscale, b.cscale, out);
+      w.rotation.set(a.crot.x + (b.crot.x - a.crot.x) * out, a.crot.y + (b.crot.y - a.crot.y) * out, a.crot.z + (b.crot.z - a.crot.z) * out);
+      if (out === 0) pivot.rotation.set(0, 0, 0);
+    });
+  }
   if (k > 0.5) {
-    const w = Math.sin(flap), amt = (k - 0.5) * 2;
-    if (!u.held) { u.wings[0].rotation.z = (-0.9 + w * 0.75) * amt; u.wings[1].rotation.z = (0.9 - w * 0.75) * amt; u.wings[0].rotation.x = 0; u.wings[1].rotation.x = 0; }
+    const w = Math.sin(flap), amt = out;
+    u.wings[0].rotation.z = (-0.9 + w * 0.75) * amt; u.wings[1].rotation.z = (0.9 - w * 0.75) * amt; u.wings[0].rotation.x = 0; u.wings[1].rotation.x = 0;
     u.feet[0].rotation.y = (-0.25 + w * 0.45) * amt; u.feet[1].rotation.y = (0.25 - w * 0.45) * amt;
     u.feet[0].rotation.x = 0; u.feet[1].rotation.x = 0;
   } else {

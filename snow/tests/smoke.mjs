@@ -174,6 +174,22 @@ try {
     assert(Math.hypot((await state(p)).x - before.x, (await state(p)).z - before.z) > 1, '일어난 뒤에 걸을 수 없다');
   });
 
+  await test('담요를 쓴 펭귄도 눈 천사를 할 때 날개를 꺼내 휘젓고, 일어나면 다시 담요를 여며 쥔다', async () => {
+    const p = await page('t=14:00&speed=0&look=blanket&color=5');
+    const wing = () => snow(p, () => { const w = window.__snow.penguin.userData.wings[0]; return { x: w.position.x, z: w.position.z, rot: w.rotation.z }; });
+    const tucked = await wing();
+    await p.click('#angel');
+    await walk(p, 0, 0, 2);
+    const a = await wing();
+    await walk(p, 0, 0, 0.4);
+    const b = await wing();
+    assert(Math.abs(a.x) > Math.abs(tucked.x) + 0.2 && Math.abs(a.z) < 0.05, '날개를 어깨 밖으로 꺼내지 않았다: ' + JSON.stringify(a));
+    assert(Math.abs(a.rot - b.rot) > 0.05, '날개가 움직이지 않는다: ' + a.rot.toFixed(2) + ' → ' + b.rot.toFixed(2));
+    await walk(p, 0, 0, 8);
+    const end = await wing();
+    assert(!(await state(p)).angel && Math.abs(end.x - tucked.x) < 1e-6 && Math.abs(end.z - tucked.z) < 1e-6 && end.rot === 0, '일어난 뒤 날개가 제자리로 돌아오지 않았다: ' + JSON.stringify(end));
+  });
+
   await test('가만히 서 있으면 눈이 쌓이고, 아주 오래 서 있으면 눈사람이 되며, 걸으면 털린다', async () => {
     const p = await page();
     await walk(p, 0, 0, 4);
@@ -184,7 +200,7 @@ try {
     // line: 눈이 쌓여 내려온 높이 (머리 꼭대기에서 시작해 발치까지)
     const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, line: -u.snowPlane.constant, top: u.snowTop, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z, hatScale: u.cap.scale.y }; });
     const before = await look();
-    assert(!before.shell && before.hatScale > 0.6, '아직 눈사람이 아니고, 머리에 눈 모자가 있어야 한다');
+    assert(!before.shell && before.hatScale > 0.5, '아직 눈사람이 아니고, 머리에 눈 모자가 있어야 한다');
     // 눈 모자에서 이어서 쌓인다: 중간 단계에서 눈이 머리 위에서 아래로 내려오는 중이고, 모자는 줄어들지 않는다
     await walk(p, 0, 0, 45);
     const mid = await look();
