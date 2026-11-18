@@ -28,7 +28,7 @@ try {
     await sleep(600);
     if (o.far) await page.evaluate(() => { const s = window.__snow; s.teleport(3, 17); s.me.camDist = 13; s.me.camPitch = 0.16; });
     if (o.walk) await walk(page, ...o.walk);
-    if (o.angel) { await page.evaluate(() => { window.__snow.angel(); window.__snow.sim(2.0); }); await sleep(1800); await page.screenshot({ path: path.join(OUT, name + '-lying.png') }); await page.evaluate(() => window.__snow.sim(2.4)); await walk(page, 0, 1, 2600); }
+    if (o.angel) { await page.evaluate(() => { window.__snow.angel(); window.__snow.sim(4.0); }); await sleep(1800); await page.screenshot({ path: path.join(OUT, name + '-lying.png') }); await page.evaluate(() => window.__snow.sim(5.2)); await walk(page, 0, 1, 2600); }
     await sleep(400);
     await page.screenshot({ path: path.join(OUT, name + '.png') });
     console.log('saved', name);

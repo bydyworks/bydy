@@ -1,4 +1,4 @@
-// 눈길 자동 점검.  node smoke.mjs [이름에 들어간 글자]
+// 뽀드득(poddk) 자동 점검.  node smoke.mjs [이름에 들어간 글자]
 // 실제 브라우저(그래픽 카드 없이)로 띄워 걷기·발자국·소리·카메라·눈 천사·하루의 흐름·저장을 확인한다.
 // 느린 기기에서도 결과가 같도록, 걷는 시간은 __snow.sim(초) 으로 한꺼번에 흘려보낸다.
 import { startStatic, launch, open, sleep, assert, until } from './harness.mjs';
@@ -66,8 +66,8 @@ try {
     await walk(p, 0, 1, 4);
     const b = await state(p);
     const dist = Math.hypot(b.x - a.x, b.z - a.z);
-    assert(dist > 4.5 && dist < 5.5, '4초에 5단위쯤 걸어야 한다: ' + dist.toFixed(2));
-    assert(b.prints >= 9 && b.prints <= 12, '발자국 수: ' + b.prints);
+    assert(dist > 3.8 && dist < 4.6, '4초에 4단위쯤 걸어야 한다 (1초에 두 걸음): ' + dist.toFixed(2));
+    assert(b.prints >= 7 && b.prints <= 9, '발자국 수: ' + b.prints);
     assert(b.audio.steps === b.prints, `발소리 ${b.audio.steps} ≠ 발자국 ${b.prints}`);
     assert(b.audio.packed === 0, '새 눈인데 다져진 눈 소리가 났다');
     await until(async () => (await state(p)).alive === b.prints, { what: '발자국이 보임' });
@@ -79,7 +79,7 @@ try {
     await walk(p, 0, -1, 4);            // 온 길을 그대로 되돌아간다
     const s = await state(p);
     assert(s.audio.packed >= 3, '다져진 눈 소리가 거의 안 났다: ' + JSON.stringify(s.audio));
-    assert(s.audio.fresh >= 9, '새 눈 소리: ' + s.audio.fresh);
+    assert(s.audio.fresh >= 7, '새 눈 소리: ' + s.audio.fresh);
   });
 
   await test('휴대폰: 화면 왼쪽을 누른 채 끌면 조이스틱이 생겨 걷는다', async () => {
@@ -158,24 +158,63 @@ try {
     s = await state(p);
     assert(Math.hypot(s.x - before.x, s.z - before.z) < 0.01, '누운 채로 걸었다');
     assert(s.angels === 1, '자국이 생기지 않았다');
+    await walk(p, 0, 0, 5);
+    assert((await state(p)).angel, '가만히 두면 8초쯤 누워 있어야 한다');
     await walk(p, 0, 0, 2.6);
     s = await state(p);
     assert(!s.angel, '다시 일어나지 않았다');
     assert(s.audio.fx >= 4, '눕는 소리·쓰는 소리: ' + s.audio.fx);
     assert(!(await p.evaluate(() => document.querySelector('#angel').classList.contains('busy'))), '버튼이 계속 잠겨 있다');
+    // 누운 지 2초가 지나 걸으려 하면 일찍 일어난다
+    await p.click('#angel');
+    await walk(p, 0, 0, 3);
+    await walk(p, 0, 1, 1.2);
+    assert(!(await state(p)).angel, '걸으려 해도 일어나지 않는다');
     await walk(p, 0, 1, 1);
     assert(Math.hypot((await state(p)).x - before.x, (await state(p)).z - before.z) > 1, '일어난 뒤에 걸을 수 없다');
   });
 
-  await test('가만히 서 있으면 눈이 쌓이고, 걸으면 털린다', async () => {
+  await test('담요를 쓴 펭귄도 눈 천사를 할 때 날개를 꺼내 휘젓고, 일어나면 다시 담요를 여며 쥔다', async () => {
+    const p = await page('t=14:00&speed=0&look=blanket&color=5');
+    const wing = () => snow(p, () => { const w = window.__snow.penguin.userData.wings[0]; return { x: w.position.x, z: w.position.z, rot: w.rotation.z }; });
+    const tucked = await wing();
+    await p.click('#angel');
+    await walk(p, 0, 0, 2);
+    const a = await wing();
+    await walk(p, 0, 0, 0.4);
+    const b = await wing();
+    assert(Math.abs(a.x) > Math.abs(tucked.x) + 0.2 && Math.abs(a.z) < 0.05, '날개를 어깨 밖으로 꺼내지 않았다: ' + JSON.stringify(a));
+    assert(Math.abs(a.rot - b.rot) > 0.05, '날개가 움직이지 않는다: ' + a.rot.toFixed(2) + ' → ' + b.rot.toFixed(2));
+    await walk(p, 0, 0, 8);
+    const end = await wing();
+    assert(!(await state(p)).angel && Math.abs(end.x - tucked.x) < 1e-6 && Math.abs(end.z - tucked.z) < 1e-6 && end.rot === 0, '일어난 뒤 날개가 제자리로 돌아오지 않았다: ' + JSON.stringify(end));
+  });
+
+  await test('가만히 서 있으면 눈이 쌓이고, 아주 오래 서 있으면 눈사람이 되며, 걸으면 털린다', async () => {
     const p = await page();
     await walk(p, 0, 0, 4);
     assert((await state(p)).snow === 0, '서자마자 쌓였다');
     await walk(p, 0, 0, 40);
-    const s = await state(p);
+    let s = await state(p);
     assert(s.snow > 0.5 && s.snow <= 1, '40초 뒤 쌓인 양: ' + s.snow.toFixed(2));
+    // line: 눈이 쌓여 내려온 높이 (머리 꼭대기에서 시작해 발치까지)
+    const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, line: -u.snowPlane.constant, top: u.snowTop, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z, hatScale: u.cap.scale.y }; });
+    const before = await look();
+    assert(!before.shell && before.hatScale > 0.5, '아직 눈사람이 아니고, 머리에 눈 모자가 있어야 한다');
+    // 눈 모자에서 이어서 쌓인다: 중간 단계에서 눈이 머리 위에서 아래로 내려오는 중이고, 모자는 줄어들지 않는다
+    await walk(p, 0, 0, 45);
+    const mid = await look();
+    assert(mid.shell && mid.line < mid.top - 0.2 && mid.line > 0.2, '눈이 위에서부터 쌓여 내려와야 한다: ' + JSON.stringify(mid));
+    assert(mid.hatScale >= before.hatScale, '쌓이는 도중에 눈 모자가 줄어들었다');
+    await walk(p, 0, 0, 70);
+    s = await state(p);
+    assert(s.snow > 1.95, '2분 반 서 있으면 눈사람: ' + s.snow.toFixed(2));
+    const after = await look();
+    assert(after.shell && after.line < 0.01, '온몸이 눈에 덮이지 않았다: ' + JSON.stringify(after));
+    assert(after.eyeZ > before.eyeZ + 0.03 && after.beakZ > before.beakZ + 0.02, '눈과 부리가 눈 밖으로 나오지 않았다: ' + JSON.stringify(after));
     await walk(p, 0, 1, 1.5);
     assert((await state(p)).snow === 0, '걸어도 눈이 안 털렸다');
+    assert(!(await look()).shell, '걸었는데 눈사람 그대로다');
   });
 
   console.log('\n■ 하루의 흐름');
@@ -236,13 +275,44 @@ try {
     assert(s.snowfall < 0.45, '5시가 지났는데 눈발이 굵다: ' + s.snowfall.toFixed(2));
   });
 
+  console.log('\n■ 트리의 캐롤');
+  await test('옛 캐롤 열 곡의 악보가 온전하다 (마디가 맞고, 으뜸음으로 끝난다)', async () => {
+    const p = await page(undefined, { enter: false });
+    const list = await p.evaluate(async () => {
+      const m = await import('./js/carols.js');
+      return m.CAROLS.map((c) => { const seq = m.parseNotes(c.notes); return { id: c.id, title: c.title, tempo: c.tempo, n: seq.length, beats: seq.reduce((a, [, d]) => a + d, 0), lo: Math.min(...seq.filter(([x]) => x !== null).map(([x]) => x)), hi: Math.max(...seq.filter(([x]) => x !== null).map(([x]) => x)), last: seq[seq.length - 1][0] }; });
+    });
+    assert(list.length === 10 && new Set(list.map((c) => c.id)).size === 10, '열 곡이어야 한다: ' + list.length);
+    // 곡마다: 전체 길이(4분음표 수)와 마지막 음(으뜸음)
+    const want = { jingle: [64, 60], silent: [72, 60], deck: [64, 60], joy: [38, 60], tree: [48, 72], wish: [48, 67], noel: [72, 64], manger: [48, 65], hark: [80, 67], angels: [84, 65] };
+    for (const c of list) {
+      assert(want[c.id], '모르는 곡: ' + c.id);
+      assert(Math.abs(c.beats - want[c.id][0]) < 1e-6, `${c.title}: 길이 ${c.beats} (기대 ${want[c.id][0]})`);
+      assert(c.last === want[c.id][1], `${c.title}: 마지막 음 ${c.last} (기대 ${want[c.id][1]})`);
+      assert(c.lo >= 55 && c.hi <= 84 && c.tempo >= 60 && c.tempo <= 200 && c.title, `${c.title}: 음역 ${c.lo}~${c.hi}, 빠르기 ${c.tempo}`);
+    }
+  });
+
+  await test('트리 가까이에서는 오르골 캐롤이 들리고, 멀어지면 들리지 않는다', async () => {
+    const p = await page();
+    await snow(p, () => window.__snow.teleport(0, 5));
+    await until(async () => { const c = (await state(p)).audio.carol; return c && c.notes >= 4 && c.gain > 0.2; }, { what: '캐롤 음표', timeout: 30000 });
+    await until(async () => (await p.textContent('#carol')).startsWith('♪'), { what: '캐롤 제목' });
+    await snow(p, () => window.__snow.teleport(0, 80));
+    await until(async () => (await state(p)).audio.carol.gain === 0, { what: '멀어짐' });
+    const n = (await state(p)).audio.carol.notes;
+    await sleep(2500);
+    assert((await state(p)).audio.carol.notes === n, '멀리서도 음표를 계속 만든다');
+    assert((await p.textContent('#carol')) === '', '멀리서도 제목이 보인다');
+  });
+
   console.log('\n■ 다시 왔을 때');
   await test('창을 닫았다 다시 열면 서 있던 자리와 발자국이 그대로다', async () => {
     const o = await open(browser, site.url, { query: 't=14:00&speed=0&persist=1&look=scarf', errors });
     opened.push(o.ctx);
     const p = o.page;
     await walk(p, 0.4, 1, 4);
-    await p.click('#angel'); await walk(p, 0, 0, 4.5);
+    await p.click('#angel'); await walk(p, 0, 0, 9.5);
     const a = await state(p);
     await p.evaluate(() => window.dispatchEvent(new Event('pagehide')));
     await p.reload();
@@ -250,6 +320,27 @@ try {
     const b = await state(p);
     assert(Math.hypot(b.x - a.x, b.z - a.z) < 0.01, '자리가 달라졌다');
     assert(b.prints === a.prints && b.angels === 1, `발자국 ${a.prints} → ${b.prints}, 눈 천사 ${b.angels}`);
+  });
+
+  console.log('\n■ 주소');
+  await test('주소는 /poddk/ 이고, 옛 주소(/snow/)로 와도 붙은 것까지 그대로 넘어온다', async () => {
+    assert(site.url.endsWith('/poddk/'), '게임 폴더 이름이 poddk 가 아니다: ' + site.url);
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
+    opened.push(ctx);
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
+    for (const old of ['snow/?t=14:00&speed=0#here', 'snow?t=14:00&speed=0#here', 'snow/index.html?t=14:00&speed=0#here']) {
+      await p.goto(site.origin + old);
+      await p.waitForURL(site.url + '?t=14:00&speed=0#here', { timeout: 15000 });
+      await p.waitForFunction(() => window.__snow && window.__snow.ready, null, { timeout: 60000 });
+      assert((await p.title()) === '뽀드득 · poddk', '넘어온 곳이 게임이 아니다');
+      const at = await p.evaluate(() => new Date(window.__snow.clock.now()).toISOString().slice(11, 16));      // 한국 14:00 = UTC 05:00
+      assert(at === '05:00', `?t= 가 따라오지 않았다 (${old}): ${at}`);
+    }
+    await p.goto(site.origin + 'snow/');
+    await p.waitForURL(site.url, { timeout: 15000 });
+    await p.goBack().catch(() => {});                                             // 뒤로 가기에 옛 주소가 남아 다시 튕기지 않는다
+    assert(!p.url().includes('/snow'), '뒤로 가면 옛 주소로 돌아간다: ' + p.url());
   });
 
   console.log('\n■ 화면 배치');
