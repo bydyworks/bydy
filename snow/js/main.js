@@ -17,11 +17,12 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 const SAVE_KEY = 'snow.v1';
 const TEST_MODE = (q.has('t') || q.has('speed')) && !q.has('persist');     // 시각을 바꿔 보는 시험 중에는 기기에 저장하지 않는다
 
-const WALK_SPEED = 1.25;          // 걷는 빠르기 (단위/초)
+const WALK_SPEED = 1.05;          // 걷는 빠르기 (단위/초) — 1초에 두 걸음쯤. 들판을 가로지르는 데 3분 반
 const TURN_RATE = 9;              // 몸을 돌리는 빠르기 (라디안/초)
 const CAM_DIST = 6.6, CAM_DIST_MIN = 3.2, CAM_DIST_MAX = 18, CAM_TARGET_H = 1.05;
 const IDLE_BEFORE_SNOW = 6;       // 가만히 선 지 이만큼 지나면 눈이 쌓이기 시작한다 (초)
-const SNOW_FILL_SEC = 50;         // 다 쌓이는 데 걸리는 시간 (폭설 때는 더 빠르다)
+const SNOW_FILL_SEC = 50;         // 머리와 어깨에 다 쌓이는 데 걸리는 시간 (폭설 때는 더 빠르다)
+const SNOWMAN_SEC = 80;           // 그 뒤로 온몸이 덮여 눈사람이 되기까지 (snow: 0..1 머리·어깨, 1..2 온몸)
 
 // ---------- 화면 ----------
 const canvas = $('#view');
@@ -102,11 +103,12 @@ function toast(text, ms = 2600) {
 }
 
 // ---------- 눈 천사 ----------
-const ANGEL = { down: 0.55, flap: 2.9, up: 0.7 };       // 눕기, 휘젓기, 일어나기 (초)
+const ANGEL = { down: 0.6, flap: 7.5, up: 0.8, sweeps: 5, canLeaveAfter: 2 };   // 눕기, 휘젓기, 일어나기 (초). 휘젓는 횟수. 이만큼 지나면 걸으려 할 때 일찍 일어난다
 function startAngel() {
   if (!started || me.angel) return;
   me.angel = { t: 0, item: null, beats: 0, fell: false };
   me.walk = 0;
+  me.snow = 0;                                           // 쌓인 눈은 누우면서 털린다
   $('#angel').classList.add('busy');
 }
 function stepAngel(dt, now) {
@@ -121,10 +123,13 @@ function stepAngel(dt, now) {
   } else if (a.t < ANGEL.down + ANGEL.flap) {
     k = 1;
     const u = (a.t - ANGEL.down) / ANGEL.flap;
-    flap = u * Math.PI * 2 * 2.5;                         // 두 번 반 휘젓는다
-    if (a.item) a.item.grow = Math.min(1, u * 1.5);
-    const beat = Math.floor(u * 5);
-    if (beat > a.beats && beat < 5) { a.beats = beat; audio.fx('rustle', 0.45); }
+    flap = u * Math.PI * 2 * ANGEL.sweeps;                // 천천히 여러 번 휘젓는다
+    if (a.item) a.item.grow = Math.min(1, u * 3);         // 자국은 앞의 1/3 동안 다 드러난다
+    const beat = Math.floor(u * ANGEL.sweeps * 2);        // 팔을 벌릴 때와 모을 때마다 눈 쓸리는 소리
+    if (beat > a.beats) { a.beats = beat; audio.fx('rustle', 0.4); }
+    // 걷고 싶으면 일찍 일어난다
+    const mv = controls.read();
+    if (a.t - ANGEL.down > ANGEL.canLeaveAfter && Math.hypot(mv.x, mv.y) > 0.3) a.t = ANGEL.down + ANGEL.flap;
   } else {
     const u = Math.min(1, (a.t - ANGEL.down - ANGEL.flap) / ANGEL.up);
     k = 1 - u * u * (3 - 2 * u);
@@ -189,14 +194,14 @@ function walk(dt, now) {
     }
     // 쌓인 눈은 걷기 시작하면 털린다
     if (me.snow > 0) {
-      if (me.snow > 0.35 && me.idle > 0) audio.fx('rustle', 0.3);
-      me.snow = Math.max(0, me.snow - dt * 1.6);
+      if (me.snow > 0.35 && me.idle > 0) audio.fx('rustle', me.snow > 1.2 ? 0.5 : 0.3);
+      me.snow = Math.max(0, me.snow - dt * 2.4);
     }
     me.idle = 0;
   } else {
     me.walk = Math.max(0, me.walk - dt * 5);
     me.idle += dt;
-    if (me.idle > IDLE_BEFORE_SNOW) me.snow = Math.min(1, me.snow + dt / SNOW_FILL_SEC * (1 + 3 * Math.max(0, snowfallAt(now) - 0.35)));
+    if (me.idle > IDLE_BEFORE_SNOW) me.snow = Math.min(2, me.snow + dt / (me.snow < 1 ? SNOW_FILL_SEC : SNOWMAN_SEC) * (1 + 3 * Math.max(0, snowfallAt(now) - 0.35)));
   }
   pose(penguin, me.phase, me.walk);
   setSnow(penguin, me.snow);
@@ -288,7 +293,7 @@ requestAnimationFrame(tick);
 
 // 개발자 도구와 자동 점검용
 window.__snow = {
-  clock, me, look, tracks, audio: audio.stats, controls, sky,
+  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin,
   get started() { return started; },
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },

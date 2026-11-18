@@ -66,8 +66,8 @@ try {
     await walk(p, 0, 1, 4);
     const b = await state(p);
     const dist = Math.hypot(b.x - a.x, b.z - a.z);
-    assert(dist > 4.5 && dist < 5.5, '4초에 5단위쯤 걸어야 한다: ' + dist.toFixed(2));
-    assert(b.prints >= 9 && b.prints <= 12, '발자국 수: ' + b.prints);
+    assert(dist > 3.8 && dist < 4.6, '4초에 4단위쯤 걸어야 한다 (1초에 두 걸음): ' + dist.toFixed(2));
+    assert(b.prints >= 7 && b.prints <= 9, '발자국 수: ' + b.prints);
     assert(b.audio.steps === b.prints, `발소리 ${b.audio.steps} ≠ 발자국 ${b.prints}`);
     assert(b.audio.packed === 0, '새 눈인데 다져진 눈 소리가 났다');
     await until(async () => (await state(p)).alive === b.prints, { what: '발자국이 보임' });
@@ -79,7 +79,7 @@ try {
     await walk(p, 0, -1, 4);            // 온 길을 그대로 되돌아간다
     const s = await state(p);
     assert(s.audio.packed >= 3, '다져진 눈 소리가 거의 안 났다: ' + JSON.stringify(s.audio));
-    assert(s.audio.fresh >= 9, '새 눈 소리: ' + s.audio.fresh);
+    assert(s.audio.fresh >= 7, '새 눈 소리: ' + s.audio.fresh);
   });
 
   await test('휴대폰: 화면 왼쪽을 누른 채 끌면 조이스틱이 생겨 걷는다', async () => {
@@ -158,24 +158,41 @@ try {
     s = await state(p);
     assert(Math.hypot(s.x - before.x, s.z - before.z) < 0.01, '누운 채로 걸었다');
     assert(s.angels === 1, '자국이 생기지 않았다');
+    await walk(p, 0, 0, 5);
+    assert((await state(p)).angel, '가만히 두면 8초쯤 누워 있어야 한다');
     await walk(p, 0, 0, 2.6);
     s = await state(p);
     assert(!s.angel, '다시 일어나지 않았다');
     assert(s.audio.fx >= 4, '눕는 소리·쓰는 소리: ' + s.audio.fx);
     assert(!(await p.evaluate(() => document.querySelector('#angel').classList.contains('busy'))), '버튼이 계속 잠겨 있다');
+    // 누운 지 2초가 지나 걸으려 하면 일찍 일어난다
+    await p.click('#angel');
+    await walk(p, 0, 0, 3);
+    await walk(p, 0, 1, 1.2);
+    assert(!(await state(p)).angel, '걸으려 해도 일어나지 않는다');
     await walk(p, 0, 1, 1);
     assert(Math.hypot((await state(p)).x - before.x, (await state(p)).z - before.z) > 1, '일어난 뒤에 걸을 수 없다');
   });
 
-  await test('가만히 서 있으면 눈이 쌓이고, 걸으면 털린다', async () => {
+  await test('가만히 서 있으면 눈이 쌓이고, 아주 오래 서 있으면 눈사람이 되며, 걸으면 털린다', async () => {
     const p = await page();
     await walk(p, 0, 0, 4);
     assert((await state(p)).snow === 0, '서자마자 쌓였다');
     await walk(p, 0, 0, 40);
-    const s = await state(p);
+    let s = await state(p);
     assert(s.snow > 0.5 && s.snow <= 1, '40초 뒤 쌓인 양: ' + s.snow.toFixed(2));
+    const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, opacity: u.shellMat.opacity, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z }; });
+    const before = await look();
+    assert(!before.shell, '아직 눈사람이 아니어야 한다');
+    await walk(p, 0, 0, 110);
+    s = await state(p);
+    assert(s.snow > 1.95, '2분 반 서 있으면 눈사람: ' + s.snow.toFixed(2));
+    const after = await look();
+    assert(after.shell && after.opacity > 0.95, '온몸이 눈에 덮이지 않았다: ' + JSON.stringify(after));
+    assert(after.eyeZ > before.eyeZ + 0.03 && after.beakZ > before.beakZ + 0.02, '눈과 부리가 눈 밖으로 나오지 않았다: ' + JSON.stringify(after));
     await walk(p, 0, 1, 1.5);
     assert((await state(p)).snow === 0, '걸어도 눈이 안 털렸다');
+    assert(!(await look()).shell, '걸었는데 눈사람 그대로다');
   });
 
   console.log('\n■ 하루의 흐름');
@@ -242,7 +259,7 @@ try {
     opened.push(o.ctx);
     const p = o.page;
     await walk(p, 0.4, 1, 4);
-    await p.click('#angel'); await walk(p, 0, 0, 4.5);
+    await p.click('#angel'); await walk(p, 0, 0, 9.5);
     const a = await state(p);
     await p.evaluate(() => window.dispatchEvent(new Event('pagehide')));
     await p.reload();

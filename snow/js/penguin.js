@@ -3,7 +3,7 @@
 // 공·원뿔·고리 같은 기본 도형만 쓴다.
 import * as THREE from 'three';
 
-export const STEP = 0.46;      // 한 걸음의 길이 (발자국 간격)
+export const STEP = 0.52;      // 한 걸음의 길이 (발자국 간격)
 export const STANCE = 0.13;    // 왼발·오른발이 가운데에서 벌어진 거리
 
 const WHITE = '#f7f5f0', BLACK = '#17181d', BEAK = '#e0913c', FOOT = '#e9e6df', RED = '#d0312d';
@@ -29,7 +29,7 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
   const head = ball(0.33, WHITE, 1, 0.95, 1); head.position.y = 1.2; top.add(head);
 
   // 얼굴: 점 눈 두 개와 주황 부리
-  [-1, 1].forEach((s) => { const e = ball(0.03, BLACK); e.position.set(s * 0.12, 1.26, 0.295); top.add(e); });
+  const eyes = [-1, 1].map((s) => { const e = ball(0.03, BLACK); e.position.set(s * 0.12, 1.26, 0.295); top.add(e); return e; });
   const beak = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.24, 14), mat(BEAK));
   beak.rotation.x = Math.PI / 2 + 0.12; beak.scale.set(1.25, 1, 0.8); beak.position.set(0, 1.16, 0.4); top.add(beak);
 
@@ -107,10 +107,31 @@ export function build({ scarf = false, blanket = false, color = RED } = {}) {
     m.position.set(s * (blanket ? 0.47 : 0.4), blanket ? 0.93 : 0.98, -0.02); m.visible = false; top.add(m); return m;
   });
 
+  // 눈사람: 아주 오래 서 있으면 눈이 온몸을 덮는다. 목도리도 담요도 날개도 발도 눈 속에 묻히고, 눈과 주황 부리만 밖으로 보인다.
+  const shellMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, transparent: true, opacity: 0 });
+  const shell = new THREE.Group(); shell.visible = false; top.add(shell);
+  const lump = (r, x, y, z, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), shellMat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); shell.add(m); };
+  const headShell = blanket ? 0.33 * 1.38 : 0.33 * 1.13;        // 눈 덮인 머리의 반지름
+  if (blanket) {
+    lump(0.5, 0, 0.6, 0, 1.52, 1.34, 1.52);                     // 담요째로 덮인 몸
+    lump(0.33, 0, 1.2, 0, 1.38, 1.32, 1.38);                    // 두건째로 덮인 머리
+  } else {
+    lump(0.5, 0, 0.6, 0, 1.13, 1.2, 1.12);                      // 몸
+    lump(0.33, 0, 1.2, 0, 1.13, 1.08, 1.13);                    // 머리
+    lump(0.42, 0, 1.0, 0, 1.06, 0.52, 1.06);                    // 목 (목도리)
+    [-1, 1].forEach((s) => lump(0.25, s * 0.52, 0.72, 0, 0.9, 1.5, 1.05));    // 날개
+    if (scarf) lump(0.2, 0.16, 0.7, -0.44, 0.9, 1.75, 0.62);    // 등 뒤로 늘어진 목도리 끝
+  }
+  lump(0.5, 0, 0.05, 0.06, blanket ? 1.6 : 1.25, 0.3, blanket ? 1.65 : 1.35);   // 발치에 쌓인 눈
+  const HEAD = new THREE.Vector3(0, 1.2, 0);
+  const eyeHome = eyes.map((e) => e.position.clone());
+  const eyeDir = eyeHome.map((p) => p.clone().sub(HEAD).normalize());
+  const eyeDist = eyeHome[0].distanceTo(HEAD);
+
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   // 눕기(눈 천사)를 위해 한 겹 더 감싼다: root 가 위치·방향을, g 가 눕는 기울기를 맡는다
   const root = new THREE.Group(); root.add(g);
-  root.userData = { body: g, top, wings, feet, scarfEnd, cape, cap, shoulders, held: !!blanket };
+  root.userData = { body: g, top, wings, feet, scarfEnd, cape, cap, shoulders, held: !!blanket, shell, shellMat, eyes, eyeHome, eyeDir, eyeDist, headShell, beak, HEAD, capY: cap.position.y };
   return root;
 }
 
@@ -130,11 +151,24 @@ export function pose(root, t, amount = 1) {
   if (u.cape) u.cape.rotation.z = -s * 0.035;        // 담요는 몸보다 조금 늦게 따라온다
 }
 
-/** 가만히 서 있을 때 머리·어깨에 쌓이는 눈. a: 0..1 */
+/**
+ * 가만히 서 있을 때 쌓이는 눈. a: 0..2
+ *   0..1 머리 위와 어깨에 쌓인다 (흰 모자처럼)
+ *   1..2 온몸이 덮여 눈사람이 된다 — 눈과 부리만 보인다
+ */
 export function setSnow(root, a) {
-  const u = root.userData, on = a > 0.02;
-  u.cap.visible = on; u.cap.scale.set(1, 0.25 + a * 0.75, 1);
-  u.shoulders.forEach((m) => { m.visible = on && a > 0.3; m.scale.set(1, 0.3 + a * 0.6, 1); });
+  const u = root.userData, hat = Math.min(1, a), k = Math.min(1, Math.max(0, a - 1)), on = a > 0.02;
+  const e = k * k * (3 - 2 * k);                                 // 부드럽게 덮인다
+  u.cap.visible = on;
+  u.cap.scale.set(1 + e * 0.22, 0.25 + hat * 0.75, 1 + e * 0.22);
+  u.cap.position.y = u.capY + e * 0.03;
+  u.shoulders.forEach((m) => { m.visible = on && a > 0.3 && k < 0.6; m.scale.set(1, 0.3 + hat * 0.6, 1); });
+  u.shell.visible = k > 0.01;
+  u.shellMat.opacity = e;
+  // 눈과 부리는 눈 밖으로 내민다
+  const out = u.eyeDist + (u.headShell + 0.012 - u.eyeDist) * e;
+  u.eyes.forEach((eye, i) => eye.position.copy(u.HEAD).addScaledVector(u.eyeDir[i], out));
+  u.beak.position.z = 0.4 + e * (u.held ? 0.11 : 0.035);
 }
 
 /**

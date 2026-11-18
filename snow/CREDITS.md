@@ -6,8 +6,8 @@
 
 | 파일 | 원본 | 만든 이 |
 | --- | --- | --- |
-| `audio/steps-fresh.mp3` | Footsteps Snow - Walking Very Slow, Deep Snow, Creaking | Matching Sound Effects |
-| `audio/steps-packed.mp3` | Footsteps in snow, boots walking in packed snow at a slow to medium pace | Airborne Sound |
+| `audio/steps-fresh.mp3` | Ice Cold - Stepping in The Pace, Jumping in The Place, Frozen Snow | Ivo Vicic |
+| `audio/steps-packed.mp3` | (같은 녹음을 더 짧고 둔하게 다듬은 것) | Ivo Vicic |
 | `audio/snowfall.mp3` | Ruthless Winter - Forest Ambience, Snow Falling On Branches, Crackling, Light Wind | Sonophile Audio |
 | `audio/blizzard.mp3` | Extreme Climate - Blizzard Ambience, Wind Howling | Unrealsfx |
 | `audio/fx.mp3` | Foley body falling in the snow / Mixed Materials - Shoveling Snow, Crunchy | re:focus / InspectorJ |
