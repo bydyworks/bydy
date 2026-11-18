@@ -5,7 +5,8 @@ import * as THREE from 'three';
 import { createClock, snowfallAt, stormPhase, clockText, stormText } from './clock.js';
 import { createSky } from './sky.js';
 import { createField, FIELD_RADIUS } from './field.js';
-import { build as buildPenguin, pose, setSnow, lie, randomLook, COLORS, STEP, STANCE } from './penguin.js';
+import { build as buildPenguin, pose, setSnow, lie, randomLook, COLORS, STEP, STANCE, POP_SWAP } from './penguin.js';
+import { createCrumble } from './crumble.js';
 import { createTracks } from './tracks.js';
 import { createWeather } from './weather.js';
 import { createControls } from './controls.js';
@@ -17,19 +18,20 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 const SAVE_KEY = 'snow.v1';
 const TEST_MODE = (q.has('t') || q.has('speed')) && !q.has('persist');     // 시각을 바꿔 보는 시험 중에는 기기에 저장하지 않는다
 
-const WALK_SPEED = 1.05;          // 걷는 빠르기 (단위/초) — 1초에 두 걸음쯤. 들판을 가로지르는 데 3분 반
+// 걷는 빠르기 (단위/초) — 1초에 두 걸음 반쯤. 들판을 가로지르는 데 3분. 빠르기를 견주어 볼 때는 주소에 ?walk=1.05 처럼 붙인다
+const WALK_SPEED = (() => { const v = Number(q.get('walk')); return v >= 0.6 && v <= 2 ? v : 1.25; })();
 const TURN_RATE = 9;              // 몸을 돌리는 빠르기 (라디안/초)
 const CAM_DIST = 6.6, CAM_DIST_MIN = 3.2, CAM_DIST_MAX = 18, CAM_TARGET_H = 1.05;
-const IDLE_BEFORE_SNOW = 6;       // 가만히 선 지 이만큼 지나면 눈이 쌓이기 시작한다 (초)
-const SNOW_FILL_SEC = 50;         // 머리와 어깨에 다 쌓이는 데 걸리는 시간 (폭설 때는 더 빠르다)
-const SNOWMAN_SEC = 80;           // 그 뒤로 온몸이 덮여 눈사람이 되기까지 (snow: 0..1 머리·어깨, 1..2 온몸)
+const IDLE_BEFORE_SNOW = 4;       // 가만히 선 지 이만큼 지나면 눈이 쌓이기 시작한다 (초)
+const SNOW_FILL_SEC = 12;         // 머리와 어깨에 다 쌓이는 데 걸리는 시간 (폭설 때는 더 빠르다)
+const SNOWMAN_WAIT = 10;          // 다 쌓인 채로 이만큼 더 서 있으면 눈사람이 되기 시작한다
+const POP_SEC = 0.7;              // "뿅" 하고 눈사람으로 바뀌는 데 걸리는 시간 (움츠렸다가 튀어나와 통통 자리 잡기까지)
 
 // ---------- 화면 ----------
 const canvas = $('#view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarse ? 1.75 : 2));
 renderer.shadowMap.enabled = true;
-renderer.localClippingEnabled = true;       // 눈사람이 될 때 "눈이 쌓인 높이" 위쪽만 그리는 데 쓴다 (penguin.js)
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -39,6 +41,7 @@ const clock = createClock();
 const sky = createSky(scene, { shadowSize: coarse ? 1024 : 2048 });
 const field = createField(scene);
 const tracks = createTracks(scene);
+const crumble = createCrumble(scene);
 const weather = createWeather(scene, { count: coarse ? 8000 : 14000 });
 const audio = createAudio();
 const controls = createControls($('#touch'), { stick: $('#stick'), knob: $('#knob') });
@@ -66,7 +69,8 @@ const me = {
   x: 0, z: 15, yaw: Math.PI,              // 나무(가운데)를 바라보고 선다
   camYaw: Math.PI, camPitch: 0.27, camDist: CAM_DIST * (window.innerWidth < window.innerHeight ? 1.08 : 1),
   phase: 0, walk: 0, dist: 0, side: 1,
-  idle: 0, snow: 0,
+  idle: 0,
+  snow: 0, full: 0, pop: 0,               // 쌓인 눈: 머리·어깨(0..1) → 다 쌓인 채 서 있은 시간(초) → 눈사람이 되는 효과(0..1, 1 이면 눈사람)
   angel: null,                            // 눈 천사를 만드는 중이면 { t, item, beats }
   edgeAt: -Infinity,
 };
@@ -103,13 +107,21 @@ function toast(text, ms = 2600) {
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
+// ---------- 쌓인 눈 ----------
+/** 쌓인 눈을 턴다 (걸음을 떼거나 눈 천사를 하려고 누울 때). 눈사람이었다면 눈덩이가 부서져 흩어진다 */
+function shakeOff(quiet = false) {
+  if (me.pop >= POP_SWAP) { crumble.burst(me.x, me.z); if (!quiet) audio.fx('rustle', 0.5); }
+  else if (me.snow > 0.35 && !quiet) audio.fx('rustle', 0.3);
+  me.full = 0; me.pop = 0;
+}
+
 // ---------- 눈 천사 ----------
 const ANGEL = { down: 0.6, flap: 7.5, up: 0.8, sweeps: 5, canLeaveAfter: 2 };   // 눕기, 휘젓기, 일어나기 (초). 휘젓는 횟수. 이만큼 지나면 걸으려 할 때 일찍 일어난다
 function startAngel() {
   if (!started || me.angel) return;
   me.angel = { t: 0, item: null, beats: 0, fell: false };
   me.walk = 0;
-  me.snow = 0;                                           // 쌓인 눈은 누우면서 털린다
+  shakeOff(true); me.snow = 0;                           // 쌓인 눈은 누우면서 털린다
   $('#angel').classList.add('busy');
 }
 function stepAngel(dt, now) {
@@ -154,6 +166,7 @@ let started = false;
 let seconds = 0;                 // 흐른 시간 (눈송이의 움직임용)
 let hudAt = 0, saveAt = 0, frame = 0;
 let angelLift = 0;               // 0(평소)..1(눈 천사를 내려다보는 중)
+let manual = false;              // 자동 점검용: 켜면 화면은 그리되 시간은 sim() 으로만 흐른다
 
 function walk(dt, now) {
   const mv = controls.read();
@@ -164,7 +177,7 @@ function walk(dt, now) {
   me.camPitch = THREE.MathUtils.clamp(me.camPitch + lk.dy * 0.0035, 0.08, 0.75);
   me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, CAM_DIST_MAX);
 
-  if (me.angel) { stepAngel(dt, now); return; }
+  if (me.angel) { stepAngel(dt, now); setSnow(penguin, me.snow, me.pop); return; }      // 누울 때 털린 눈이 모습에도 바로 드러나게
 
   if (mag > 0.02) {
     // 카메라가 보는 방향 기준으로 걷는다 (앞 = 화면 안쪽)
@@ -191,21 +204,31 @@ function walk(dt, now) {
       const px = me.x + me.side * STANCE * Math.cos(me.yaw), pz = me.z - me.side * STANCE * Math.sin(me.yaw);
       const packed = tracks.isPacked(px, pz, now);
       tracks.addPrint(px, pz, me.yaw, me.side, now);
-      audio.step(packed);
+      // 한 걸음 소리의 길이는 걸음 사이의 두 배쯤: 빨리 걸으면 짧게 끊어 뭉개지지 않게 하고, 천천히 걸으면 다 들려준다
+      audio.step(packed, Math.min(0.95, Math.max(0.6, 1.92 * STEP / speed)));
     }
     // 쌓인 눈은 걷기 시작하면 털린다
     if (me.snow > 0) {
-      if (me.snow > 0.35 && me.idle > 0) audio.fx('rustle', me.snow > 1.2 ? 0.5 : 0.3);
+      if (me.idle > 0) shakeOff();
       me.snow = Math.max(0, me.snow - dt * 2.4);
     }
     me.idle = 0;
   } else {
     me.walk = Math.max(0, me.walk - dt * 5);
     me.idle += dt;
-    if (me.idle > IDLE_BEFORE_SNOW) me.snow = Math.min(2, me.snow + dt / (me.snow < 1 ? SNOW_FILL_SEC : SNOWMAN_SEC) * (1 + 3 * Math.max(0, snowfallAt(now) - 0.35)));
+    if (me.idle > IDLE_BEFORE_SNOW) {
+      // 머리와 어깨에 쌓이고 → 다 쌓인 채 잠시 더 서 있으면 → 뿅 하고 눈사람이 된다
+      if (me.snow < 1) me.snow = Math.min(1, me.snow + dt / SNOW_FILL_SEC * (1 + 3 * Math.max(0, snowfallAt(now) - 0.35)));
+      else if (me.full < SNOWMAN_WAIT) me.full += dt;
+      else if (me.pop < 1) {
+        const before = me.pop;
+        me.pop = Math.min(1, me.pop + dt / POP_SEC);
+        if (before < POP_SWAP && me.pop >= POP_SWAP) crumble.puff(me.x, me.z);      // 바뀌는 순간 눈가루가 폭 퍼진다
+      }
+    }
   }
   pose(penguin, me.phase, me.walk);
-  setSnow(penguin, me.snow);
+  setSnow(penguin, me.snow, me.pop);
 }
 
 function placeCamera(dt) {
@@ -235,6 +258,7 @@ function resize() {
 }
 
 let lastFrame = performance.now();
+let raf = 0;                     // 다음 프레임 예약 (언제나 하나만 걸려 있어야 한다)
 function tick(t) {
   const dt = Math.min(0.05, Math.max(0, (t - lastFrame) / 1000));
   lastFrame = t;
@@ -243,7 +267,8 @@ function tick(t) {
   const now = clock.now();
   const snowfall = snowfallAt(now);
 
-  if (started) walk(dt, now); else { pose(penguin, 0, 0); setSnow(penguin, 0); }
+  if (!started) { pose(penguin, 0, 0); setSnow(penguin, 0, 0); }
+  else if (!manual) { walk(dt, now); crumble.update(dt); }
   placeCamera(started ? dt : 0);
   focus.set(me.x, 0, me.z);
   const palette = sky.update(now, focus, snowfall);
@@ -265,7 +290,7 @@ function tick(t) {
   }
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
-  if (!document.hidden) requestAnimationFrame(tick);
+  raf = document.hidden ? 0 : requestAnimationFrame(tick);
 }
 
 // ---------- 시작 ----------
@@ -290,14 +315,15 @@ $('#mute').addEventListener('click', () => {
 
 document.addEventListener('visibilitychange', () => {
   audio.setActive(!document.hidden);
-  if (document.hidden) save(); else { lastFrame = performance.now(); requestAnimationFrame(tick); }
+  // 가려진 동안에도 마지막 예약은 남아 있으므로, 돌아올 때 그것을 지우고 새로 건다 (안 그러면 돌아올 때마다 고리가 하나씩 늘어난다)
+  if (document.hidden) save(); else { lastFrame = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); }
 });
 window.addEventListener('pagehide', save);
-requestAnimationFrame(tick);
+raf = requestAnimationFrame(tick);
 
 // 개발자 도구와 자동 점검용
 window.__snow = {
-  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin,
+  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble,
   get started() { return started; },
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },
@@ -305,6 +331,8 @@ window.__snow = {
   angel: startAngel,
   teleport(x, z) { const c = field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */
-  sim(sec) { for (let i = 0, n = Math.round(sec * 60); i < n; i++) walk(1 / 60, clock.now()); },
+  sim(sec) { for (let i = 0, n = Math.round(sec * 60); i < n; i++) { walk(1 / 60, clock.now()); crumble.update(1 / 60); } },
+  /** 켜 두면 실제 프레임으로는 시간이 흐르지 않고 sim() 으로만 흐른다 (점검에서 한 순간을 정확히 붙잡을 때) */
+  get manual() { return manual; }, set manual(on) { manual = !!on; },
   ready: true,
 };
