@@ -1,9 +1,11 @@
 // 조작. 모바일 3D 게임처럼:
 //   · 화면 왼쪽을 누른 채 끌면 그 자리에 조이스틱이 생겨 걷는다
 //   · 화면의 나머지를 끌면 둘러본다 (카메라 돌리기), 두 손가락을 벌리거나 오므리면 가까이·멀리
+//     (두 손가락을 거의 동시에 가까이 대면, 한 손가락이 왼쪽에 닿았더라도 조이스틱이 아니라 줌으로 본다)
 //   · PC: 방향키/WASD 로 걷고, 마우스로 끌어 둘러보고, 휠로 가까이·멀리, 스페이스로 눈 천사
 const STICK_RADIUS = 56;      // 조이스틱을 끝까지 민 거리(px)
 const DEADZONE = 0.14;
+const PINCH_WITHIN_MS = 140;  // 두 손가락이 이 시간 안에 잇달아 닿으면 "함께 댄 것"으로 본다
 const THREE_CLAMP = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /**
@@ -12,7 +14,7 @@ const THREE_CLAMP = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
  */
 export function createControls(surface, ui) {
   const move = { x: 0, y: 0 };          // x: 오른쪽 +, y: 앞(화면 위쪽) +. 크기 0..1
-  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+  const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0, px: 0, py: 0, at: 0 };      // px, py: 손가락의 지금 자리, at: 닿은 시각
   const look = { dx: 0, dy: 0, at: -Infinity };
   const fingers = new Map();            // 둘러보는 손가락들: id → { x, y } (하나면 돌리기, 둘이면 줌)
   let pinch = 0;                        // 두 손가락 사이의 거리 (직전 값)
@@ -34,9 +36,16 @@ export function createControls(surface, ui) {
     const touch = e.pointerType !== 'mouse';
     // 손가락: 화면 왼쪽 절반(위쪽 띠 제외)은 조이스틱, 나머지는 둘러보기. 마우스는 언제나 둘러보기.
     if (touch && stick.id === null && e.clientX < w * 0.5 && e.clientY > h * 0.18) {
-      stick.id = e.pointerId; stick.ox = e.clientX; stick.oy = e.clientY; stick.x = 0; stick.y = 0;
+      stick.id = e.pointerId; stick.ox = stick.px = e.clientX; stick.oy = stick.py = e.clientY; stick.x = 0; stick.y = 0; stick.at = performance.now();
       showStick(true);
     } else if (fingers.size < 2) {
+      // 방금 조이스틱으로 잡힌 손가락 곁에 다른 손가락이 곧바로 닿았다면 두 손가락 줌이다: 조이스틱을 풀고 둘 다 줌 손가락으로 삼는다.
+      // (양손 엄지로 걷고 둘러볼 때는 두 손가락이 멀리 떨어져 있거나, 먼저 닿은 엄지가 이미 움직이고 있다)
+      if (touch && stick.id !== null && fingers.size === 0 && performance.now() - stick.at < PINCH_WITHIN_MS
+        && Math.hypot(stick.px - stick.ox, stick.py - stick.oy) < 12 && Math.hypot(e.clientX - stick.px, e.clientY - stick.py) < 0.5 * Math.min(w, h)) {
+        fingers.set(stick.id, { x: stick.px, y: stick.py });
+        stick.id = null; stick.x = 0; stick.y = 0; showStick(false);
+      }
       fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (fingers.size === 2) pinch = spread();
     } else return;
@@ -46,6 +55,7 @@ export function createControls(surface, ui) {
 
   function onMove(e) {
     if (e.pointerId === stick.id) {
+      stick.px = e.clientX; stick.py = e.clientY;
       let dx = (e.clientX - stick.ox) / STICK_RADIUS, dy = (stick.oy - e.clientY) / STICK_RADIUS;
       const len = Math.hypot(dx, dy);
       if (len > 1) { dx /= len; dy /= len; }
@@ -79,7 +89,7 @@ export function createControls(surface, ui) {
   function onKeyDown(e) {
     if (!enabled || e.metaKey || e.ctrlKey || e.altKey) return;
     if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
-    if (e.code === 'Space' && !e.repeat) { actions.forEach((fn) => fn()); e.preventDefault(); }
+    if (e.code === 'Space' && !e.repeat && !(e.target instanceof HTMLButtonElement)) { actions.forEach((fn) => fn()); e.preventDefault(); }      // 버튼에 초점이 있을 때의 스페이스는 그 버튼의 몫
   }
   function onKeyUp(e) { if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]); }
   function release() { keys.clear(); stick.id = null; stick.x = 0; stick.y = 0; fingers.clear(); showStick(false); }
@@ -117,6 +127,8 @@ export function createControls(surface, ui) {
     /** 방금까지 직접 둘러보고 있었는가 (그동안은 카메라가 저절로 돌지 않는다) */
     /** 지난번 이후의 줌 배율을 가져가고 비운다 (1보다 크면 멀리, 작으면 가까이) */
     takeZoom() { const z = zoom; zoom = 1; return z; },
+    /** 버튼으로 가까이·멀리: 배율을 보탠다 (1보다 작으면 가까이) */
+    zoomBy(factor) { zoom *= factor; },
     get looking() { return fingers.size > 0 || performance.now() - look.at < 1200; },
     get usingStick() { return stick.id !== null; },
     onAction(fn) { actions.push(fn); },

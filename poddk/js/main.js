@@ -1,16 +1,19 @@
 // 뽀드득 (poddk) — Walking in a Winter Wonderland: 눈밭을 걷는 작은 공간. (1단계 — 혼자 걷는 버전)
 // 직접 걸어야 뽀드득 소리가 나고, 지나간 자리에 발자국이 남는다. 실제 시각에 따라 하늘과 그림자가 바뀌고,
-// 자정이 되면 폭설이 모든 발자국을 지운다.
+// 세 시간마다 폭설이 모든 발자국을 지운다.
 import * as THREE from 'three';
 import { createClock, snowfallAt, stormPhase, clockText, stormText } from './clock.js';
 import { createSky } from './sky.js';
 import { createField, FIELD_RADIUS } from './field.js';
 import { build as buildPenguin, pose, setSnow, lie, randomLook, COLORS, STEP, STANCE, POP_SWAP } from './penguin.js';
 import { createCrumble } from './crumble.js';
+import { createFox } from './fox.js';
+import { createSanta } from './santa.js';
 import { createTracks } from './tracks.js';
 import { createWeather } from './weather.js';
 import { createControls } from './controls.js';
 import { createAudio } from './audio.js';
+import { createCapture } from './capture.js';
 
 const $ = (sel) => document.querySelector(sel);
 const q = new URLSearchParams(location.search);
@@ -42,6 +45,9 @@ const sky = createSky(scene, { shadowSize: coarse ? 1024 : 2048 });
 const field = createField(scene);
 const tracks = createTracks(scene);
 const crumble = createCrumble(scene);
+const fox = createFox(scene, tracks);
+const santa = createSanta(scene);
+if (q.has('santa')) santa.force(clock.now() + 4000);       // 구경용: 주소에 ?santa 를 붙이면 들어오고 4초 뒤에 나무 쪽 하늘로 지나간다
 const weather = createWeather(scene, { count: coarse ? 8000 : 14000 });
 const audio = createAudio();
 const controls = createControls($('#touch'), { stick: $('#stick'), knob: $('#knob') });
@@ -276,6 +282,8 @@ function tick(t) {
   // 해가 지평선 가까이 내려오면 나무의 전구에 불이 들어온다
   const night = THREE.MathUtils.clamp((3 - palette.elev) / 9, 0, 1);
   field.tree.update(seconds, night, renderer.domElement.height, camera);
+  fox.update(now, dt, me);
+  santa.update(now, camera, palette.elev);
   if (frame % 2 === 0) tracks.update(now);
   audio.setWeather(snowfall);
   if (frame % 6 === 0) audio.setTreeDistance(Math.hypot(me.x, me.z));
@@ -287,6 +295,8 @@ function tick(t) {
     const carol = audio.carolTitle;
     $('#carol').textContent = carol ? '♪ ' + carol : '';
     document.body.dataset.storm = stormPhase(now);
+    $('#zoom-in').disabled = me.camDist <= CAM_DIST_MIN + 0.01;
+    $('#zoom-out').disabled = me.camDist >= CAM_DIST_MAX - 0.01;
   }
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
@@ -302,6 +312,7 @@ camera.position.copy(camGoal);
 $('#enter').addEventListener('click', () => {
   if (started) return;
   started = true;
+  $('#enter').blur();                 // 누른 버튼에 초점이 남아 있으면 스페이스(눈 천사)가 이 버튼의 몫이 된다
   audio.start();
   controls.setEnabled(true);
   document.body.classList.add('in');
@@ -310,8 +321,48 @@ $('#enter').addEventListener('click', () => {
 $('#mute').addEventListener('click', () => {
   audio.setMuted(!audio.muted);
   $('#mute').setAttribute('aria-pressed', String(audio.muted));
-  $('#mute').textContent = audio.muted ? '소리 꺼짐' : '소리 켜짐';
+  $('#mute').setAttribute('aria-label', audio.muted ? '소리 켜기' : '소리 끄기');
 });
+
+// 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
+for (const el of document.querySelectorAll('#mute, #shot, #angel, #zoom button')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+
+// 가까이·멀리 버튼: 한 번 누르면 한 칸, 누르고 있으면 계속 움직인다
+function zoomButton(el, step, creep) {
+  let wait = 0, hold = 0;
+  const stop = () => { clearTimeout(wait); clearInterval(hold); wait = hold = 0; };
+  el.addEventListener('pointerdown', (e) => {
+    if (!started || el.disabled) return;
+    e.preventDefault();
+    stop();
+    controls.zoomBy(step);
+    wait = setTimeout(() => { hold = setInterval(() => { if (el.disabled) stop(); else controls.zoomBy(creep); }, 40); }, 320);
+  });
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(type, stop);
+  window.addEventListener('blur', stop);
+  el.addEventListener('keydown', (e) => { if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat && started) { e.preventDefault(); e.stopPropagation(); controls.zoomBy(step); } });
+}
+zoomButton($('#zoom-in'), 0.8, 0.955);
+zoomButton($('#zoom-out'), 1.25, 1.047);
+
+// 캡쳐 버튼: 버튼과 글자를 뺀 눈밭만 사진으로 남긴다
+const shoot = createCapture({ canvas, draw: () => renderer.render(scene, camera), touch: coarse });
+let lastShot = null;
+async function takePhoto() {
+  if (!started) return null;
+  const flash = $('#flash');
+  flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
+  $('#shot').classList.add('busy');
+  try {
+    lastShot = await shoot();
+    if (lastShot && lastShot.how === 'download') toast('사진을 저장했어요');
+  } catch (e) {
+    console.warn('[capture]', e && e.message);
+    toast('사진을 저장하지 못했어요');
+  } finally { $('#shot').classList.remove('busy'); }
+  return lastShot;
+}
+$('#shot').addEventListener('click', takePhoto);
 
 document.addEventListener('visibilitychange', () => {
   audio.setActive(!document.hidden);
@@ -323,12 +374,13 @@ raf = requestAnimationFrame(tick);
 
 // 개발자 도구와 자동 점검용
 window.__snow = {
-  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble,
+  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble, fox, santa,
   get started() { return started; },
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },
   get treeLight() { return field.tree.lamp.intensity; },
   angel: startAngel,
+  photo: takePhoto, get lastShot() { return lastShot; },
   teleport(x, z) { const c = field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */
   sim(sec) { for (let i = 0, n = Math.round(sec * 60); i < n; i++) { walk(1 / 60, clock.now()); crumble.update(1 / 60); } },

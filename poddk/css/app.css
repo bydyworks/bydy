@@ -33,27 +33,45 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 #carol { font-size: 12px; font-weight: 700; color: #b0533c; }       /* 트리 가까이에서 들리는 캐롤의 제목 */
 #carol:empty { display: none; }
 
-#mute {
-  position: fixed; right: calc(12px + var(--safe-r)); top: calc(10px + var(--safe-t)); height: 36px; padding: 0 13px; border-radius: 18px; background: var(--paper);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font-size: 12px; font-weight: 700; opacity: 0; transition: opacity .6s;
-}
-#mute[aria-pressed="true"] { opacity: 0.6; }
+/* 버튼: 글자 없이 그림만. 오른쪽 위에 소리, 오른쪽 아래에 한 줄로 확대·축소 → 캡쳐 → 눈 천사 (모두 같은 너비) */
+:root { --btn: 54px; --gap: 12px; --col-r: calc(18px + var(--safe-r)); --col-b: calc(26px + var(--safe-b)); }
+.ui { position: fixed; opacity: 0; transition: opacity .6s, transform .12s; touch-action: manipulation; }
+.ui, .ui button { -webkit-touch-callout: none; }
+.icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.icon .solid { fill: currentColor; stroke: none; }
+#mute, #shot, #angel, #zoom { background: var(--paper); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#shot, #angel, #zoom { right: var(--col-r); width: var(--btn); border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2); }
+#mute, #shot, #angel, #zoom button { display: flex; align-items: center; justify-content: center; padding: 0; }
 
-/* 오른쪽 아래: 눈 천사 */
-#angel {
-  position: fixed; right: calc(18px + var(--safe-r)); bottom: calc(26px + var(--safe-b)); width: 84px; height: 84px; border-radius: 50%; background: var(--paper);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 13px; font-weight: 800; opacity: 0; transition: opacity .6s, transform .12s;
-}
-#angel .angel-icon { width: 40px; height: 35px; fill: #8793cc; }      /* 눈 위의 자국과 같은 푸른 그늘 색 */
-#angel:active { transform: scale(0.93); }
+#mute { right: calc(12px + var(--safe-r)); top: calc(10px + var(--safe-t)); width: 40px; height: 40px; border-radius: 50%; }
+#mute .icon { width: 22px; height: 22px; }
+#mute .off, #mute[aria-pressed="true"] .on { display: none; }
+#mute[aria-pressed="true"] .off { display: block; }
+#mute[aria-pressed="true"] { color: rgba(42, 49, 88, 0.6); }
+
+#angel { bottom: var(--col-b); height: var(--btn); border-radius: 50%; }
+#angel .angel-icon { width: 34px; height: 30px; fill: #8793cc; }      /* 눈 위의 자국과 같은 푸른 그늘 색 */
 #angel.busy { opacity: 0.45 !important; pointer-events: none; }
+#shot { bottom: calc(var(--col-b) + var(--btn) + var(--gap)); height: var(--btn); border-radius: 50%; }
+#shot.busy { pointer-events: none; }
+#zoom { bottom: calc(var(--col-b) + 2 * (var(--btn) + var(--gap))); height: calc(var(--btn) * 2 - 8px); border-radius: calc(var(--btn) / 2); display: flex; flex-direction: column; overflow: hidden; }
+#zoom button { flex: 1; background: none; }
+#zoom button + button { border-top: 1.5px solid rgba(42, 49, 88, 0.14); }
+#zoom button:disabled { color: rgba(42, 49, 88, 0.28); }
+#mute:active, #shot:active, #angel:active { transform: scale(0.93); }
+#zoom button:active:not(:disabled) { background: rgba(42, 49, 88, 0.08); }
 
-body.in #hud, body.in #mute, body.in #angel { opacity: 1; }
-body:not(.in) #mute, body:not(.in) #angel { pointer-events: none; }
+body.in #hud, body.in .ui { opacity: 1; }
+body:not(.in) .ui { pointer-events: none; }
 
+/* 사진을 찍는 순간: 화면이 아주 살짝 밝아졌다 돌아온다 */
+#flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+#flash.go { animation: flash .32s ease-out; }
+@keyframes flash { 0% { opacity: 0; } 18% { opacity: 0.3; } 100% { opacity: 0; } }
+
+/* 안내 글: 위쪽 가운데 (아래쪽은 버튼과 조이스틱의 자리) */
 #toast {
-  position: fixed; left: 50%; bottom: calc(132px + var(--safe-b)); transform: translate(-50%, 8px); max-width: min(86vw, 420px); padding: 10px 16px; border-radius: 16px;
+  position: fixed; left: 50%; top: calc(96px + var(--safe-t)); transform: translate(-50%, -8px); max-width: min(86vw, 420px); padding: 10px 16px; border-radius: 16px;
   background: rgba(42, 49, 88, 0.82); color: #fff; font-size: 14px; font-weight: 600; text-align: center; word-break: keep-all; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -72,9 +90,9 @@ body.in #start { opacity: 0; pointer-events: none; }
 
 /* 낮은 화면(휴대폰 가로): 버튼을 조금 작게 */
 @media (max-height: 430px) {
-  #angel { width: 70px; height: 70px; bottom: calc(14px + var(--safe-b)); font-size: 12px; }
-  #angel .angel-icon { width: 33px; height: 29px; }
-  #toast { bottom: calc(96px + var(--safe-b)); }
+  :root { --btn: 46px; --gap: 8px; --col-b: calc(12px + var(--safe-b)); }
+  #angel .angel-icon { width: 29px; height: 26px; }
+  #toast { top: calc(60px + var(--safe-t)); }
   .start-card { padding: 16px 20px 14px; }
   .start-card h1 { font-size: 26px; margin-bottom: 0; }
   .start-card .sub { margin-bottom: 6px; font-size: 12px; }
