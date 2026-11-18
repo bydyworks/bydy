@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>눈길</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="description" content="눈밭을 걷는 작은 공간. 지나간 자리에 발자국이 남고, 자정이 되면 폭설이 모두 지워요.">
+<meta name="theme-color" content="#dfe6f5">
+<link rel="stylesheet" href="css/app.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="view" aria-label="눈밭"></canvas>
+<div id="touch"></div>
+
+<div id="stick" aria-hidden="true"><div id="knob"></div></div>
+
+<div id="hud">
+  <div id="clock">&nbsp;</div>
+  <div id="storm">&nbsp;</div>
+</div>
+<button id="mute" type="button" aria-pressed="false">소리 켜짐</button>
+<button id="angel" type="button" aria-label="눈 천사 만들기"><span class="angel-icon" aria-hidden="true">❄</span><span>눈 천사</span></button>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div id="start">
+  <div class="start-card">
+    <h1>눈길</h1>
+    <p>걸으면 발자국이 남아요.<br>자정이 되면 폭설이 모두 지워요.</p>
+    <button id="enter" type="button">걸어 들어가기</button>
+    <p class="hint">소리를 켜고 걸어 보세요</p>
+  </div>
+</div>
+
+<noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
