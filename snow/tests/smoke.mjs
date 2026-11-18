@@ -181,14 +181,15 @@ try {
     await walk(p, 0, 0, 40);
     let s = await state(p);
     assert(s.snow > 0.5 && s.snow <= 1, '40초 뒤 쌓인 양: ' + s.snow.toFixed(2));
-    const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, opacity: u.shellMat.opacity, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z }; });
+    const look = () => snow(p, () => { const u = window.__snow.penguin.userData; return { shell: u.shell.visible, opacity: u.shellMat.opacity, eyeZ: u.eyes[0].position.z, beakZ: u.beak.position.z, hat: u.cap.visible }; });
     const before = await look();
-    assert(!before.shell, '아직 눈사람이 아니어야 한다');
+    assert(!before.shell && before.hat, '아직 눈사람이 아니고, 머리에 눈 모자가 있어야 한다');
     await walk(p, 0, 0, 110);
     s = await state(p);
     assert(s.snow > 1.95, '2분 반 서 있으면 눈사람: ' + s.snow.toFixed(2));
     const after = await look();
     assert(after.shell && after.opacity > 0.95, '온몸이 눈에 덮이지 않았다: ' + JSON.stringify(after));
+    assert(!after.hat, '눈사람이 완성됐는데 눈 모자가 남아 있다');
     assert(after.eyeZ > before.eyeZ + 0.03 && after.beakZ > before.beakZ + 0.02, '눈과 부리가 눈 밖으로 나오지 않았다: ' + JSON.stringify(after));
     await walk(p, 0, 1, 1.5);
     assert((await state(p)).snow === 0, '걸어도 눈이 안 털렸다');

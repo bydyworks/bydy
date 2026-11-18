@@ -159,8 +159,9 @@ export function pose(root, t, amount = 1) {
 export function setSnow(root, a) {
   const u = root.userData, hat = Math.min(1, a), k = Math.min(1, Math.max(0, a - 1)), on = a > 0.02;
   const e = k * k * (3 - 2 * k);                                 // 부드럽게 덮인다
-  u.cap.visible = on;
-  u.cap.scale.set(1 + e * 0.22, 0.25 + hat * 0.75, 1 + e * 0.22);
+  // 머리 위의 눈 모자는 온몸이 덮여 가면서 납작해지다가, 눈사람이 완성되면 사라진다 (둥근 눈사람 머리만 남는다)
+  u.cap.visible = on && e < 0.97;
+  u.cap.scale.set(1 + e * 0.22, (0.25 + hat * 0.75) * (1 - e * 0.96), 1 + e * 0.22);
   u.cap.position.y = u.capY + e * 0.03;
   u.shoulders.forEach((m) => { m.visible = on && a > 0.3 && k < 0.6; m.scale.set(1, 0.3 + hat * 0.6, 1); });
   u.shell.visible = k > 0.01;
