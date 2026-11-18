@@ -539,6 +539,223 @@ await group('움직임 줄이기', async () => {
 });
 
 // ------------------------------------------------------------------
+// 고친 것을 다시 점검하다 나온 결함들. 모두 "건너뛴 뒤 다시 재생되기까지 걸린 시간을 재서, 다음에는 그만큼 앞을 겨냥한다"에서 나왔다.
+// 회선이 끊겨 있던 시간, 화면을 눌러 주기까지의 시간, 쉬는 시간 뒤에 다시 출발하는 시간을 한데 섞어 배우면
+// 다음번에 엉뚱하게 앞을 겨냥해서, 그 관객만 남들보다 몇 초 앞선 장면을 보다가 도로 끌려 내려온다.
+await group('다시 점검에서 나온 것', async () => {
+  /** 페이지 안에서 돈다: 50ms 마다 플레이어가 방의 상영 위치보다 얼마나 앞서(+) / 뒤처져(-) 있는지 적는다 */
+  const sampler = () => {
+    window.__smp = [];
+    setInterval(() => {
+      const r = window.__dsy && window.__dsy.room;
+      const p = (window.__ytPlayers || []).filter((x) => !x.destroyed).pop();
+      if (!r || !p) return;
+      window.__smp.push({ at: performance.now(), st: p.state, rate: p.rate, rest: r.ctl.pause != null, drift: p.getCurrentTime() - (r.now() - r.ctl.at) / 1000 });
+    }, 50);
+  };
+  // 여기 점검들은 시간에 민감하다. 끝난 점검의 페이지가 뒤에서 계속 돌지 않게 점검마다 치운다.
+  const check = (name, fn) => rep.check(name, async () => { try { await fn(); } finally { await cleanup(); } });
+  const clock = (page) => page.evaluate(() => performance.now());
+  /** from(페이지의 performance.now) 뒤로 "재생 중"이던 표본들. 쉬는 시간 중의 것은 뺀다 (그동안은 방의 위치가 흐르지 않는다). */
+  const playingSince = (page, from) => page.evaluate((from) => window.__smp.filter((s) => s.at >= from && s.st === 1 && !s.rest), from);
+  /** 표본들 가운데 방보다 가장 앞서 있던 만큼(초) */
+  const mostAhead = (smp) => Math.max(...smp.map((s) => s.drift));
+  const seeksIn = (log) => log.filter((e) => e[1] === 'seekTo');
+  const speedups = (log) => log.filter((e) => e[1] === 'rate' && e[2] !== 1);
+  const settled = async (page) => { const p = await look(page); return p.state === 1 && p.rate === 1 && Math.abs(p.drift) < 0.6; };
+  const inSync = (page, what, timeout = 30000) => until(() => settled(page), { timeout, what });
+  /** 플레이어가 걸리고 방과 맞을 때까지 기다린다 (자동으로 소리를 켜 보는 일까지 끝나도록 조금 더) */
+  async function ready(page) {
+    await page.waitForSelector('.mock-yt', { timeout: 15000 });
+    await inSync(page, 'first sync', 20000);
+    await sleep(1500);
+  }
+  /** 영사기사가 만든 약속에 관객으로 들어간다 */
+  async function join(page, code) {
+    await enter(page, base, code);
+    await toHall(page);
+    await ready(page);
+  }
+  /**
+   * 화면이 가려지거나(다른 앱·다른 탭) 다시 보인다. video 를 주면 그 순간 브라우저가 영상에 하는 일까지 흉내 낸다:
+   * 'pause' = 가려진 페이지의 영상을 멈춘다, 'play' = 돌아온 페이지의 멈춰 있던 영상을 다시 돌린다.
+   * @returns {Promise<number>} 그때의 performance.now()
+   */
+  const setHidden = (page, hidden, video = '') => page.evaluate(([hidden, video]) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
+    const p = window.__ytPlayers.filter((x) => !x.destroyed).pop();
+    if (video === 'pause') p.pauseVideo();
+    if (video === 'play') p.playVideo();
+    document.dispatchEvent(new Event('visibilitychange'));
+    return performance.now();
+  }, [hidden, video]);
+  /**
+   * 영사기사가 쉬는 시간을 주고, 조금 쉰 뒤 [다시 상영]을 누른다. whileResting 은 쉬는 동안 관객 쪽에서 일어나는 일.
+   * @returns {Promise<{ mark: number, at: number }>} mark = [다시 상영] 직전까지의 유튜브 기록 길이, at = 관객에게 다시 상영이 닿은 때(performance.now)
+   */
+  async function intermission(host, viewer, whileResting) {
+    await booth(host, '쉬는 시간');
+    await until(async () => (await look(viewer)).state === 2, { timeout: 8000, what: 'viewer paused for the intermission' });
+    await sleep(1500);
+    if (whileResting) await whileResting();
+    const [mark, from] = [(await ytLog(viewer)).length, await clock(viewer)];
+    await booth(host, '다시 상영');
+    const at = await until(() => viewer.evaluate((from) => (window.__smp.find((s) => s.at >= from && !s.rest) || {}).at, from), { timeout: 8000, what: 'the resume to reach the viewer' });
+    return { mark, at };
+  }
+
+  await check('회선이 20초 끊겼다 돌아와도 그 시간을 "건너뛰는 데 걸리는 시간"으로 배우지 않는다 — 방보다 앞선 장면을 틀지 않는다', async () => {
+    const a = await person('끊기는 관객', { init: sampler, ytMock: { duration: 900 } });
+    await open(a, { inMs: -60000, dur: 900 });
+    await ready(a);
+    // 아무것도 건드리지 않았는데 영화 중간에 20초 동안 버퍼링한다. 엔진은 12초쯤에 한 번 건너뛰어 보고(불러오는 중이라 소용없다), 돌아오면 다시 맞춘다.
+    const mark = (await ytLog(a)).length;
+    const from = await a.evaluate(() => {
+      const p = window.__ytPlayers.filter((x) => !x.destroyed).pop();
+      Object.assign(window.__ytMock, { stallAt: p.getCurrentTime() + 0.2, stallMs: 20000 });
+      return performance.now();
+    });
+    await until(async () => (await look(a)).state === 3, { timeout: 5000, every: 50, what: 'the stall to begin' });
+    await until(async () => (await look(a)).state === 1, { timeout: 30000, what: 'playback to come back' });
+    // 예전에는 끊겨 있던 7초를 "건너뛰면 그만큼 걸린다"로 배워서, 돌아오자마자 3초 앞으로 건너뛰고 3.5초 뒤에 도로 끌어내렸다 (건너뛰기 세 번)
+    await sleep(5500);
+    await inSync(a, 're-sync after the stall', 15000);
+    const [smp, log] = [await playingSince(a, from), (await ytLog(a)).slice(mark)];
+    const began = log.find((e) => e[1] === 'state' && e[2] === 3);
+    const came = log.find((e) => e[1] === 'state' && e[2] === 1 && e[0] > began[0]);
+    assert(came[0] - began[0] > 19000, `the stall lasted only ${came[0] - began[0]}ms (test setup)`);
+    assert(mostAhead(smp) <= 1.5, `played ${mostAhead(smp).toFixed(2)}s ahead of the room after the stall`);
+    const seeks = seeksIn(log);
+    assert(seeks.length >= 1 && seeks.length <= 2, `seekTo calls for one stall: ${JSON.stringify(seeks)}`);
+  });
+
+  await check('다른 앱에 다녀온 뒤 화면을 눌러 주기까지 걸린 시간도 배우지 않는다 — 나중의 3초 버퍼링 뒤에 앞으로 건너뛰지 않는다', async () => {
+    const a = await person('다녀온 관객', { init: sampler, ytMock: { duration: 900 } });
+    await open(a, { inMs: -60000, dur: 900 });
+    await ready(a);
+    // 다른 앱에 다녀온다: 화면이 가려지면 브라우저가 영상을 멈추고, 돌아와도 플레이어를 직접 누르기 전에는 재생을 받아 주지 않는다
+    await a.evaluate(() => { window.__ytMock.blockPlay = true; });
+    await setHidden(a, true, 'pause');
+    await sleep(3000);
+    const back = await setHidden(a, false);
+    // 엔진이 멈춰 있는 플레이어를 방의 위치로 옮겨 놓고 2.4초 뒤에(다음 건너뛰기 전에) 관객이 플레이어를 누른다. 시간은 페이지 안에서 잰다.
+    // → 누르기 전에 엔진이 건너뛴 횟수
+    const movedBeforeTap = await a.evaluate((back) => new Promise((done, fail) => {
+      const t0 = performance.now();
+      const iv = setInterval(() => {
+        const seek = window.__ytLog.find((e) => e[1] === 'seekTo' && e[0] >= back);
+        if (!seek && performance.now() - t0 < 8000) return;
+        clearInterval(iv);
+        if (!seek) return fail(new Error('the engine never moved the paused player (test setup)'));
+        setTimeout(() => {
+          window.__ytMock.blockPlay = false;
+          document.querySelector('.mock-yt').click();
+          done(window.__ytLog.filter((e) => e[1] === 'seekTo' && e[0] >= back).length);
+        }, Math.max(0, seek[0] + 2400 - performance.now()));
+      }, 20);
+    }), Math.floor(back));
+    // 예전 코드가 틀리게 배우던 것은 "건너뛴 뒤 다음 건너뛰기가 오기 전에 눌렀을 때"다. 느린 기계에서 그 사이에 엔진이 한 번 더 건너뛰었다면 이 실행은 그 점을 증명하지 못한 것.
+    if (movedBeforeTap !== 1) console.log(`        (참고: 관객이 누르기 전에 엔진이 ${movedBeforeTap}번 건너뛰어서, 이번 실행은 예전 결함이 드러나는 상황이 아니었다)`);
+    await inSync(a, 're-sync after the tap');
+    await sleep(1500);
+    // 한참 뒤의 평범한 3초 버퍼링. 예전에는 누르기까지 걸린 2.4초를 배워 둔 탓에 여기서 2.6초 앞으로 건너뛰고, 3.5초 뒤에 도로 끌어내렸다.
+    const mark = (await ytLog(a)).length;
+    const from = await a.evaluate(() => { window.__ytPlayers.filter((x) => !x.destroyed).pop()._buffer(3000); return performance.now(); });
+    await until(async () => (await look(a)).state === 1, { timeout: 15000, what: 'playback after the hiccup' });
+    await sleep(5000);
+    await inSync(a, 're-sync after the hiccup', 15000);
+    const [smp, seeks] = [await playingSince(a, from), seeksIn((await ytLog(a)).slice(mark))];
+    assert(mostAhead(smp) <= 1.5, `played ${mostAhead(smp).toFixed(2)}s ahead of the room after a 3s hiccup`);
+    assert(seeks.length === 1, `seekTo calls for one 3s hiccup: ${JSON.stringify(seeks)}`);
+  });
+
+  await check('건너뛸 때마다 2.2초 버퍼링하는 회선에서도, 쉬는 시간 뒤에는 방과 같은 곳에서 다시 출발한다 (재생 중에 배운 만큼 앞에서가 아니라)', async () => {
+    const host = await person('영사기사', { ytMock: { duration: 600 } });
+    const code = await open(host, { inMs: -60000, dur: 600 });
+    const v = await person('느린 회선 관객', { init: sampler, ytMock: { seekDelay: 2200, duration: 600 } });
+    await join(v, code);
+    // '느린 회선' 점검과 같은 상황: 관객이 20초 되감는다 → 엔진이 한 번 건너뛰고(2.2초 버퍼링), 다음에는 2.4초 앞을 겨냥해야 한다고 배운다
+    const before = (await ytLog(v)).length;
+    await livePlayer(v, (p) => p.seekTo(p.getCurrentTime() - 20));
+    await inSync(v, 'in sync after the rewind');
+    assert(seeksIn((await ytLog(v)).slice(before)).length === 2, 'the engine did not bring the viewer back with one seek (test setup)');
+    await sleep(1000);
+    // 쉬는 시간. 멈춰 둔 곳은 이미 받아 둔 구간이라 다시 트는 데는 시간이 걸리지 않는다.
+    const r = await intermission(host, v);
+    await sleep(6000);        // 예전에는 2.4초 앞에서 출발해 3.5초 뒤 다시 건너뛰고, 또 버퍼링하고, 7초 동안 1.25배속으로 따라잡았다
+    const [smp, log, p] = [await playingSince(v, r.at), (await ytLog(v)).slice(r.mark), await look(v)];
+    const landed = smp.find((s) => Math.abs(s.drift) < 0.6);
+    assert(smp.length > 0 && mostAhead(smp) <= 1.0, `restarted ${smp.length ? mostAhead(smp).toFixed(2) : '?'}s ahead of the room`);
+    assert(landed && landed.at - r.at < 3000, `in step with the room only ${landed ? Math.round(landed.at - r.at) + 'ms' : 'never'} after the resume`);
+    assert(seeksIn(log).length === 1, `seekTo calls after the resume: ${JSON.stringify(seeksIn(log))}`);
+    assert(speedups(log).length === 0, 'needed a speed change after the resume: ' + JSON.stringify(speedups(log)));
+    assert(!log.some((e) => e[1] === 'state' && e[2] === 3), 'buffered again after the resume');
+    assert(p.state === 1 && p.rate === 1 && Math.abs(p.drift) < 0.6, `6s after the resume: state ${p.state}, drift ${p.drift.toFixed(2)}s, x${p.rate}`);
+  });
+
+  await check('멈춘 영상을 다시 트는 것부터 2.2초 걸리는 회선이면, 그 시간은 따로 배워서 두 번째 쉬는 시간 뒤에는 한 번에 맞는다', async () => {
+    const host = await person('영사기사', { ytMock: { duration: 600 } });
+    const code = await open(host, { inMs: -60000, dur: 600 });
+    const v = await person('다시 틀기 느린 관객', { init: sampler, ytMock: { playDelay: 2200, duration: 600 } });
+    await join(v, code);
+    // 첫 번째 쉬는 시간: 아직 모르니 1.9초 뒤처져 출발하고, 한 번은 빠르게 감아 따라잡아도 된다
+    const r1 = await intermission(host, v);
+    await sleep(3000);
+    await inSync(v, 'in sync after the first resume');
+    const firstSeeks = seeksIn((await ytLog(v)).slice(r1.mark));
+    assert(firstSeeks.length === 1, `seekTo calls after the first resume: ${JSON.stringify(firstSeeks)}`);
+    await sleep(1000);
+    // 두 번째: 다시 출발하는 데 2.2초 걸린다는 걸 안다 → 그만큼 앞을 겨냥해 한 번에 맞는다
+    const r2 = await intermission(host, v);
+    await sleep(5000);
+    let [smp, log] = [await playingSince(v, r2.at), (await ytLog(v)).slice(r2.mark)];
+    assert(smp.length > 0, 'not playing 5s after the second resume');
+    const worst = Math.max(...smp.map((s) => Math.abs(s.drift)));
+    assert(worst < 0.6, `second resume landed ${worst.toFixed(2)}s off the room`);
+    assert(seeksIn(log).length === 1 && speedups(log).length === 0, `second resume: ${seeksIn(log).length} seeks, speed changes ${JSON.stringify(speedups(log))}`);
+    // 재생 중의 건너뛰기는 이 회선에서 바로 된다. 다시 출발할 때 배운 2.4초가 여기에 섞이면, 되감은 관객을 2.4초 앞에 데려다 놓는다.
+    const [mark, from] = [(await ytLog(v)).length, await clock(v)];
+    await livePlayer(v, (p) => p.seekTo(p.getCurrentTime() - 20));
+    await sleep(4500);
+    [smp, log] = [await playingSince(v, from), (await ytLog(v)).slice(mark)];
+    const p = await look(v);
+    assert(mostAhead(smp) <= 1.0, `a seek while playing aimed ${mostAhead(smp).toFixed(2)}s ahead of the room`);
+    assert(seeksIn(log).length === 2, `seekTo calls (1 by the viewer + by the engine): ${JSON.stringify(seeksIn(log))}`);
+    assert(p.state === 1 && p.rate === 1 && Math.abs(p.drift) < 0.6, `after the rewind: state ${p.state}, drift ${p.drift.toFixed(2)}s, x${p.rate}`);
+  });
+
+  await check('가려진 화면에서 6초 넘게 막혀 있던 다시 출발은 배우지 않는다 — 다음 쉬는 시간 뒤에 앞서 출발하지 않는다', async () => {
+    const host = await person('영사기사', { ytMock: { duration: 600 } });
+    const code = await open(host, { inMs: -60000, dur: 600 });
+    const v = await person('자리 비운 관객', { init: sampler, ytMock: { duration: 600 } });
+    await join(v, code);
+    // 첫 번째 쉬는 시간이 끝날 때 관객은 다른 앱에 가 있다: 화면이 가려져 있고, 그동안 브라우저는 재생을 받아 주지 않는다
+    const r1 = await intermission(host, v, async () => {
+      await v.evaluate(() => { window.__ytMock.blockPlay = true; });
+      await setHidden(v, true);
+    });
+    await sleep(6500);
+    const [stuck, tried] = [await look(v), seeksIn((await ytLog(v)).slice(r1.mark))];
+    assert(stuck.state === 2 && tried.length === 1, `while hidden: state ${stuck.state}, seekTo calls ${JSON.stringify(tried)} (test setup)`);
+    // 돌아온다. 그 순간 브라우저가 멈춰 있던 영상을 다시 돌려서, 엔진이 볼 때는 이미 6.5초 늦게 재생 중이다.
+    await v.evaluate(() => { window.__ytMock.blockPlay = false; });
+    const back = await setHidden(v, false, 'play');
+    await sleep(2500);
+    await inSync(v, 'in sync after coming back');
+    const home = await playingSince(v, back);
+    assert(home.length > 0 && mostAhead(home) <= 1.0, `came back ${home.length ? mostAhead(home).toFixed(2) : '?'}s ahead of the room`);
+    // 두 번째 쉬는 시간: 이번에는 막히지 않는다. 지난번의 6.5초를 "다시 출발하는 데 걸리는 시간"으로 배웠다면 3초 앞에서 출발한다.
+    const r2 = await intermission(host, v);
+    await sleep(3000);
+    const [smp, log, p] = [await playingSince(v, r2.at), (await ytLog(v)).slice(r2.mark), await look(v)];
+    assert(smp.length > 0 && mostAhead(smp) <= 1.0, `restarted ${smp.length ? mostAhead(smp).toFixed(2) : '?'}s ahead of the room`);
+    assert(seeksIn(log).length === 1, `seekTo calls after the second resume: ${JSON.stringify(seeksIn(log))}`);
+    assert(p.state === 1 && p.rate === 1 && Math.abs(p.drift) < 0.6, `3s after the second resume: state ${p.state}, drift ${p.drift.toFixed(2)}s, x${p.rate}`);
+  });
+});
+
+// ------------------------------------------------------------------
 if (errors.length) {
   console.log('\n브라우저 콘솔 오류:');
   for (const e of [...new Set(errors)].slice(0, 30)) console.log('  ' + e);
