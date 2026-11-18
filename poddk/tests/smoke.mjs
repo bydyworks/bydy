@@ -799,11 +799,12 @@ try {
       const parts = [r.hud, r.mute, r.zoom, r.shot, r.angel];
       assert(parts.every(inside), '화면 밖으로 나간 것이 있다: ' + JSON.stringify(r));
       assert(parts.every((a, i) => parts.every((b, j) => i >= j || !overlap(a, b))), '겹친다: ' + JSON.stringify(r));
-      // 오른쪽 아래 한 줄: 위에서부터 확대·축소, 캡쳐, 눈 천사. 너비가 같고 캡쳐와 눈 천사는 크기가 같다
+      // 오른쪽 아래 한 줄: 위에서부터 캡쳐, 눈 천사, 확대·축소. 너비가 같고 캡쳐와 눈 천사는 크기가 같다
       const size = (b) => [Math.round(b.r - b.l), Math.round(b.b - b.t)];
       assert(size(r.shot).join() === size(r.angel).join() && size(r.shot)[0] === size(r.shot)[1], '캡쳐와 눈 천사 버튼의 크기가 다르다: ' + size(r.shot) + ' / ' + size(r.angel));
       assert(size(r.zoom)[0] === size(r.shot)[0] && Math.abs(r.zoom.l - r.shot.l) < 0.5 && Math.abs(r.shot.l - r.angel.l) < 0.5, '세 버튼이 한 줄로 서 있지 않다: ' + JSON.stringify(r));
-      assert(r.zoom.b < r.shot.t && r.shot.b < r.angel.t, '순서가 다르다 (위에서부터 확대·축소, 캡쳐, 눈 천사)');
+      assert(r.shot.b < r.angel.t && r.angel.b < r.zoom.t, '순서가 다르다 (위에서부터 캡쳐, 눈 천사, 확대·축소)');
+      assert(Math.abs((r.view[1] - r.zoom.b) - (r.view[1] < 431 ? 12 : 26)) < 1, '확대·축소가 맨 아래에 있어야 한다: ' + JSON.stringify(r.zoom));
       assert(size(r.shot)[0] >= 44 && size(r.mute)[0] >= 36, '버튼이 누르기에 너무 작다: ' + size(r.shot) + ' / ' + size(r.mute));
       assert(r.canvas[0] === r.view[0] && r.canvas[1] === r.view[1], '눈밭이 화면을 다 채우지 않는다');
       assert(r.scroll[0] <= r.view[0] && r.scroll[1] <= r.view[1], '화면이 밀린다');

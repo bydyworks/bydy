@@ -33,8 +33,9 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 #carol { font-size: 12px; font-weight: 700; color: #b0533c; }       /* 트리 가까이에서 들리는 캐롤의 제목 */
 #carol:empty { display: none; }
 
-/* 버튼: 글자 없이 그림만. 오른쪽 위에 소리, 오른쪽 아래에 한 줄로 확대·축소 → 캡쳐 → 눈 천사 (모두 같은 너비) */
-:root { --btn: 54px; --gap: 12px; --col-r: calc(18px + var(--safe-r)); --col-b: calc(26px + var(--safe-b)); }
+/* 버튼: 글자 없이 그림만. 오른쪽 위에 소리, 오른쪽 아래에 한 줄로 위에서부터 캡쳐 → 눈 천사 → 확대·축소 (모두 같은 너비).
+   가장 자주 쓰는 확대·축소가 엄지에 가장 가까운 맨 아래에 온다 */
+:root { --btn: 54px; --gap: 12px; --col-r: calc(18px + var(--safe-r)); --col-b: calc(26px + var(--safe-b)); --zoom-h: calc(var(--btn) * 2 - 8px); }
 .ui { position: fixed; opacity: 0; transition: opacity .6s, transform .12s; touch-action: manipulation; }
 .ui, .ui button { -webkit-touch-callout: none; }
 .icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
@@ -49,12 +50,12 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 #mute[aria-pressed="true"] .off { display: block; }
 #mute[aria-pressed="true"] { color: rgba(42, 49, 88, 0.6); }
 
-#angel { bottom: var(--col-b); height: var(--btn); border-radius: 50%; }
+#angel { bottom: calc(var(--col-b) + var(--zoom-h) + var(--gap)); height: var(--btn); border-radius: 50%; }
 #angel .angel-icon { width: 34px; height: 30px; fill: #8793cc; }      /* 눈 위의 자국과 같은 푸른 그늘 색 */
 #angel.busy { opacity: 0.45 !important; pointer-events: none; }
-#shot { bottom: calc(var(--col-b) + var(--btn) + var(--gap)); height: var(--btn); border-radius: 50%; }
+#shot { bottom: calc(var(--col-b) + var(--zoom-h) + var(--btn) + 2 * var(--gap)); height: var(--btn); border-radius: 50%; }
 #shot.busy { pointer-events: none; }
-#zoom { bottom: calc(var(--col-b) + 2 * (var(--btn) + var(--gap))); height: calc(var(--btn) * 2 - 8px); border-radius: calc(var(--btn) / 2); display: flex; flex-direction: column; overflow: hidden; }
+#zoom { bottom: var(--col-b); height: var(--zoom-h); border-radius: calc(var(--btn) / 2); display: flex; flex-direction: column; overflow: hidden; }
 #zoom button { flex: 1; background: none; }
 #zoom button + button { border-top: 1.5px solid rgba(42, 49, 88, 0.14); }
 #zoom button:disabled { color: rgba(42, 49, 88, 0.28); }
