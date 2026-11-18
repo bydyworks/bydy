@@ -35,10 +35,11 @@ export async function startStatic() {
 /** 그래픽 카드가 없어도 3D 를 그리도록 띄운다 */
 export const launch = () => chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 
-/** 페이지를 열고 준비될 때까지 기다린다. opts: { query, viewport, mobile, enter } */
-export async function open(browser, base, { query = '', viewport = { width: 390, height: 844 }, mobile = true, enter = true, scale = 1, errors = [] } = {}) {
+/** 페이지를 열고 준비될 때까지 기다린다. opts: { query, viewport, mobile, enter, init(페이지가 뜨기 전에 그 안에서 돌릴 함수) } */
+export async function open(browser, base, { query = '', viewport = { width: 390, height: 844 }, mobile = true, enter = true, scale = 1, errors = [], init = null } = {}) {
   const ctx = await browser.newContext({ viewport, deviceScaleFactor: scale, hasTouch: mobile, isMobile: mobile, locale: 'ko-KR', timezoneId: 'Asia/Seoul' });
   const page = await ctx.newPage();
+  if (init) await page.addInitScript(init);
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
   await page.goto(base + 'index.html' + (query ? '?' + query : ''));

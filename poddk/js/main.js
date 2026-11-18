@@ -27,8 +27,6 @@ const SNOW_FILL_SEC = 12;         // 머리와 어깨에 다 쌓이는 데 걸�
 const SNOWMAN_WAIT = 10;          // 다 쌓인 채로 이만큼 더 서 있으면 눈사람이 되기 시작한다
 const POP_SEC = 0.7;              // "뿅" 하고 눈사람으로 바뀌는 데 걸리는 시간 (움츠렸다가 튀어나와 통통 자리 잡기까지)
 
-const STEP_SOUND_MAX = Math.min(1, Math.max(0.6, 1.92 * STEP / WALK_SPEED));   // 한 걸음 소리의 길이: 걸음 사이의 두 배쯤 (걸음이 빠르면 짧게 끊어 뭉개지지 않게)
-
 // ---------- 화면 ----------
 const canvas = $('#view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
@@ -206,7 +204,8 @@ function walk(dt, now) {
       const px = me.x + me.side * STANCE * Math.cos(me.yaw), pz = me.z - me.side * STANCE * Math.sin(me.yaw);
       const packed = tracks.isPacked(px, pz, now);
       tracks.addPrint(px, pz, me.yaw, me.side, now);
-      audio.step(packed, STEP_SOUND_MAX);
+      // 한 걸음 소리의 길이는 걸음 사이의 두 배쯤: 빨리 걸으면 짧게 끊어 뭉개지지 않게 하고, 천천히 걸으면 다 들려준다
+      audio.step(packed, Math.min(0.95, Math.max(0.6, 1.92 * STEP / speed)));
     }
     // 쌓인 눈은 걷기 시작하면 털린다
     if (me.snow > 0) {
@@ -259,6 +258,7 @@ function resize() {
 }
 
 let lastFrame = performance.now();
+let raf = 0;                     // 다음 프레임 예약 (언제나 하나만 걸려 있어야 한다)
 function tick(t) {
   const dt = Math.min(0.05, Math.max(0, (t - lastFrame) / 1000));
   lastFrame = t;
@@ -290,7 +290,7 @@ function tick(t) {
   }
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
-  if (!document.hidden) requestAnimationFrame(tick);
+  raf = document.hidden ? 0 : requestAnimationFrame(tick);
 }
 
 // ---------- 시작 ----------
@@ -315,10 +315,11 @@ $('#mute').addEventListener('click', () => {
 
 document.addEventListener('visibilitychange', () => {
   audio.setActive(!document.hidden);
-  if (document.hidden) save(); else { lastFrame = performance.now(); requestAnimationFrame(tick); }
+  // 가려진 동안에도 마지막 예약은 남아 있으므로, 돌아올 때 그것을 지우고 새로 건다 (안 그러면 돌아올 때마다 고리가 하나씩 늘어난다)
+  if (document.hidden) save(); else { lastFrame = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); }
 });
 window.addEventListener('pagehide', save);
-requestAnimationFrame(tick);
+raf = requestAnimationFrame(tick);
 
 // 개발자 도구와 자동 점검용
 window.__snow = {

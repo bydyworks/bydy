@@ -31,6 +31,8 @@ export function createCrumble(scene) {
   return {
     /** 아직 흩어지고 있는 눈덩이 수 */
     get active() { return active; },
+    /** 점검용: 지금 화면에 그려지고 있는 눈덩이들의 자리 [x, y, z] (가려져 있으면 빈 목록) */
+    get shown() { return mesh.visible ? bits.filter((b) => b.size > 0).map((b) => [b.p.x, b.p.y, b.p.z]) : []; },
     /** (x, z) 에서 눈사람이 뿅 하고 생긴다: 눈가루가 둘레로 폭 퍼졌다가 0.4초쯤 만에 사라진다 */
     puff(x, z) {
       bits.forEach((b, i) => {
