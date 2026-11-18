@@ -43,7 +43,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 13px; font-weight: 800; opacity: 0; transition: opacity .6s, transform .12s;
 }
-#angel .angel-icon { font-size: 26px; line-height: 1; }
+#angel .angel-icon { width: 40px; height: 35px; fill: #8793cc; }      /* 눈 위의 자국과 같은 푸른 그늘 색 */
 #angel:active { transform: scale(0.93); }
 #angel.busy { opacity: 0.45 !important; pointer-events: none; }
 
@@ -69,7 +69,7 @@ body.in #start { opacity: 0; pointer-events: none; }
 /* 낮은 화면(휴대폰 가로): 버튼을 조금 작게 */
 @media (max-height: 430px) {
   #angel { width: 70px; height: 70px; bottom: calc(14px + var(--safe-b)); font-size: 12px; }
-  #angel .angel-icon { font-size: 21px; }
+  #angel .angel-icon { width: 33px; height: 29px; }
   #toast { bottom: calc(96px + var(--safe-b)); }
   .start-card { padding: 16px 20px 14px; }
   .start-card h1 { font-size: 26px; margin-bottom: 4px; }
