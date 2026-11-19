@@ -129,8 +129,9 @@ function toast(text, ms = 2600) {
 // ---------- 쌓인 눈 ----------
 /** 쌓인 눈을 턴다 (걸음을 떼거나 눈 천사를 하려고 누울 때). 눈사람이었다면 눈덩이가 부서져 흩어진다 */
 function shakeOff(quiet = false) {
-  if (me.pop >= POP_SWAP) { crumble.burst(me.x, me.z); if (!quiet) audio.fx('rustle', 0.5); }
-  else if (me.snow > 0.35 && !quiet) audio.fx('rustle', 0.3);
+  if (me.pop >= POP_SWAP) { crumble.burst(me.x, me.z); audio.snowFx('burst'); }      // 눈사람이 부서져 흩어진다: 와르르
+  else if (me.snow > 0.35) audio.snowFx('shake');      // 머리와 어깨의 눈이 털린다: 후두둑
+  else if (!quiet && me.snow > 0.15) audio.fx('rustle', 0.25);
   me.full = 0; me.pop = 0;
 }
 
@@ -364,7 +365,7 @@ function walk(dt, now) {
       else if (me.pop < 1) {
         const before = me.pop;
         me.pop = Math.min(1, me.pop + dt / POP_SEC);
-        if (before < POP_SWAP && me.pop >= POP_SWAP) crumble.puff(me.x, me.z);      // 바뀌는 순간 눈가루가 폭 퍼진다
+        if (before < POP_SWAP && me.pop >= POP_SWAP) { crumble.puff(me.x, me.z); audio.snowFx('pop'); }      // 바뀌는 순간 눈가루가 폭 퍼지고 "뿅" 소리가 난다
       }
     }
   }

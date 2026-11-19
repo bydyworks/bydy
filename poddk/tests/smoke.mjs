@@ -593,18 +593,35 @@ try {
     assert(s.pop === 1 && s.shell && s.tall === 1 && s.bits === 0, '눈사람인 채로 더 서 있어도 그대로여야 한다');
   });
 
+  await test('눈사람이 되는 순간 "뿅" 소리가, 쌓인 눈이 털리거나 눈사람이 부서질 때도 소리가 난다', async () => {
+    const p = await page();
+    await byHand(p);
+    const fx = () => snow(p, () => [...window.__snow.audio.snowFx]);
+    // 머리와 어깨에만 쌓였을 때 걸음을 떼면: 후두둑
+    await snow(p, () => { const s = window.__snow; for (let i = 0; i < 1200 && s.me.snow < 0.9; i++) s.sim(1 / 60); });
+    await walk(p, 0, 1, 0.5);
+    assert(JSON.stringify(await fx()) === '["shake"]', '털리는 소리: ' + JSON.stringify(await fx()));
+    // 눈사람이 되는 순간: 뿅 (한 번만)
+    await snow(p, () => { const s = window.__snow; for (let i = 0; i < 60 * 40 && s.me.pop < 1; i++) s.sim(1 / 60); s.sim(1); });
+    assert(JSON.stringify(await fx()) === '["shake","pop"]', '뿅 소리: ' + JSON.stringify(await fx()));
+    // 눈사람이 걸음을 떼면: 와르르
+    await walk(p, 0, 1, 0.5);
+    assert(JSON.stringify(await fx()) === '["shake","pop","burst"]', '부서지는 소리: ' + JSON.stringify(await fx()));
+  });
+
   await test('눈사람은 걸음을 떼면 눈덩이가 부서져 흩어지며 털리고, 뿅 하려는 순간에 걸어도 탈이 없다', async () => {
     const p = await page();
     await byHand(p);
     await stand(p, (v) => v.pop === 1, { step: 0.5 });
     await walk(p, 0, 0, 1);
-    const fx0 = (await state(p)).audio.fx;
+    const fx0 = (await state(p)).audio.snowFx.length;
     await walk(p, 0, 1, 0.2);
     let s = await snowLook(p);
     assert(!s.shell && s.skin && s.feet && s.pop === 0 && s.full === 0 && s.snow < 1 && s.eyeZ < 0.3 && s.tall === 1, '걸음을 뗐는데 눈사람 그대로다: ' + JSON.stringify(s));
     assert(s.bits === 22, '눈덩이가 흩어지지 않았다: ' + s.bits);
     assert(s.shown === 22 && s.far < 1.5, '눈덩이가 펭귄 둘레에 보여야 한다: ' + JSON.stringify(s));
-    assert((await state(p)).audio.fx === fx0 + 1, '눈 털리는 소리가 한 번 나야 한다');
+    const after = (await state(p)).audio.snowFx;
+    assert(after.length === fx0 + 1 && after[after.length - 1] === 'burst', '눈사람이 부서지는 소리가 한 번 나야 한다: ' + JSON.stringify(after));
     await walk(p, 0, 1, 1.3);
     assert((await snowLook(p)).snow === 0, '걸어도 눈이 안 털렸다');
     await walk(p, 0, 1, 2.5);
@@ -612,11 +629,12 @@ try {
     // 몸을 움츠린 순간(아직 펭귄일 때) 걸으면: 눈사람이 되지 않고, 눈가루도 눈덩이도 없다
     await stand(p, (v) => v.full >= 9.9, { step: 0.5 });
     await stand(p, (v) => v.pop > 0.08, { step: FRAME });
-    const fx1 = (await state(p)).audio.fx;
+    const fx1 = (await state(p)).audio.snowFx.length;
     await walk(p, 0, 1, 0.2);
     s = await snowLook(p);
     assert(s.pop === 0 && !s.shell && s.skin && s.bits === 0 && s.tall === 1 && s.wide === 1, '움츠린 순간에 걸으면 그냥 눈만 털려야 한다: ' + JSON.stringify(s));
-    assert((await state(p)).audio.fx === fx1 + 1, '눈 모자가 털리는 소리가 한 번 나야 한다');
+    const after2 = (await state(p)).audio.snowFx;
+    assert(after2.length === fx1 + 1 && after2[after2.length - 1] === 'shake', '눈 모자가 털리는 소리가 한 번 나야 한다: ' + JSON.stringify(after2));
     // 눈사람인 채로 눈 천사를 하면: 눈이 부서져 털리고 평소처럼 눕는다
     await walk(p, 0, 1, 1.5);
     await stand(p, (v) => v.pop === 1, { step: 0.5 });

@@ -27,7 +27,7 @@ export function createAudio(baseUrl = 'audio/') {
   let started = false;
   let weather = 0.3;
   const last = { fresh: -1, packed: -1 };
-  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, water: 0, stepLen: 0, carol: null };
+  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, water: 0, snowFx: [], stepLen: 0, carol: null };
   let box = null;               // 트리의 오르골 (carols.js)
   let treeDistance = 999;
 
@@ -130,6 +130,49 @@ export function createAudio(baseUrl = 'audio/') {
       stats.fx++;
       const at = name === 'bodyfall' ? MAP.bodyfall : MAP.rustle[0];
       shot(buffers.fx, at, volume, 0.92 + Math.random() * 0.2);
+    },
+    /**
+     * 눈사람 소리 (코드로 만든 소리).
+     * 'pop': 눈사람으로 바뀌는 순간의 "뿅" — 통통 튀어 오르는 짧은 음 둘과 반짝이는 소리
+     * 'shake': 쌓인 눈이 털릴 때의 "후두둑", 'burst': 눈사람이 부서져 흩어질 때의 더 큰 "와르르"
+     */
+    snowFx(kind) {
+      stats.snowFx.push(kind);
+      if (!ctx || muted || ctx.state !== 'running') return;
+      const t = ctx.currentTime;
+      const tone = (type, from, to, at, len, peak) => {
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(from, t + at);
+        osc.frequency.exponentialRampToValueAtTime(to, t + at + len);
+        gain.gain.setValueAtTime(0, t + at);
+        gain.gain.linearRampToValueAtTime(peak, t + at + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + at + len + 0.05);
+        osc.connect(gain).connect(master);
+        osc.start(t + at); osc.stop(t + at + len + 0.08);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      };
+      const puff = (at, len, freq, peak) => {                 // 눈덩이가 떨어지는 사각거림: 걸러 낸 잡음 한 덩이
+        const buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate), d = buffer.getChannelData(0);
+        for (let i = 0; i < d.length; i++) { const u = i / d.length; d[i] = (Math.random() * 2 - 1) * Math.min(1, u * 12) * Math.pow(1 - u, 1.6); }
+        const src = ctx.createBufferSource(), band = ctx.createBiquadFilter(), gain = ctx.createGain();
+        src.buffer = buffer; band.type = 'bandpass'; band.frequency.value = freq; band.Q.value = 0.9; gain.gain.value = peak;
+        src.connect(band).connect(gain).connect(master);
+        src.start(t + at);
+        src.onended = () => { src.disconnect(); band.disconnect(); gain.disconnect(); };
+      };
+      if (kind === 'pop') {
+        tone('sine', 360, 980, 0, 0.09, 0.16);                // 뿅
+        tone('sine', 620, 1500, 0.08, 0.07, 0.09);            //  통
+        tone('triangle', 2100, 2600, 0.15, 0.12, 0.025);      // 반짝
+        tone('triangle', 2800, 3300, 0.2, 0.12, 0.018);
+        puff(0.02, 0.18, 2400, 0.08);                         // 눈가루가 폭
+        return;
+      }
+      const big = kind === 'burst';
+      const n = big ? 7 : 4;
+      for (let i = 0; i < n; i++) puff(i * (big ? 0.045 : 0.06) + Math.random() * 0.02, big ? 0.16 : 0.12, (big ? 900 : 1500) + Math.random() * 900, (big ? 0.16 : 0.09) * (1 - i / (n + 2)));
+      if (big) tone('sine', 220, 110, 0, 0.12, 0.08);         // 눈덩이가 툭 떨어지는 낮은 소리
     },
     /**
      * 낚시터의 물소리 (녹음이 아니라 코드로 만든 소리).
