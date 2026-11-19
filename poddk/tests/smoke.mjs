@@ -2,6 +2,7 @@
 // 실제 브라우저(그래픽 카드 없이)로 띄워 걷기·발자국·소리·카메라·눈 천사·하루의 흐름·저장을 확인한다.
 // 느린 기기에서도 결과가 같도록, 걷는 시간은 __snow.sim(초) 으로 한꺼번에 흘려보낸다.
 import { startStatic, launch, open, sleep, assert, until } from './harness.mjs';
+import { checkStamps } from './stamp.mjs';
 
 const only = process.argv[2] || '';
 const site = await startStatic();
@@ -38,6 +39,17 @@ async function test(name, fn) {
 
 try {
   console.log('\n■ 들어가기');
+  await test('버전 도장이 지금 파일과 맞고, 게임의 js·css 를 모두 도장 붙은 주소로 부른다 (새로 올린 직후 예전 파일과 섞이지 않게)', async () => {
+    const { v, bad } = checkStamps();
+    assert(!bad.length, `도장이 맞지 않다 (${bad.join(', ')}): node tests/stamp.mjs 로 새로 찍을 것`);
+    const page = await browser.newPage(); opened.push(page);
+    const asked = [];
+    page.on('request', (r) => { const u = new URL(r.url()); if (/\/poddk\/(js|css)\/[^/]+\.(js|css)$/.test(u.pathname)) asked.push(u.pathname.split('/poddk/')[1] + u.search); });
+    await page.goto(site.url + 'index.html?server=off');
+    await page.waitForFunction(() => !!window.__snow, null, { timeout: 60000 });
+    const plain = asked.filter((a) => !a.endsWith('?v=' + v));
+    assert(asked.length >= 20 && !plain.length, `도장 없이 부른 파일: ${plain.join(', ')} (부른 파일 ${asked.length}개)`);
+  });
   await test('처음 화면에서 [눈 밟으러 가기]를 누르면 눈밭에 들어가고, 소리 다섯 개가 모두 준비된다', async () => {
     const p = await page(undefined, { enter: false });
     assert(await p.isVisible('#enter'), '시작 버튼이 안 보인다');
