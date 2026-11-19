@@ -56,6 +56,25 @@ try {
     await b.evaluate((p) => { const s = window.__snow, m = s.me; m.yaw = m.camYaw = Math.atan2(-(p.x - m.x), -(p.z - m.z)); }, ap);
     await until(async () => b.evaluate(() => { const el = document.querySelector('.peer-say'); return !!el && !el.hidden && el.textContent.includes('영화 보는 중'); }), { what: '다른 화면의 말풍선', timeout: 10000 }).catch(async (e) => { throw new Error(e.message + ' a=' + JSON.stringify(await a.evaluate(() => ({ st: window.__snow.net.stats, me: window.__snow.seat ?? null })) ) + ' b=' + JSON.stringify(await b.evaluate(() => [...window.__snow.net.peers.values()].map((p) => p.s))) + ' bubbles=' + JSON.stringify(await b.evaluate(() => [...document.querySelectorAll('.peer-say')].map((el) => [el.hidden, el.textContent])))); });
   });
+  await test('다른 펭귄이 배로 미끄러지면 엎드린 모습으로, 낚시하면 낚싯대와 찌를 든 모습으로 보인다', async () => {
+    for (const p of [a, b]) await p.evaluate(() => { const s = window.__snow; if (s.seat) { s.act(); s.sim(0.8); } if (s.inside !== null) s.goOut(); });
+    await until(async () => (await a.evaluate(() => window.__snow.inside)) === null && (await b.evaluate(() => window.__snow.inside)) === null, { what: '둘 다 밖' });
+    await a.evaluate(() => { const s = window.__snow; s.teleport(-2, 26); s.me.yaw = Math.PI / 2; s.sim(0.2); });
+    await b.evaluate(() => { const s = window.__snow; s.teleport(0, 31); s.sim(0.2); });
+    await sleep(1200);
+    await a.evaluate(() => window.__snow.slide());
+    const peer = () => b.evaluate(() => { const p = [...window.__snow.net.peers.values()][0], u = p.root.userData; return { a: p.s && p.s.a, act: p.act, k: p.k, y: u.body.position.y, rx: u.body.rotation.x, rod: p.rod.visible, line: p.line.visible, float: p.float.visible }; });
+    await until(async () => { const q = await peer(); return q.act === 2 && q.k > 0.9; }, { what: '다른 화면에서 미끄러짐', timeout: 10000 });
+    const slid = await peer();
+    assert(slid.y > 0.3 && slid.rx > 1.2, '엎드린 몸이 땅에 묻혔다: ' + JSON.stringify(slid));
+    await a.evaluate(() => { const s = window.__snow; s.sim(8); const h = s.place.hole, d = Math.hypot(h.x, h.z); s.teleport(h.x - h.x / d * 1.8, h.z - h.z / d * 1.8); s.me.idle = 0; s.sim(0.1); s.act(); s.sim(1.2); });
+    assert(await a.evaluate(() => window.__snow.fishing.active), '낚시를 시작하지 못했다');
+    await until(async () => { const q = await peer(); return q.act === 4 && q.rod && q.line && q.float; }, { what: '다른 화면의 낚싯대 ' + JSON.stringify(await peer()), timeout: 10000 });
+    const fish = await b.evaluate(() => { const p = [...window.__snow.net.peers.values()][0], h = window.__snow.place.hole; return { y: p.root.userData.body.position.y, toHole: Math.hypot(p.float.position.x - h.x, p.float.position.z - h.z) }; });
+    assert(fish.y < -0.05 && fish.toHole < 0.3, '낚시하는 모습: ' + JSON.stringify(fish));
+    await a.evaluate(() => { const s = window.__snow; s.fishing.cancel(); s.sim(1); });
+    await until(async () => { const q = await peer(); return q.act === 0 && !q.rod; }, { what: '낚시를 그만두면 낚싯대가 사라짐', timeout: 10000 });
+  });
   await test('한 펭귄이 나가면 다른 화면에서 사라지고 수가 줄어든다', async () => {
     await a.close();
     await until(async () => (await st(b)).count === 0 && !(await st(b)).row, { what: '사라짐', timeout: 10000 });

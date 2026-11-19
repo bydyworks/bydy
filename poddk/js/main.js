@@ -33,6 +33,7 @@ const TEST_MODE = (q.has('t') || q.has('speed')) && !q.has('persist');     // �
 const WALK_SPEED = (() => { const v = Number(q.get('walk')); return v >= 0.6 && v <= 2 ? v : 1.25; })();
 const TURN_RATE = 9;              // 몸을 돌리는 빠르기 (라디안/초)
 const CAM_DIST = 6.6, CAM_DIST_MIN = 3.2, CAM_DIST_MAX = 18, CAM_TARGET_H = 1.05;
+const DEN_CAM = { near: 3.6, far: 13, start: 8.5, pitch: 0.42, tilt: 0.38 };      // 이글루 안 카메라: 가장 가까이·멀리, 들어갔을 때의 거리, 내려다보는 각도(가까이)와 멀어질수록 더 내려다보는 만큼
 const IDLE_BEFORE_SNOW = 4;       // 가만히 선 지 이만큼 지나면 눈이 쌓이기 시작한다 (초)
 const SNOW_FILL_SEC = 12;         // 머리와 어깨에 다 쌓이는 데 걸리는 시간 (폭설 때는 더 빠르다)
 const SNOWMAN_WAIT = 10;          // 다 쌓인 채로 이만큼 더 서 있으면 눈사람이 되기 시작한다
@@ -120,7 +121,7 @@ function save() {
   if (TEST_MODE) return;
   try {
     const at = me.inside !== null && me.outside ? me.outside : me;      // 이글루 안에 있으면 들어가기 전의 자리를 적는다
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ x: at.x, z: at.z, yaw: at.yaw, camYaw: me.camYaw, camDist: me.camDist, tracks: tracks.dump(clock.now()) }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ x: at.x, z: at.z, yaw: at.yaw, camYaw: me.camYaw, camDist: me.inside !== null && me.camOut ? me.camOut : me.camDist, tracks: tracks.dump(clock.now()) }));
   } catch { /* 저장소가 꽉 찼거나 막혀 있으면 그냥 넘어간다 */ }
 }
 restore();
@@ -410,13 +411,13 @@ function goIn(i) {
   shakeOff(true); me.snow = 0; me.idle = 0; me.walk = 0;
   me.outside = { x: me.x, z: me.z, yaw: me.yaw };
   audio.fx('rustle', 0.35);
-  throughDoor(() => { const d = dens.dens[i]; me.inside = i; me.x = d.spawn.x; me.z = d.spawn.z; me.yaw = me.camYaw = d.spawn.yaw; me.camDist = 6; if (firstTime('den')) toast('따뜻하다! 방석에 앉아 쉬어 가요', 3200); });
+  throughDoor(() => { const d = dens.dens[i]; me.inside = i; me.x = d.spawn.x; me.z = d.spawn.z; me.yaw = me.camYaw = d.spawn.yaw; me.camOut = me.camDist; me.camDist = DEN_CAM.start; if (firstTime('den')) toast('따뜻하다! 방석에 앉아 쉬어 가요', 3200); });
 }
 function goOut() {
   if (busyDoor || me.inside === null) return;
   const i = me.inside, e = ENTRANCES[i];
   audio.fx('rustle', 0.35);
-  throughDoor(() => { me.inside = null; me.x = e.x; me.z = e.z; me.yaw = me.camYaw = e.yaw + Math.PI; me.idle = 0; });      // 문 앞에서 트리 쪽을 보고 선다
+  throughDoor(() => { me.inside = null; me.x = e.x; me.z = e.z; me.yaw = me.camYaw = e.yaw + Math.PI; me.idle = 0; if (me.camOut) me.camDist = me.camOut; });      // 문 앞에서 트리 쪽을 보고 선다
 }
 function sitDown(k) {
   const s = dens.dens[me.inside].seats[k];
@@ -581,7 +582,7 @@ function walk(dt, now) {
   const lk = controls.takeLook();
   me.camYaw -= lk.dx * 0.0052;
   me.camPitch = THREE.MathUtils.clamp(me.camPitch + lk.dy * 0.0035, 0.08, 0.75);
-  me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, me.inside !== null ? 6.8 : CAM_DIST_MAX);
+  me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, me.inside !== null ? DEN_CAM.far : CAM_DIST_MAX);
   coach.note(0, Math.abs(lk.dx) + Math.abs(lk.dy));
   if (mag > 0.02 && !me.angel && !fishing.active) { strolled += dt; rested = 0; } else { rested += dt; strolled = 0; }
 
@@ -672,23 +673,15 @@ function placeCamera(dt) {
   camGoal.copy(focus).addScaledVector(fwd, -dist * Math.cos(pitch));
   camGoal.y = CAM_TARGET_H + dist * Math.sin(pitch);
   if (me.inside !== null) {
-    // 이글루 안: 카메라는 방 가운데를 둘레로 돌며(벽 안쪽) 펭귄을 본다. 끌어서 돌리고, 두 손가락이나 휠로 가까이·멀리 한다.
-    // 걷는 방향의 기준은 카메라가 실제로 보는 쪽이다
-    // 펭귄 뒤쪽 camDist 만큼에 두되, 벽(가운데에서 5) 밖이면 벽 안쪽 둘레로 당기고, 그래서 펭귄에 너무 붙으면 둘레를 따라 옆으로 비켜선다
-    const c = dens.dens[me.inside].center, d = THREE.MathUtils.clamp(me.camDist * 0.8, 2.6, 5.4), LIM = 5;
-    let cx = me.x - Math.sin(me.camYaw) * d, cz = me.z - Math.cos(me.camYaw) * d;
-    let r = Math.hypot(cx - c.x, cz - c.z);
-    if (r > LIM) {
-      let a = Math.atan2(cx - c.x, cz - c.z);
-      const near = (t) => Math.hypot(c.x + Math.sin(t) * LIM - me.x, c.z + Math.cos(t) * LIM - me.z);
-      for (let step = 0; step < 40 && near(a) < 3.2; step++) a += (angleDiff(a, Math.atan2(me.x - c.x, me.z - c.z)) >= 0 ? 1 : -1) * 0.06;
-      cx = c.x + Math.sin(a) * LIM; cz = c.z + Math.cos(a) * LIM; r = LIM;
-    }
-    camGoal.set(cx, Math.min(3.7, 2.1 + d * 0.32), cz);
+    // 이글루 안: 바깥처럼 펭귄 뒤 조금 위에서 내려다본다. 벽은 안쪽 면만 그려지므로, 카메라가 벽 밖으로 물러나도 방이 가리지 않고
+    // 지붕을 걷어 낸 것처럼 넓게 보인다. 끌어서 돌리고, 두 손가락이나 휠로 가까이·멀리 한다. 걷는 방향의 기준은 카메라가 실제로 보는 쪽이다
+    const d = THREE.MathUtils.clamp(me.camDist, DEN_CAM.near, DEN_CAM.far), pitch = DEN_CAM.pitch + (d - DEN_CAM.near) / (DEN_CAM.far - DEN_CAM.near) * DEN_CAM.tilt;
+    const cx = me.x - Math.sin(me.camYaw) * d * Math.cos(pitch), cz = me.z - Math.cos(me.camYaw) * d * Math.cos(pitch);
+    camGoal.set(cx, 0.9 + d * Math.sin(pitch), cz);
     const k = dt > 0 ? 1 - Math.exp(-dt * 6) : 1;
     camera.position.lerp(camGoal, k);
     viewYaw = Math.atan2(me.x - camera.position.x, me.z - camera.position.z);
-    lookAt.set(me.x, 0.75, me.z);
+    lookAt.set(me.x + Math.sin(me.camYaw) * 0.6, 0.7, me.z + Math.cos(me.camYaw) * 0.6);
     camera.lookAt(lookAt);
     return;
   }
@@ -726,10 +719,10 @@ function tick(t) {
   weather.update(seconds, camera, snowfall, palette.flake, renderer.domElement.height);
   weather.points.visible = me.inside === null;              // 이글루 안에는 눈이 내리지 않는다
   for (const [i, d] of dens.dens.entries()) d.group.visible = me.inside === i;
-  dens.update(dt);
+  dens.update(dt, camera);
   if (me.inside !== null && started) {                       // 모닥불이 타닥타닥
     crackleIn -= dt;
-    if (crackleIn <= 0) { crackleIn = 0.06 + Math.random() * 0.35; const c = dens.dens[me.inside].center; audio.snowFx('crackle', Math.max(0.15, 1 - Math.hypot(me.x - c.x, me.z - c.z) / 7)); }
+    if (crackleIn <= 0) { crackleIn = 0.04 + Math.random() * 0.22; const c = dens.dens[me.inside].center; audio.snowFx('crackle', Math.max(0.15, 1 - Math.hypot(me.x - c.x, me.z - c.z) / 7)); }
   }
   // 해가 지평선 가까이 내려오면 나무의 전구에 불이 들어온다
   const night = THREE.MathUtils.clamp((3 - palette.elev) / 9, 0, 1);
@@ -743,6 +736,7 @@ function tick(t) {
   santa.update(now, camera, palette.elev);
   if (frame % 2 === 0) tracks.update(now);
   audio.setWeather(me.inside !== null ? 0 : snowfall);
+  audio.setIndoor(me.inside !== null);
   if (frame % 6 === 0) audio.setTreeDistance(Math.hypot(me.x, me.z));
 
   if (t - hudAt > 500) {

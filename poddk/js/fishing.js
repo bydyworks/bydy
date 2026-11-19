@@ -16,13 +16,13 @@ export const CATCHES = [
   { id: 'trout', name: '송어', weight: 12 },
   { id: 'boot', name: '낡은 장화', weight: 6 },
 ];
-const SEAT = 1.55;                 // 구멍에서 이만큼 떨어져 앉는다
+export const SEAT = 1.55;                 // 구멍에서 이만큼 떨어져 앉는다
 const T = { sit: 0.6, bite: 2.6, pull: 0.55, show: 1.9, release: 0.65, stand: 0.45 };      // 단계마다 걸리는 시간(초)
 const WAIT = [4, 12];              // 입질을 기다리는 시간의 범위(초)
 const NIB = { len: 0.32, early: 0.9, lead: 1.1, gap: 1.0, tail: 1.0, dip: 0.036 };      // 가짜 입질: 까딱이는 시간, 그때부터 이만큼은 버튼이 쉰다(누르면 "일렀다"로 친다), 앉고 나서·서로·진짜 입질 앞에 두는 틈(초), 찌가 내려가는 깊이
 const GRACE = { sat: 0.5, missed: 0.9, released: 0.6 };      // 막 앉았거나, 입질을 놓쳤거나, 놓아준 직후 이만큼은 버튼을 눌러도 그만두지 않는다 (한 박자 늦게 누른 것일 수 있다)
-const ROD_LEN = 1.5, ROD_TILT = 0.96;     // 낚싯대의 길이와, 앞으로 기운 각도(라디안)
-const FLOAT_Y = 0.05;              // 찌가 떠 있는 높이
+export const ROD_LEN = 1.5, ROD_TILT = 0.96;     // 낚싯대의 길이와, 앞으로 기운 각도(라디안)
+export const FLOAT_Y = 0.05;              // 찌가 떠 있는 높이
 
 const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;

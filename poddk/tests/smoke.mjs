@@ -1463,6 +1463,8 @@ try {
     await until(async () => snow(p, () => window.__snow.dens.dens[1].group.visible && !window.__snow.weather.points.visible), { what: '방이 보이고 눈이 그침' });
     const room = await snow(p, () => { const s = window.__snow, d = s.dens.dens[1]; return { seats: d.seats.length, snowing: s.weather ? s.weather.points.visible : null, dist: Math.hypot(s.me.x - d.center.x, s.me.z - d.center.z), visible: d.group.visible, others: s.dens.dens.filter((x, i) => i !== 1 && x.group.visible).length }; });
     assert(room.seats === 6 && room.visible && room.others === 0 && room.dist < 6.2, '방: ' + JSON.stringify(room));
+    // 방 안에서는 바깥 눈 소리가 아주 작아지고 장작 타는 소리가 들린다
+    await until(async () => snow(p, () => { const a = window.__snow.audio; return a.indoor && a.fire > 0.2 && (a.outside === undefined || a.outside < 0.1); }), { what: '장작 타는 소리 ' + JSON.stringify(await snow(p, () => { const a = window.__snow.audio; return { indoor: a.indoor, fire: a.fire, outside: a.outside }; })) });
     // 방 안에서는 발자국이 남지 않고 벽과 불을 지나가지 못한다
     const walked = await snow(p, () => { const s = window.__snow, d = s.dens.dens[1], n = s.tracks.printCount; s.controls.debugMove(0, 1); s.sim(12); s.controls.debugMove(0, 0); const r = Math.hypot(s.me.x - d.center.x, s.me.z - d.center.z); return { prints: s.tracks.printCount - n, r }; });
     assert(walked.prints === 0 && walked.r <= 6.21 && walked.r >= 1.34, '방 안에서 걷기: ' + JSON.stringify(walked));
@@ -1491,9 +1493,10 @@ try {
     await until(async () => (await snow(p, () => window.__snow.inside)) === null, { what: '밖으로' });
     const out = await snow(p, () => { const s = window.__snow, e = s.entrances[1]; return { d: Math.hypot(s.me.x - e.x, s.me.z - e.z), snow: s.weather ? s.weather.points.visible : null }; });
     assert(out.d < 0.01, '나온 자리가 이글루 문 앞이 아니다: ' + JSON.stringify(out));
+    await until(async () => snow(p, () => { const a = window.__snow.audio; return !a.indoor && a.fire === 0 && (a.outside === undefined || a.outside === 1); }), { what: '밖에서는 눈 소리가 다시' });
   });
 
-  await test('이글루 안에서도 끌면 카메라가 방을 돌고, 두 손가락으로 가까이·멀리 본다. 카메라는 벽 밖으로 나가지 않는다', async () => {
+  await test('이글루 안에서도 끌면 카메라가 방을 돌고, 두 손가락으로 가까이·멀리 본다. 멀리 보면 지붕을 걷어 낸 것처럼 방 전체를 내려다본다', async () => {
     const p = await page('t=21:30&speed=0');
     await snow(p, () => { const s = window.__snow, e = s.entrances[0]; s.teleport(e.x, e.z); s.sim(0.1); s.act(); });
     await until(async () => (await snow(p, () => window.__snow.inside)) === 0, { what: '이글루 안' });
@@ -1507,9 +1510,21 @@ try {
     await p.mouse.move(195, 420); await p.mouse.wheel(0, -600); await walk(p, 0, 0, 0.2);
     const c = await cam();
     assert(c.dist < b.dist * 0.85, '가까이 보기가 안 된다: ' + JSON.stringify([b, c]));
-    // 어디를 보든 카메라는 벽 안쪽에 있다 (가장 멀리 본 채로 한 바퀴)
-    const far = await snow(p, async () => { const s = window.__snow, c = s.dens.dens[0].center, cam = s.camera, out = []; s.me.camDist = 99; for (let k = 0; k < 8; k++) { s.me.camYaw = k * Math.PI / 4; for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); out.push(Math.hypot(cam.position.x - c.x, cam.position.z - c.z)); } return { max: Math.max(...out), y: cam.position.y }; });
-    assert(far.max < 5.3 && far.y < 3.9, '카메라가 벽 밖으로 나갔다: ' + JSON.stringify(far));
+    // 가장 멀리 보면 카메라는 펭귄에게서 넉넉히 물러나 위에서 내려다보고, 벽은 안쪽 면만 그려져 앞을 가리지 않는다.
+    // 그리고 그때 카메라 쪽 벽에 붙은 꾸밈은 감춰진다 (어디를 보든, 한 바퀴)
+    const far = await snow(p, async () => {
+      const s = window.__snow, d = s.dens.dens[0], cam = s.camera, out = [];
+      s.me.camDist = 99;
+      for (let k = 0; k < 8; k++) {
+        s.me.camYaw = k * Math.PI / 4;
+        for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r));
+        const back = d.deco.children.filter((o) => o.isMesh && (o.position.x * (cam.position.x - d.center.x) + o.position.z * (cam.position.z - d.center.z)) / ((Math.hypot(o.position.x, o.position.z) || 1) * Math.hypot(cam.position.x - d.center.x, cam.position.z - d.center.z)) > 0.6);
+        out.push({ away: Math.hypot(cam.position.x - s.me.x, cam.position.z - s.me.z), y: cam.position.y, hidden: back.every((o) => !o.visible) || Math.hypot(cam.position.x - d.center.x, cam.position.z - d.center.z) < 6.2 });
+      }
+      const wall = d.group.children.find((o) => o.geometry && o.geometry.type === 'SphereGeometry');
+      return { away: Math.min(...out.map((o) => o.away)), y: Math.min(...out.map((o) => o.y)), hidden: out.every((o) => o.hidden), side: wall.material.side };
+    });
+    assert(far.away > 6 && far.y > 5 && far.side === 1 && far.hidden, '방을 넓게 내려다보지 못한다: ' + JSON.stringify(far));      // (side 1 = THREE.BackSide)
   });
 
   await test('이글루 셋의 방은 저마다 조금씩 다르다', async () => {

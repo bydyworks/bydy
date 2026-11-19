@@ -5,13 +5,23 @@
 //   · 다른 펭귄이 남긴 발자국·눈 천사·배 썰매 자국도 내 눈밭에 남는다 (서버가 6시간 들고 있다가 들어올 때 보내 준다).
 // 서버 주소가 없거나 이어지지 않으면 혼자 걷는 눈밭 그대로다 (게임은 아무 일 없이 돌아간다).
 import * as THREE from 'three';
-import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, COLORS } from './penguin.js';
+import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, COLORS, ROD_GRIP } from './penguin.js';
 import { STATUSES } from './den.js';
+import { ROD_LEN, ROD_TILT, SEAT as FISH_SEAT, FLOAT_Y } from './fishing.js';
 
 /** 하는 일의 번호 (서버와 같은 약속) */
 export const ACT = { stand: 0, angel: 1, slide: 2, flap: 3, fish: 4, sit: 5, snowman: 6 };
 const SEND_EVERY = 0.2, BEAT = 2;          // 바뀌었으면 0.2초마다, 안 바뀌어도 2초마다 한 번 보낸다
 const DEVICE_KEY = 'poddk.device.v1';
+const EASE = { in: 0.32, out: 0.45 };      // 자세가 바뀔 때: 새 자세로 들어가는 시간, 하던 자세에서 빠져나오는 시간(초)
+/** 하는 일마다 그리는 자세. k: 0(서 있음)..1(그 자세), t: 시각 */
+const POSES = {
+  [ACT.angel]: (r, k, t) => lie(r, k, t * 2.6),
+  [ACT.slide]: (r, k, t) => belly(r, k, t * 6),
+  [ACT.flap]: (r, k, t) => flap(r, k, t * 27),
+  [ACT.fish]: (r, k, t) => sit(r, k, Math.sin(t * 1.3) * 0.012),
+  [ACT.sit]: (r, k) => sit(r, k),
+};
 
 function deviceId() {
   try { const d = localStorage.getItem(DEVICE_KEY); if (d && /^[a-f0-9]{12}$/.test(d)) return d; } catch { /* 막혀 있다 */ }
@@ -47,14 +57,27 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     const root = buildPenguin({ scarf: lk !== 'blanket', blanket: lk === 'blanket', color: COLORS[color] || COLORS[0] });
     root.visible = false;
     scene.add(root);
-    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null };
+    // 낚싯대 (낚시하는 동안에만 보인다): 쥔 날개 끝에서 앞쪽 위로, 줄은 구멍 위의 찌까지
+    const rod = new THREE.Group();
+    const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.036, ROD_LEN, 8), new THREE.MeshStandardMaterial({ color: '#8a5a36', roughness: 0.8 }));
+    stick.position.y = ROD_LEN / 2; rod.add(stick);
+    rod.position.copy(ROD_GRIP); rod.position.y -= 0.09; rod.rotation.set(ROD_TILT, 0, 0.1); rod.visible = false;
+    root.add(rod);
+    const lineGeo = new THREE.BufferGeometry(); lineGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+    const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: '#4d5570', transparent: true, opacity: 0.85 })); line.frustumCulled = false; line.visible = false;
+    const float = new THREE.Group();
+    float.add(new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 8), new THREE.MeshStandardMaterial({ color: '#f7f5f0', roughness: 0.5 })));
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.057, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#d8362f', roughness: 0.5 })); float.add(cap);
+    float.scale.setScalar(1.5); float.visible = false;      // (낚싯대와 찌는 멀리서도 보이게 내 것보다 조금 크게)
+    scene.add(line, float);
+    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float };
     peers.set(id, p);
     return p;
   }
   function drop(id) {
     const p = peers.get(id); if (!p) return;
-    scene.remove(p.root);
-    p.root.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); } });
+    scene.remove(p.root, p.line, p.float);
+    for (const o of [p.root, p.line, p.float]) o.traverse((x) => { if (x.isMesh || x.isLine) x.geometry.dispose(); });
     if (p.bubble) p.bubble.remove();
     peers.delete(id);
   }
@@ -78,7 +101,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
 
   function send(obj) { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); stats.sent++; } }
 
-  const head = new THREE.Vector3();
+  const head = new THREE.Vector3(), tip = new THREE.Vector3();
   const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
   return {
     stats, peers, device,
@@ -104,7 +127,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
       for (const p of peers.values()) {
         const s = p.s;
         p.root.visible = !!s && s.i === inside;
-        if (!p.root.visible) { if (p.bubble) p.bubble.hidden = true; continue; }
+        if (!p.root.visible) { if (p.bubble) p.bubble.hidden = true; p.line.visible = p.float.visible = false; continue; }
         const k = 1 - Math.exp(-dt * 8);
         const ox = p.x, oz = p.z;
         p.x += (s.x - p.x) * k; p.z += (s.z - p.z) * k;
@@ -116,11 +139,28 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
         const r = p.root;
         r.position.set(p.x, 0, p.z); r.rotation.y = p.yaw;
         pose(r, p.phase, p.walk);
-        lie(r, s.a === ACT.angel ? 1 : 0, time * 2.6);
-        belly(r, s.a === ACT.slide ? 1 : 0, time * 6);
-        flap(r, s.a === ACT.flap ? 1 : 0, time * 27);
-        sit(r, s.a === ACT.fish || s.a === ACT.sit ? 1 : 0);
+        // 자세는 한 번에 하나만 그린다 (자세마다 몸의 높이와 기울기를 저마다 정하므로, 여럿을 잇달아 부르면 나중 것이 앞의 것을 덮는다).
+        // 하는 일이 바뀌면 하던 자세에서 천천히 빠져나온 다음 새 자세로 들어간다
+        const want = POSES[s.a] ? s.a : ACT.stand;
+        if (p.act !== want) {
+          p.k = Math.max(0, p.k - dt / EASE.out);
+          if (p.k <= 0) { if (POSES[p.act]) POSES[p.act](r, 0, time); p.act = want; }
+        } else if (POSES[want]) p.k = Math.min(1, p.k + dt / EASE.in);
+        const ease = p.k * p.k * (3 - 2 * p.k);
+        if (POSES[p.act]) POSES[p.act](r, ease, time);
         setSnow(r, s.a === ACT.snowman ? 1 : 0, s.a === ACT.snowman ? 1 : 0);
+        // 낚시: 낚싯대와 줄과 찌 (펭귄은 구멍을 보고 한 걸음 반 떨어져 앉는다)
+        const fishing = p.act === ACT.fish && ease > 0.5;
+        p.rod.visible = p.line.visible = p.float.visible = fishing;
+        if (fishing) {
+          p.rod.scale.setScalar(ease);
+          const fx = p.x + Math.sin(p.yaw) * FISH_SEAT, fz = p.z + Math.cos(p.yaw) * FISH_SEAT;
+          p.float.position.set(fx, FLOAT_Y + Math.sin(time * 2.2) * 0.012, fz);
+          r.updateMatrixWorld(true);
+          tip.set(0, ROD_LEN, 0); p.rod.localToWorld(tip);
+          const q = p.line.geometry.attributes.position;
+          q.setXYZ(0, tip.x, tip.y, tip.z); q.setXYZ(1, fx, FLOAT_Y + 0.02, fz); q.needsUpdate = true;
+        }
         // 이글루에서 앉아 고른 상태: 머리 위 말풍선
         const say = s.a === ACT.sit && s.st >= 0 ? STATUSES[s.st] : null;
         if (say && !p.bubble) { p.bubble = document.createElement('div'); p.bubble.className = 'peer-say'; document.body.append(p.bubble); }
