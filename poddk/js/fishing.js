@@ -1,6 +1,8 @@
 // 얼음낚시. 낚시 구멍 곁에서 버튼을 누르면 펭귄이 앉아 낚싯대를 드리운다.
 //   기다리다가 → 찌가 쑥 들어가면(입질) 버튼을 눌러 → 낚아 올리고 → 잠깐 들어 보인 뒤 → 다시 놓아준다.
-//   입질을 놓치면 물고기는 달아나고 다시 기다린다. 걸으려 하면 일어나 그만둔다.
+//   입질을 놓치면 물고기는 달아나고 다시 기다린다.
+//   그만둘 때는 같은 버튼을 누른다: 기다리는 동안에는 그 버튼이 "그만두기"이고, 입질이 온 동안에만 "낚아 올리기"다.
+//   (걸으려 해도 일어나지 않는다 — 조이스틱을 건드려 낚시가 풀려 버리지 않게)
 // 점수도 도감도 없다. 무엇이 올라올지는 그때그때 다르다.
 import * as THREE from 'three';
 import { ROD_GRIP, sit } from './penguin.js';
@@ -15,6 +17,7 @@ export const CATCHES = [
 const SEAT = 1.55;                 // 구멍에서 이만큼 떨어져 앉는다
 const T = { sit: 0.6, bite: 2.6, pull: 0.55, show: 1.9, release: 0.65, stand: 0.45 };      // 단계마다 걸리는 시간(초)
 const WAIT = [4, 12];              // 입질을 기다리는 시간의 범위(초)
+const GRACE = { sat: 0.5, missed: 0.9, released: 0.6 };      // 막 앉았거나, 입질을 놓쳤거나, 놓아준 직후 이만큼은 버튼을 눌러도 그만두지 않는다 (한 박자 늦게 누른 것일 수 있다)
 const ROD_LEN = 1.5, ROD_TILT = 0.96;     // 낚싯대의 길이와, 앞으로 기운 각도(라디안)
 const FLOAT_Y = 0.05;              // 찌가 떠 있는 높이
 
@@ -87,7 +90,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
   const items = {};
   for (const c of CATCHES) { const o = MAKERS[c.id](); o.traverse((x) => { if (x.isMesh) x.castShadow = true; }); o.visible = false; scene.add(o); items[c.id] = o; }
 
-  let state = null;                // { phase, t, wait, k(앉은 정도), from, to, kind, pressed, twitch }
+  let state = null;                // { phase, t, wait, k(앉은 정도), from, to, kind, pressed, grace(그만두기를 받지 않는 남은 시간) }
   let HOLE = { x: 0, z: 0, radius: 0.42 };       // 지금(또는 마지막으로) 낚시하는 구멍
   let forcedWait = null, forcedKind = null, time = 0;
   const stats = { started: 0, bites: 0, caught: 0, missed: 0, last: null };
@@ -136,26 +139,28 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
         if (free(x, z)) { to = { x, z, yaw: Math.atan2(HOLE.x - x, HOLE.z - z) }; break; }
       }
       if (!to) return false;
-      state = { phase: 'sit', t: 0, k: 0, wait: 0, from: { x: me.x, z: me.z, yaw: me.yaw }, to, kind: null, pressed: false, twitch: 0, lean: 0 };
+      state = { phase: 'sit', t: 0, k: 0, wait: 0, from: { x: me.x, z: me.z, yaw: me.yaw }, to, kind: null, pressed: false, grace: 0, lean: 0 };
       stats.started++;
       rod.visible = true; line.visible = true; float.visible = true;
       float.position.set(HOLE.x, FLOAT_Y, HOLE.z);
       return true;
     },
-    /** 버튼을 눌렀다: 입질 중이면 낚아 올린다 */
+    /** 버튼이 지금 하는 일: 'pull'(입질 — 낚아 올린다) | 'quit'(기다리는 중 — 그만둔다) | null(누를 수 없는 때) */
+    get button() { return !state ? null : state.phase === 'bite' ? 'pull' : state.phase === 'wait' && state.grace <= 0 ? 'quit' : null; },
+    /** 버튼을 눌렀다: 입질 중이면 낚아 올리고, 기다리는 중이면 일어나 그만둔다 */
     press() {
       if (!state) return;
       if (state.phase === 'bite') state.pressed = true;
-      else if (state.phase === 'wait') state.twitch = 0.35;       // 아직 입질이 없으면 낚싯대만 한 번 까딱
+      else if (state.phase === 'wait' && state.grace <= 0) go('stand');
     },
     /** 바로 그만둔다 (자세를 되돌리고 모두 감춘다) */
     cancel() { if (!state) return; state = null; hideAll(); sit(penguin, 0); },
 
     /**
      * 한 박자. (pose() 로 선 자세를 잡은 다음에 부른다)
-     * @param {number} dt  @param {{ x: number, z: number, yaw: number }} me 펭귄의 자리 — 앉는 동안 여기에 적어 넣는다  @param {boolean} leave 걸으려 하는가
+     * @param {number} dt  @param {{ x: number, z: number, yaw: number }} me 펭귄의 자리 — 앉는 동안 여기에 적어 넣는다
      */
-    step(dt, me, leave) {
+    step(dt, me) {
       time += dt;
       for (const m of rings) {                                   // 물결은 낚시가 끝난 뒤에도 마저 퍼진다
         if (m.userData.t >= 1) { m.visible = false; continue; }
@@ -165,22 +170,20 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
       if (!state) return;
       const s = state;
       s.t += dt;
-      s.twitch = Math.max(0, s.twitch - dt);
+      s.grace = Math.max(0, s.grace - dt);
       let lean = 0, lift = 0, bend = 0, item = null, itemPos = null, wiggle = 0;
       const held = hand.set(s.to.x + Math.sin(s.to.yaw) * 0.92, 1.0, s.to.z + Math.cos(s.to.yaw) * 0.92);      // 낚인 것을 들어 보이는 자리
 
       if (s.phase === 'sit') {
         s.k = smooth(s.t / T.sit);
-        if (s.t >= T.sit) { go('wait'); s.wait = nextWait(); }
+        if (s.t >= T.sit) { go('wait'); s.wait = nextWait(); s.grace = GRACE.sat; }
       } else if (s.phase === 'wait') {
         s.k = 1;
-        if (leave && s.t > 0.4) go('stand');
-        else if (s.t >= s.wait) { go('bite'); s.pressed = false; stats.bites++; audio.water('plop'); ripple(); }
+        if (s.t >= s.wait) { go('bite'); s.pressed = false; stats.bites++; audio.water('plop'); ripple(); }
       } else if (s.phase === 'bite') {
         s.k = 1; lean = 0.12; bend = 0.1 + 0.05 * Math.sin(s.t * 21);
         if (s.pressed) { s.kind = pick(); go('pull'); audio.water('splash'); crumble.puff(HOLE.x, HOLE.z, 0.28); ripple(); }
-        else if (leave) go('stand');
-        else if (s.t >= T.bite) { stats.missed++; go('wait'); s.wait = nextWait(); ripple(); }
+        else if (s.t >= T.bite) { stats.missed++; go('wait'); s.wait = nextWait(); s.grace = GRACE.missed; ripple(); }
       } else if (s.phase === 'pull') {
         s.k = 1;
         const u = Math.min(1, s.t / T.pull), e = 1 - (1 - u) * (1 - u);
@@ -202,7 +205,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
         lean = 0.1 * Math.sin(Math.PI * u); lift = -0.3 * (1 - u);
         item = s.kind;
         itemPos = end.set(lerp(held.x, HOLE.x, u), lerp(held.y, -0.3, u * u) + Math.sin(Math.PI * u) * 0.35, lerp(held.z, HOLE.z, u));
-        if (s.t >= T.release) { audio.water('plop'); ripple(); go('wait'); s.wait = nextWait(); }
+        if (s.t >= T.release) { audio.water('plop'); ripple(); go('wait'); s.wait = nextWait(); s.grace = GRACE.released; }
       } else if (s.phase === 'stand') {
         s.k = 1 - smooth(s.t / T.stand);
         if (s.t >= T.stand) { state = null; hideAll(); sit(penguin, 0); return; }
@@ -217,7 +220,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
 
       // 낚싯대: 쥔 날개 끝에서 앞쪽 위로. 입질이면 끝이 떨리며 숙고, 낚아 올릴 때는 휙 들린다
       rod.position.set(ROD_GRIP.x, ROD_GRIP.y - 0.09 * s.k, ROD_GRIP.z);
-      rod.rotation.set(ROD_TILT + bend + lift - s.twitch * 0.5 + (1 - s.k) * 0.4, 0, 0.1);
+      rod.rotation.set(ROD_TILT + bend + lift + (1 - s.k) * 0.4, 0, 0.1);
       rod.scale.setScalar(Math.max(0.001, s.k));
       euler.copy(rod.rotation);
       tip.set(0, ROD_LEN * rod.scale.x, 0).applyEuler(euler).add(rod.position).applyAxisAngle(up, me.yaw);
@@ -226,7 +229,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
       // 찌: 물 위에 동동. 입질이면 물속으로 쑥 들어갔다 나왔다 한다. 낚아 올리는 동안은 감춘다
       const fishing = s.phase === 'wait' || s.phase === 'bite' || s.phase === 'sit' || s.phase === 'stand';
       float.visible = fishing && s.k > 0.5;
-      float.position.y = s.phase === 'bite' ? -0.06 + 0.07 * Math.sin(s.t * 16) : FLOAT_Y + Math.sin(time * 2.2) * 0.012 - s.twitch * 0.05;
+      float.position.y = s.phase === 'bite' ? -0.06 + 0.07 * Math.sin(s.t * 16) : FLOAT_Y + Math.sin(time * 2.2) * 0.012;
       float.rotation.z = Math.sin(time * 1.7) * 0.12;
 
       // 낚인 것

@@ -137,9 +137,26 @@ function startFishing() {
   me.walk = 0;
   shakeOff(true); me.snow = 0;                           // 쌓인 눈은 앉으면서 털린다
   me.idle = 0;
-  if (!fishHint) { fishHint = true; toast('찌가 쑥 들어가면 눌러요. 걸으면 그만둬요', 4600); }
+  if (!fishHint) { fishHint = true; toast('찌가 쑥 들어가면 물고기 버튼을 눌러요. ✕ 는 그만두기예요', 4800); }
 }
-/** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 그 밖에서는 눈 천사 */
+/**
+ * 가운데 버튼의 모습을 지금 할 수 있는 일에 맞춘다:
+ *   평소 눈 천사 → 낚시 구멍 곁에서는 물고기(낚시하기) → 낚시 중에는 ✕(그만두기) → 입질이 오면 두근거리는 물고기(낚아 올리기)
+ */
+let actionShown = '';
+function showAction() {
+  const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : 'wait') : canFish() ? 'fish' : 'angel';
+  if (now === actionShown) return;
+  actionShown = now;
+  const el = $('#angel');
+  el.classList.toggle('fish', now === 'fish' || now === 'pull');
+  el.classList.toggle('bite', now === 'pull');
+  el.classList.toggle('quit', now === 'quit' || now === 'wait');
+  el.classList.toggle('hold', now === 'wait');            // 낚아 올리거나 놓아주는 동안: 누를 수 없다
+  el.setAttribute('aria-label', { angel: '눈 천사 만들기', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기' }[now]);
+}
+
+/** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 낚시 중에는 낚아 올리기나 그만두기, 그 밖에서는 눈 천사 */
 function act() {
   if (!started) return;
   if (fishing.active) fishing.press();
@@ -212,15 +229,15 @@ function walk(dt, now) {
   if (me.angel) { stepAngel(dt, now); setSnow(penguin, me.snow, me.pop); return; }      // 누울 때 털린 눈이 모습에도 바로 드러나게
 
   if (fishing.active) {
-    // 낚시하는 동안: 걷지 않는다. 눈은 서 있을 때만 쌓이므로, 앉아 있는 동안에는 쌓이지 않는다
+    // 낚시하는 동안: 조이스틱을 밀어도 걷지 않는다 (그만두려면 버튼을 누른다). 눈은 서 있을 때만 쌓이므로, 앉아 있는 동안에는 쌓이지 않는다
     me.walk = 0;
     pose(penguin, me.phase, 0);
-    fishing.step(dt, me, mag > 0.3);
+    fishing.step(dt, me);
     me.idle = 0; me.snow = 0;
     setSnow(penguin, 0, 0);
     return;
   }
-  fishing.step(dt, me, false);                           // (물결이 마저 퍼지게)
+  fishing.step(dt, me);                                  // (물결이 마저 퍼지게)
 
   if (mag > 0.02) {
     // 카메라가 보는 방향 기준으로 걷는다 (앞 = 화면 안쪽)
@@ -334,14 +351,11 @@ function tick(t) {
     const carol = audio.carolTitle;
     $('#carol').textContent = carol ? '♪ ' + carol : '';
     document.body.dataset.storm = stormPhase(now);
-    // 낚시 구멍 곁에서는 눈 천사 버튼이 낚시 버튼으로 바뀐다
-    const fish = fishing.active || canFish(), angel = $('#angel');
-    if (angel.classList.contains('fish') !== fish) { angel.classList.toggle('fish', fish); angel.setAttribute('aria-label', fish ? '낚시하기' : '눈 천사 만들기'); }
-    if (fish && !fishing.active && !holeHint) { holeHint = true; toast('얼음 구멍이에요. 버튼을 누르면 낚시를 해요', 3600); }
+    if (canFish() && !holeHint) { holeHint = true; toast('얼음 구멍이에요. 버튼을 누르면 낚시를 해요', 3600); }
     $('#zoom-in').disabled = me.camDist <= CAM_DIST_MIN + 0.01;
     $('#zoom-out').disabled = me.camDist >= CAM_DIST_MAX - 0.01;
   }
-  $('#angel').classList.toggle('bite', fishing.phase === 'bite');      // 입질: 버튼이 두근거린다
+  showAction();
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
   raf = document.hidden ? 0 : requestAnimationFrame(tick);

@@ -762,9 +762,10 @@ try {
       await snow(p, () => window.__snow.act());
       await walk(p, 0, 0, 0.8);
       assert((await snow(p, () => window.__snow.fishing.stats.caught)) === i + 1, (i + 1) + '번째 낚시터에서 낚이지 않는다');
-      await walk(p, 0, 0, 2.6);
-      await walk(p, 0, 1, 1.5);                                           // 일어나 걸어 나온다
-      assert(!(await snow(p, () => window.__snow.fishing.active)), '걸어 나왔는데 아직 낚시 중이다');
+      await walk(p, 0, 0, 3.4);                                           // 들어 보이고 놓아준 뒤
+      await snow(p, () => window.__snow.act());                           // 그만두기
+      await walk(p, 0, 0, 0.6);
+      assert(!(await snow(p, () => window.__snow.fishing.active)), '그만두기를 눌렀는데 아직 낚시 중이다');
     }
     // 이글루 문 앞에서는 낚시가 아니라 눈 천사
     await snow(p, () => { const s = window.__snow, g = s.place.igloos[0], r = Math.hypot(g.x, g.z); s.teleport(g.x - g.x / r * 6, g.z - g.z / r * 6); s.act(); });
@@ -772,87 +773,107 @@ try {
     assert((await state(p)).angel && !(await snow(p, () => window.__snow.fishing.active)), '이글루 앞에서는 눈 천사를 해야 한다');
   });
 
-  await test('낚시 구멍 곁에 서면 눈 천사 버튼이 낚시 버튼으로 바뀌고, 누르면 앉아서 낚싯대를 드리운다. 걸으면 그만둔다', async () => {
+  await test('낚시 구멍 곁에 서면 눈 천사 버튼이 낚시 버튼으로 바뀌고, 누르면 앉아서 낚싯대를 드리운다. 같은 자리의 ✕ 버튼을 눌러야 그만둔다', async () => {
     const p = await page();
-    const button = () => p.evaluate(() => { const el = document.querySelector('#angel'), show = (c) => getComputedStyle(el.querySelector(c)).display !== 'none'; return { fish: el.classList.contains('fish'), label: el.getAttribute('aria-label'), angel: show('.angel-icon'), icon: show('.fish-icon') }; });
+    const button = () => p.evaluate(() => { const el = document.querySelector('#angel'), show = (c) => getComputedStyle(el.querySelector(c)).display !== 'none'; const b = el.getBoundingClientRect(); return { label: el.getAttribute('aria-label'), angel: show('.angel-icon'), fish: show('.fish-icon'), quit: show('.quit-icon'), at: [Math.round(b.left), Math.round(b.top), Math.round(b.width)] }; });
     let b = await button();
-    assert(!b.fish && b.angel && !b.icon && b.label === '눈 천사 만들기', '평소에는 눈 천사 버튼: ' + JSON.stringify(b));
+    const home = b.at.join();
+    assert(b.angel && !b.fish && !b.quit && b.label === '눈 천사 만들기', '평소에는 눈 천사 버튼: ' + JSON.stringify(b));
     await toHole(p);
     await until(async () => (await button()).fish, { what: '낚시 버튼' });
     b = await button();
-    assert(!b.angel && b.icon && b.label === '낚시하기', '구멍 곁에서는 물고기 그림: ' + JSON.stringify(b));
+    assert(!b.angel && !b.quit && b.label === '낚시하기' && b.at.join() === home, '구멍 곁에서는 같은 자리에 물고기 그림: ' + JSON.stringify(b));
     await until(async () => (await p.textContent('#toast')).includes('얼음 구멍'), { what: '낚시터 안내' });
     await p.click('#angel');
-    await walk(p, 0, 0, 1.2);
+    await walk(p, 0, 0, 1.3);
     let f = await fishLook(p);
     assert(f.active && f.phase === 'wait' && f.angels === 0, '버튼을 눌렀는데 낚시를 시작하지 않았다: ' + JSON.stringify(f));
     assert(f.sitY < -0.07 && f.footZ > 0.2 && Math.abs(f.dist - 1.55) < 0.02 && f.facing < 0.02, '구멍을 보고 앉아야 한다: ' + JSON.stringify(f));
     assert(f.rod && f.item === null && f.floatY !== null && f.floatY > 0.02 && f.floatY < 0.08, '낚싯대를 들고, 찌가 물 위에 떠 있어야 한다: ' + JSON.stringify(f));
     await until(async () => (await p.textContent('#toast')).includes('찌가 쑥'), { what: '낚시 방법 안내' });
+    // 낚시하는 동안 그 버튼은 같은 자리의 그만두기(✕) 버튼이다
+    await until(async () => (await button()).quit, { what: '그만두기 버튼' });
+    b = await button();
+    assert(!b.angel && !b.fish && b.label === '낚시 그만두기' && b.at.join() === home, '낚시 중에는 같은 자리에 ✕ 그림: ' + JSON.stringify(b));
+    // 걸으려 해도 일어나지 않는다 (조이스틱을 건드려 낚시가 풀리지 않게)
     const before = await state(p);
-    await walk(p, 0, 0.2, 1);                                             // 살짝 건드린 정도로는 일어나지 않는다
-    assert((await fishLook(p)).active, '조이스틱을 살짝 건드렸는데 낚시를 그만뒀다');
-    await walk(p, 0, 1, 2);
+    await walk(p, 0, 1, 3);
     f = await fishLook(p);
+    const still = await state(p);
+    assert(f.active && f.phase === 'wait' && Math.hypot(still.x - before.x, still.z - before.z) < 1e-6, '걸으려 했더니 낚시가 풀렸다: ' + JSON.stringify(f));
+    // ✕ 버튼을 누르면 일어난다
+    await p.click('#angel');
+    await walk(p, 0, 0, 0.6);
+    f = await fishLook(p);
+    assert(!f.active && f.sitY === 0 && Math.abs(f.footZ - 0.02) < 1e-6 && f.floatY === null && !f.rod, '그만두기 버튼을 누르면 일어나야 한다: ' + JSON.stringify(f));
+    await until(async () => (await button()).fish, { what: '다시 낚시 버튼' });
+    await walk(p, 0, 1, 2);
     const after = await state(p);
-    assert(!f.active && f.sitY === 0 && Math.abs(f.footZ - 0.02) < 1e-6 && f.floatY === null && !f.rod, '걸으려 하면 일어나 그만둬야 한다: ' + JSON.stringify(f));
     assert(Math.hypot(after.x - before.x, after.z - before.z) > 1, '일어난 뒤에 걸을 수 없다');
     // 구멍에서 멀어지면 다시 눈 천사 버튼
     await snow(p, () => window.__snow.teleport(0, 20));
-    await until(async () => !(await button()).fish, { what: '눈 천사 버튼으로 돌아옴' });
+    await until(async () => (await button()).angel, { what: '눈 천사 버튼으로 돌아옴' });
     await p.click('#angel');
     assert((await state(p)).angel, '구멍에서 먼 곳에서는 눈 천사를 해야 한다');
   });
 
-  await test('입질이 오면 찌가 쑥 들어가고, 그때 누르면 낚아 올려 들어 보인 뒤 놓아준다. 놓치면 다시 기다린다', async () => {
+  await test('입질이 오면 찌가 쑥 들어가고 버튼이 물고기로 바뀐다. 그때 누르면 낚아 올려 들어 보인 뒤 놓아주고, 놓치면 다시 기다린다', async () => {
     const p = await page();
     await byHand(p);
     await toHole(p);
+    const act = () => snow(p, () => window.__snow.act());
+    const label = () => p.getAttribute('#angel', 'aria-label');
     await snow(p, () => { const s = window.__snow; s.fishing.debug.biteIn(2); s.act(); });
-    await walk(p, 0, 0, 1.5);
-    await snow(p, () => window.__snow.act());                             // 입질이 없을 때 누르면 아무것도 낚이지 않는다
-    await walk(p, 0, 0, 0.3);
+    await walk(p, 0, 0, 0.7);
+    await act();                                                          // 막 앉자마자 누른 것은 그만두기로 치지 않는다
+    await walk(p, 0, 0, 0.1);
     let f = await fishLook(p);
-    assert(f.phase === 'wait' && f.stats.caught === 0, '입질 전에 눌렀는데 낚였다: ' + JSON.stringify(f));
+    assert(f.active && f.phase === 'wait', '앉자마자 누른 것 때문에 낚시가 풀렸다: ' + JSON.stringify(f));
     const w0 = f.water;
-    await walk(p, 0, 0, 1.0);
+    await walk(p, 0, 0, 2.0);
     f = await fishLook(p);
     assert(f.phase === 'bite' && f.stats.bites === 1 && f.water === w0 + 1, '2초 뒤에 입질이 와야 한다 (퐁 소리와 함께): ' + JSON.stringify(f));
     let low = 9;
     for (let i = 0; i < 12; i++) { await walk(p, 0, 0, 1 / 30); low = Math.min(low, (await fishLook(p)).floatY); }
     assert(low < 0, '입질인데 찌가 물속으로 들어가지 않는다: ' + low);
-    await until(async () => p.evaluate(() => document.querySelector('#angel').classList.contains('bite')), { what: '두근거리는 버튼' });
-    // 놓치면: 물고기는 달아나고 다시 기다린다
-    await walk(p, 0, 0, 2.6);
+    await until(async () => p.evaluate(() => { const c = document.querySelector('#angel').classList; return c.contains('bite') && c.contains('fish') && !c.contains('quit'); }), { what: '두근거리는 물고기 버튼' });
+    assert((await label()) === '낚아 올리기', '입질 때의 버튼 설명: ' + await label());
+    // 놓치면: 물고기는 달아나고 다시 기다린다. 한 박자 늦게 누른 것은 그만두기로 치지 않는다
+    await walk(p, 0, 0, 2.3);
+    await act();
+    await walk(p, 0, 0, 0.3);
     f = await fishLook(p);
-    assert(f.phase === 'wait' && f.stats.missed === 1 && f.stats.caught === 0, '입질을 놓치면 다시 기다려야 한다: ' + JSON.stringify(f));
+    assert(f.active && f.phase === 'wait' && f.stats.missed === 1 && f.stats.caught === 0, '입질을 놓치면 다시 기다려야 한다 (늦게 눌러도 낚시는 이어진다): ' + JSON.stringify(f));
+    await until(async () => (await label()) === '낚시 그만두기', { what: '다시 그만두기 버튼' });
     // 네 가지가 모두 낚인다: 누르면 올라오고, 이름을 알려 주고, 잠깐 들어 보인 뒤 놓아준다
     for (const [id, name] of [['smelt', '빙어'], ['cherry', '산천어'], ['trout', '송어'], ['boot', '낡은 장화']]) {
       const w = (await fishLook(p)).water, n = (await fishLook(p)).stats.caught;
       await snow(p, (k) => { const s = window.__snow; s.fishing.debug.biteIn(0.2); s.fishing.debug.next(k); }, id);
       await walk(p, 0, 0, 0.4);
-      await snow(p, () => window.__snow.act());
+      await act();
       await walk(p, 0, 0, 0.2);
       assert((await fishLook(p)).phase === 'pull', id + ': 눌렀는데 낚아 올리지 않는다');
       await walk(p, 0, 0, 0.6);
       f = await fishLook(p);
       assert(f.phase === 'show' && f.stats.caught === n + 1 && f.stats.last === id && f.item === id && f.floatY === null, id + ': 낚은 것을 들어 보여야 한다: ' + JSON.stringify(f));
       assert((await p.textContent('#toast')).includes(name + '를 낚았어요'), '낚은 것의 이름: ' + await p.textContent('#toast'));
-      await walk(p, 0, 0.9, 0.5);                                          // 들어 보이는 동안에는 걸으려 해도 그대로 있는다
-      assert((await fishLook(p)).active, '들어 보이는 중에 일어나 버렸다');
+      await act();                                                        // 들어 보이는 동안에는 눌러도, 걸으려 해도 그대로 있는다
+      await walk(p, 0, 0.9, 0.5);
+      f = await fishLook(p);
+      assert(f.active && f.phase === 'show', '들어 보이는 중에 낚시가 풀렸다: ' + JSON.stringify(f));
       await walk(p, 0, 0, 2.3);
       f = await fishLook(p);
       assert(f.phase === 'wait' && f.water === w + 3 && f.item === null && f.floatY !== null, id + ': 놓아주고 다시 기다려야 한다 (퐁, 첨벙, 퐁): ' + JSON.stringify(f));
     }
-    // 눈은 서 있을 때만 쌓인다: 오래 앉아 낚시해도 쌓이지 않고, 일어나 서 있으면 다시 쌓인다
+    // 눈은 서 있을 때만 쌓인다: 오래 앉아 낚시해도 쌓이지 않고, 그만두고 서 있으면 다시 쌓인다
     await snow(p, () => window.__snow.fishing.debug.biteIn(9999));
     await walk(p, 0, 0, 60);
     f = await fishLook(p);
     assert(f.active && f.snow === 0 && f.pop === 0 && !f.shell && !f.hat, '앉아서 낚시하는 동안에는 눈이 쌓이지 않아야 한다: ' + JSON.stringify(f));
-    await walk(p, 0, 1, 1.2);
+    await act();
     await walk(p, 0, 0, 20);
     f = await fishLook(p);
-    assert(!f.active && f.snow === 1 && f.hat, '일어나 서 있으면 다시 쌓여야 한다: ' + JSON.stringify(f));
+    assert(!f.active && f.snow === 1 && f.hat, '그만두고 서 있으면 다시 쌓여야 한다: ' + JSON.stringify(f));
     // 무엇이 낚일지: 빙어가 절반을 넘고, 장화는 드물다
     const draws = await snow(p, () => { const n = {}; for (let i = 0; i < 6000; i++) { const k = window.__snow.fishing.debug.draw(); n[k] = (n[k] || 0) + 1; } return n; });
     assert(draws.smelt / 6000 > 0.5 && draws.smelt / 6000 < 0.64 && draws.boot / 6000 > 0.03 && draws.boot / 6000 < 0.09 && draws.cherry > draws.trout && draws.trout > draws.boot, '낚이는 비율: ' + JSON.stringify(draws));
