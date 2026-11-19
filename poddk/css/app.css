@@ -493,3 +493,8 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 /* 낮은 화면(가로로 눕힌 휴대폰 등): 그림은 접고 타일만 */
 @media (max-height: 640px) { .postcard-art { height: 76px; margin-bottom: 8px; } .postcard-art .scene { font-size: 28px; } .postcard-art .scene i.p { font-size: 24px; } .postcard-art .mark { display: none; } }
 @media (max-height: 430px) { .postcard-art { display: none; } .start-card .what li { flex-direction: row; justify-content: center; gap: 4px; padding: 6px 2px; } .start-card .what li b { font-size: 16px; } .start-card .me-name { margin-bottom: 8px; } }
+/* 선물 상자: 3D 로 그릴 수 있으면 그림 상자 대신 3D 상자 (뚜껑이 날아간 뒤 살며시 사라진다) */
+.gift-box .view { display: none; }
+#gift.three .gift-box svg { display: none; }
+#gift.three .gift-box .view { display: block; width: 168px; height: 168px; transition: opacity .3s .32s; }
+#gift.three.opened .gift-box .view { opacity: 0; }

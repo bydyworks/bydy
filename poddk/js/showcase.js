@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 
 export function createShowcase() {
-  let renderer = null, scene = null, camera = null, holder = null, current = null, raf = 0, t = 0, last = 0;
+  let renderer = null, scene = null, camera = null, holder = null, current = null, raf = 0, t = 0, last = 0, spin = 1.3, onFrame = null;
   function setup() {
     if (renderer) return true;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false }); } catch { renderer = null; return false; }
@@ -19,18 +19,20 @@ export function createShowcase() {
   function frame(now) {
     raf = requestAnimationFrame(frame);
     const dt = Math.min(0.05, (now - last) / 1000 || 0); last = now; t += dt;
-    if (current) { current.rotation.y = t * 1.3; current.position.y = current.userData.base + Math.sin(t * 2.4) * 0.04 * current.userData.size; }
+    if (current) { current.rotation.y = t * spin + current.userData.yaw; current.position.y = current.userData.base + Math.sin(t * 2.4) * 0.04 * current.userData.size; }
+    if (onFrame) onFrame(dt, t);
     renderer.render(scene, camera);
   }
   return {
     /**
      * el 안에 object 를 보여 준다. object 는 그대로 쓴다 (돌려받지 않는다). 크기에 맞춰 카메라를 맞춘다.
+     * turn: 도는 빠르기(라디안/초), yaw: 처음 방향, frame(dt, t): 매 프레임 부른다 (물건을 따로 움직일 때), zoom: 카메라 거리(물건 크기의 배수)
      * @returns {boolean} 보여 줄 수 있었는가 (WebGL 을 못 쓰면 false)
      */
-    show(el, object, { tilt = 0.25 } = {}) {
+    show(el, object, { tilt = 0.25, turn = 1.3, yaw = 0, frame: tick = null, zoom = 2.6 } = {}) {
       if (!setup()) return false;
       this.hide();
-      holder = el;
+      holder = el; spin = turn; onFrame = tick;      // (frame 은 아래 그리기 함수의 이름이라 tick 으로 받는다)
       const size = Math.max(10, Math.round(el.clientWidth || 160));
       renderer.setSize(size, size, false);
       renderer.domElement.style.width = renderer.domElement.style.height = size + 'px';
@@ -41,9 +43,9 @@ export function createShowcase() {
       object.position.sub(c);
       inner.rotation.x = tilt;
       const r = Math.max(s.x, s.y, s.z) || 1;
-      pivot.userData.base = 0; pivot.userData.size = r;
+      pivot.userData.base = 0; pivot.userData.size = r; pivot.userData.yaw = yaw;
       scene.add(pivot); current = pivot;
-      camera.position.set(0, r * 0.25, r * 2.6); camera.lookAt(0, 0, 0); camera.near = r * 0.05; camera.far = r * 20; camera.updateProjectionMatrix();
+      camera.position.set(0, r * 0.25, r * zoom); camera.lookAt(0, 0, 0); camera.near = r * 0.05; camera.far = r * 20; camera.updateProjectionMatrix();
       t = 0; last = performance.now();
       if (!raf) raf = requestAnimationFrame(frame);
       return true;
@@ -52,7 +54,7 @@ export function createShowcase() {
       if (raf) { cancelAnimationFrame(raf); raf = 0; }
       if (current) { scene.remove(current); current.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); current = null; }
       if (renderer && renderer.domElement.parentNode) renderer.domElement.remove();
-      holder = null;
+      holder = null; onFrame = null;
     },
     get showing() { return !!current; },
   };

@@ -1390,17 +1390,18 @@ try {
     await snow(p, () => { const s = window.__snow, x = s.xmas.gifts[0]; s.teleport(x.x, x.z + 3); s.me.yaw = s.me.camYaw = Math.PI; s.controls.debugMove(0, 1); for (let i = 0; i < 300 && !s.gift; i++) s.sim(1 / 60); s.controls.debugMove(0, 0); });
     const box = () => p.evaluate(() => { const el = document.querySelector('#gift'); return { shown: !el.hidden, cls: el.className, item: el.querySelector('.name').textContent, close: getComputedStyle(el.querySelector('.gift-close')).visibility }; });
     let b = await box();
-    assert(b.shown && b.cls === '' && b.close === 'hidden', '선물 창이 뜨지 않았다: ' + JSON.stringify(b));
+    assert(b.shown && !/tap|opened/.test(b.cls) && b.close === 'hidden', '선물 창이 뜨지 않았다: ' + JSON.stringify(b));
+    assert(await p.evaluate(() => document.querySelector('#gift').classList.contains('three') && !!document.querySelector('#gift .gift-box .view canvas')), '선물 상자가 3D 로 그려지지 않았다');
     const at = await state(p);
     await walk(p, 0, 1, 1);
     assert(Math.hypot((await state(p)).x - at.x, (await state(p)).z - at.z) < 1e-6, '선물 창이 떠 있는데 걸었다');
     await p.click('#gift .gift-box'); await p.click('#gift .gift-box');
     b = await box();
-    assert(b.cls === 'tap2' && b.close === 'hidden', '두 번 두드렸는데 벌써 열렸다: ' + JSON.stringify(b));
+    assert(b.cls.split(' ').includes('tap2') && b.close === 'hidden', '두 번 두드렸는데 벌써 열렸다: ' + JSON.stringify(b));
     await p.click('#gift .gift-box');
     b = await box();
     const names = await snow(p, async () => (await import('./js/outfit.js')).ITEMS.map((x) => x.name));
-    assert(b.cls === 'opened' && names.includes(b.item) && b.close === 'visible', '세 번째에 선물이 나와야 한다: ' + JSON.stringify(b));
+    assert(b.cls.split(' ').includes('opened') && names.includes(b.item) && b.close === 'visible', '세 번째에 선물이 나와야 한다: ' + JSON.stringify(b));
     // 선물은 패션 아이템: 나오자마자 펭귄이 쓰고 있다
     const wore = await snow(p, async () => { const { ITEMS, SLOTS } = await import('./js/outfit.js'); const it = window.__snow.gift.item, w = window.__snow.outfit.worn; return { it: it && it.name, ok: !!it && w[SLOTS.indexOf(it.slot)] === it.n, n: ITEMS.length }; });
     assert(wore.ok && wore.n === 18 && wore.it === b.item, '나온 아이템을 쓰고 있어야 한다: ' + JSON.stringify(wore));

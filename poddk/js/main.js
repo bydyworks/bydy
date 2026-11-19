@@ -14,7 +14,7 @@ import { createFishing, makeCatch, CATCHES } from './fishing.js';
 import { createShowcase } from './showcase.js';
 import { ITEMS, SLOTS, wear, worn, makeItem } from './outfit.js';
 import { createPostbox, POSTBOX, subject } from './postbox.js';
-import { createXmas } from './xmas.js';
+import { createXmas, makeGiftBox } from './xmas.js';
 import { myName, rename } from './names.js';
 import { createDens, STATUSES } from './den.js';
 import { createNet, ACT } from './net.js';
@@ -637,6 +637,23 @@ function openGift(g) {
   const PAPER = ['#e8503f', '#3f8f6a', '#4f7fd0', '#e7b23c', '#c066b8', '#f08aa0'], RIBBON = ['#fff3c4', '#ffffff', '#ffd75e', '#f9e1e6'];
   box.style.setProperty('--paper', PAPER[g.i % PAPER.length]); box.style.setProperty('--ribbon', RIBBON[g.i % RIBBON.length]);
   el.hidden = false;
+  // 3D 선물 상자: 천천히 돌고, 두드릴 때마다 들썩이며 뚜껑이 조금씩 들리고, 세 번째에 뚜껑이 휙 날아간다 (WebGL 이 안 되면 그림 상자)
+  const model = makeGiftBox(g.i), { body, lid } = model.userData;
+  const anim = { shake: 0, lift: 0, lidY: 0, fly: -1 };
+  giftOpen.anim = anim;
+  const ok = showcase.show(box.querySelector('.view'), model, { tilt: 0.32, turn: 0.7, yaw: 0.6, zoom: 2.3, frame: (dt) => {
+    anim.shake = Math.max(0, anim.shake - dt * 3);
+    const w = Math.sin(anim.shake * 22) * anim.shake;
+    body.rotation.z = w * 0.12; body.rotation.x = w * 0.06;
+    body.scale.set(1 + anim.shake * 0.06, 1 - anim.shake * 0.08, 1 + anim.shake * 0.06);
+    if (anim.fly >= 0) {                                   // 세 번째: 뚜껑이 위로 솟구치며 빙글 돌고 사라진다
+      anim.fly += dt;
+      const u = Math.min(1, anim.fly / 0.5);
+      lid.position.set(u * 0.25, model.userData.h + u * 1.1 - u * u * 0.3, 0); lid.rotation.set(u * 1.2, 0, -u * 2.2);
+      lid.scale.setScalar(Math.max(0.001, 1 - u * 0.6));
+    } else { anim.lidY += (anim.lift - anim.lidY) * Math.min(1, dt * 14); lid.position.y = model.userData.h + anim.lidY; lid.rotation.z = Math.sin(anim.shake * 18) * anim.lift * 1.4; }
+  } });
+  el.classList.toggle('three', ok);
   audio.snowFx('ding');
 }
 function tapGift() {
@@ -644,7 +661,9 @@ function tapGift() {
   if (!o || o.taps >= GIFT_TAPS) return;
   o.taps++;
   const el = $('#gift');
-  if (o.taps < GIFT_TAPS) { el.className = ''; void el.offsetWidth; el.className = 'tap' + o.taps; audio.snowFx('paper'); return; }
+  const three = el.classList.contains('three');
+  if (o.anim) { o.anim.shake = 1; o.anim.lift = o.taps * 0.045; }
+  if (o.taps < GIFT_TAPS) { el.className = three ? 'three' : ''; void el.offsetWidth; el.className = 'tap' + o.taps + (three ? ' three' : ''); audio.snowFx('paper'); return; }
   // 선물은 패션 아이템이다: 안경, 모자, 귀마개 가운데 하나가 나와 바로 쓴다. 같은 자리에 쓰고 있던 것은 새것으로 바뀐다
   // (지금 쓰고 있는 것과 똑같은 것은 나오지 않는다). 이번 산책 동안만 쓰고, 다시 들어오면 맨몸으로 시작한다
   xmas.open(o.g);
@@ -654,12 +673,13 @@ function tapGift() {
   o.present = item.name; o.item = item;
   el.querySelector('.name').textContent = item.name;
   el.querySelector('.from').textContent = item.say + ' · 바로 써 봤어요!';
-  const view = el.querySelector('.view');
-  const ok = showcase.show(view, makeItem(item.slot, item.n), { tilt: 0.2 });
-  el.querySelector('.gift-item').classList.toggle('flat', !ok);
+  const view = el.querySelector('.gift-item .view');
+  el.querySelector('.gift-item').classList.toggle('flat', !three);
+  if (o.anim) o.anim.fly = 0;                          // 뚜껑이 날아가는 모습을 잠깐 보여 주고 나서 아이템을 띄운다
+  setTimeout(() => { if (giftOpen === o) showcase.show(view, makeItem(item.slot, item.n), { tilt: 0.2 }); }, three ? 420 : 0);
   el.querySelector('.emoji').textContent = { glasses: '🕶️', hat: '🎩', ear: '🎧' }[item.slot];
   wear(penguin, item.slot, item.n);
-  el.className = 'opened';
+  el.className = 'opened' + (three ? ' three' : '');
   audio.snowFx('tear');
   setTimeout(() => audio.snowFx('ding'), 260);
 }

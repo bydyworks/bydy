@@ -40,6 +40,30 @@ export function santaHere(ms) {
 
 const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.7, ...o });
 
+/**
+ * 선물 창에서 두드려 여는 3D 선물 상자: 뚜껑(리본 고리 포함)이 따로 들썩이고 날아간다.
+ * 돌려주는 Group 의 userData: { body(흔들리는 몸 전체), lid(뚜껑), h(상자 높이) }
+ */
+export function makeGiftBox(i) {
+  const root = new THREE.Group(), body = new THREE.Group(), lid = new THREE.Group();
+  root.add(body);
+  const paper = mat(PAPER[i % PAPER.length], { roughness: 0.55 }), ribbon = mat(RIBBON[i % RIBBON.length], { roughness: 0.4 });
+  const w = 0.62, h = 0.5;
+  const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), paper); box.position.y = h / 2; body.add(box);
+  for (const rot of [0, Math.PI / 2]) { const band = new THREE.Mesh(new THREE.BoxGeometry(0.1, h + 0.004, w + 0.012), ribbon); band.position.y = h / 2; band.rotation.y = rot; body.add(band); }
+  lid.position.y = h; body.add(lid);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, 0.12, w + 0.06), paper); top.position.y = 0.06; lid.add(top);
+  for (const rot of [0, Math.PI / 2]) { const band = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.124, w + 0.072), ribbon); band.position.y = 0.06; band.rotation.y = rot; lid.add(band); }
+  for (const s of [-1, 1]) {                                  // 큼직한 리본 고리 둘
+    const loop = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.04, 10, 20), ribbon);
+    loop.position.set(s * 0.1, 0.2, 0); loop.rotation.set(0, Math.PI / 2, s * 0.65); loop.scale.set(1, 1, 0.75); lid.add(loop);
+  }
+  const knot = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), ribbon); knot.position.y = 0.14; lid.add(knot);
+  for (const s of [-1, 1]) { const tail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.012, 0.16), ribbon); tail.position.set(s * 0.05, 0.125, 0.09); tail.rotation.y = s * 0.5; lid.add(tail); }
+  root.userData = { body, lid, h };
+  return root;
+}
+
 /** 포장된 선물 상자 하나 */
 function giftMesh(i) {
   const g = new THREE.Group();
