@@ -52,7 +52,7 @@ base.append(label(30 * WALK, -1.6, '걸어서 30초', 3.6, 500), label(60 * WALK
 // 낚시터: 언 연못(실제 크기)과 구멍
 PONDS.forEach((p, i) => {
   const g = el('g', { 'data-kind': 'pond' });
-  g.append(el('circle', { cx: p.x, cy: p.z, r: p.radius, fill: '#cfe5f6', stroke: '#8fb8dc', 'stroke-width': 0.8 }), el('circle', { cx: p.hole.x, cy: p.hole.z, r: 1.1, fill: '#1d3b5e' }), label(p.x, p.z + p.radius + 6.4, `낚시터 ${i + 1}`));
+  g.append(el('circle', { cx: p.x, cy: p.z, r: p.radius, fill: '#cfe5f6', stroke: '#8fb8dc', 'stroke-width': 0.8 }), ...p.holes.map((h) => el('circle', { cx: h.x, cy: h.z, r: 0.9, fill: '#1d3b5e' })), label(p.x, p.z + p.radius + 6.4, `낚시터 ${i + 1}`));
   base.append(g);
 });
 // 이글루: 둥근 집과, 트리 쪽을 보는 문 (알아보기 쉽게 실제보다 조금 크게 그린다)

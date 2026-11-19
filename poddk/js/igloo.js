@@ -1,6 +1,6 @@
 // 이글루와 얼음 낚시터. 트리를 가운데 두고 그 둘레에, 서로 멀리 떨어져 이글루 셋과 낚시터 셋이 흩어져 있다 — 돌아다녀야 찾을 수 있다.
 // 이글루는 눈 벽돌로 쌓은 둥근 집이다. 낮에는 흰 눈밭에 묻혀 잘 보이지 않지만, 밤에는 문 안에서 따뜻한 불빛이 새어 나온다.
-// 낚시터는 꽁꽁 언 작은 연못이고, 낚시 구멍이 하나씩 뚫려 있다.
+// 낚시터는 꽁꽁 언 작은 연못이고, 낚시 구멍이 다섯 개씩 둥글게 뚫려 있다 (여럿이 와도 저마다 한 구멍씩 낚시할 수 있게).
 import * as THREE from 'three';
 
 /** 트리에서 본 방향(도, 들어오는 쪽이 0도이고 시계 방향)과 거리 → 들판 위의 자리 */
@@ -12,9 +12,17 @@ const IGLOO_RADIUS = 2.5, POND_RADIUS = 5.2, HOLE_RADIUS = 0.42;
 // 여섯 곳을 트리 둘레에 번갈아 놓는다 (이글루 – 낚시터 – 이글루 – …). 거리는 저마다 달라서 한 바퀴 빙 둘러선 것처럼 보이지 않는다
 /** 이글루 셋: 문은 트리 쪽을 본다 */
 export const IGLOOS = [at(130, 66), at(250, 58), at(10, 84)].map((p) => ({ ...p, radius: IGLOO_RADIUS, yaw: Math.atan2(-p.x, -p.z) }));
-/** 낚시터 셋: 언 연못과, 그 위(트리 쪽으로 조금 치우친 곳)의 낚시 구멍 */
-export const PONDS = [at(60, 52), at(190, 78), at(310, 62)].map((p) => ({ ...p, radius: POND_RADIUS, hole: { ...toward(p, 1.1), radius: HOLE_RADIUS } }));
-export const HOLES = PONDS.map((p) => p.hole);
+const HOLES_PER_POND = 5, HOLE_RING = 2.6;      // 연못마다 구멍 다섯 개를 가운데에서 이만큼 떨어진 둘레에 고루 놓는다 (이웃한 구멍 사이는 약 3)
+/** 낚시터 셋: 언 연못과, 그 위에 둥글게 뚫린 낚시 구멍 다섯. hole 은 그 가운데 트리 쪽에 있는 첫 구멍 */
+export const PONDS = [at(60, 52), at(190, 78), at(310, 62)].map((p) => {
+  const base = Math.atan2(-p.x, -p.z);                // 트리 쪽
+  const holes = Array.from({ length: HOLES_PER_POND }, (_, i) => {
+    const a = base + i * Math.PI * 2 / HOLES_PER_POND;
+    return { x: p.x + Math.sin(a) * HOLE_RING, z: p.z + Math.cos(a) * HOLE_RING, radius: HOLE_RADIUS };
+  });
+  return { ...p, radius: POND_RADIUS, holes, hole: holes[0] };
+});
+export const HOLES = PONDS.flatMap((p) => p.holes);
 /** 걸어서 들어갈 수 없는 곳들: 둥근 눈집과 그 문간, 낚시 구멍 */
 export const BLOCKS = [
   ...IGLOOS.flatMap((g) => [{ x: g.x, z: g.z, r: g.radius + 0.3 }, { ...toward(g, 3.05), r: 1.5 }]),
@@ -26,7 +34,7 @@ export const CLEARINGS = [...IGLOOS.map((g) => ({ x: g.x, z: g.z, r: g.radius + 
 /** 그 자리가 얼음 위인가 (얼음 위에는 발자국이 남지 않는다) */
 export const onIce = (x, z) => PONDS.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius - 0.35);
 /** 곁에 있는 낚시 구멍 (없으면 null). 여기서 낚시를 할 수 있다 */
-export const holeNear = (x, z) => HOLES.find((h) => Math.hypot(x - h.x, z - h.z) < 2.3) || null;
+export const holeNear = (x, z) => { let best = null, d = 2.3; for (const h of HOLES) { const e = Math.hypot(x - h.x, z - h.z); if (e < d) { d = e; best = h; } } return best; };      // 가장 가까운 구멍
 
 function canvasTexture(w, h, paint) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -150,12 +158,14 @@ export function createCamp(scene) {
     const ice = new THREE.Mesh(G.ice, iceMat);
     ice.rotation.x = -Math.PI / 2; ice.rotation.z = i * 2.1; ice.position.set(at.x, 0.008, at.z); ice.receiveShadow = true; ice.renderOrder = 0.5;       // 연못마다 얼음 무늬를 돌려 놓는다
     pond.add(ice);
-    const water = new THREE.Mesh(G.water, waterMat);
-    water.rotation.x = -Math.PI / 2; water.position.set(at.hole.x, 0.014, at.hole.z); water.renderOrder = 0.6;
-    pond.add(water);
-    const rim = new THREE.Mesh(G.rim, plain);                          // 구멍 둘레에 쌓인 얼음 부스러기
-    rim.rotation.x = Math.PI / 2; rim.scale.z = 0.6; rim.position.set(at.hole.x, 0.025, at.hole.z); rim.castShadow = true; rim.receiveShadow = true;
-    pond.add(rim);
+    for (const h of at.holes) {                                        // 구멍마다 물과, 둘레에 쌓인 얼음 부스러기
+      const water = new THREE.Mesh(G.water, waterMat);
+      water.rotation.x = -Math.PI / 2; water.position.set(h.x, 0.014, h.z); water.renderOrder = 0.6;
+      pond.add(water);
+      const rim = new THREE.Mesh(G.rim, plain);
+      rim.rotation.x = Math.PI / 2; rim.scale.z = 0.6; rim.position.set(h.x, 0.025, h.z); rim.castShadow = true; rim.receiveShadow = true;
+      pond.add(rim);
+    }
     group.add(pond);
     return pond;
   });
