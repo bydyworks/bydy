@@ -477,8 +477,9 @@ try {
     const d1 = await dist();
     await until(async () => (await dist()) > d1 * 1.08, { what: '손가락이 미끄러진 뒤에도 계속 멀어짐' });
     await send('pointerup');
+    await sleep(150);                                                    // (뗀 순간 이미 쌓여 있던 한 칸은 다음 그림에서 마저 움직인다)
     const d2 = await dist();
-    await sleep(300);
+    await sleep(400);
     assert(Math.abs((await dist()) - d2) < 1e-6, '손가락을 뗐는데 계속 움직인다');
   });
 
