@@ -701,33 +701,75 @@ try {
       floatY: f.floatY, item: f.shown, rod: f.rodShown, water: s.audio.water, snow: s.me.snow, pop: s.me.pop, shell: u.shell.visible, hat: u.cap.visible, angels: s.tracks.angelCount };
   });
 
-  await test('이글루와 언 연못은 트리에서 먼 곳에 있다. 이글루 속으로는 못 들어가고, 얼음 위에는 발자국이 남지 않는다', async () => {
+  await test('이글루 셋과 낚시터 셋이 트리 둘레에 서로 떨어져 있다. 이글루 속으로는 못 들어가고, 얼음 위에는 발자국이 남지 않는다', async () => {
     const p = await page();
-    const place = await snow(p, async () => { const m = await import('./js/igloo.js'); const s = window.__snow; return { igloo: m.IGLOO, pond: m.POND, hole: m.HOLE, shown: s.camp.group.visible && s.camp.group.parent !== null && s.camp.igloo.children.length >= 5 }; });
-    const fromTree = Math.hypot(place.igloo.x, place.igloo.z), fromStart = Math.hypot(place.igloo.x, place.igloo.z - 15);
-    assert(place.shown, '이글루가 그려지지 않는다');
-    assert(fromTree > 60 && fromTree < 100 && fromStart > 60, '이글루는 트리와 들어오는 자리에서 멀고, 들판 안에 있어야 한다: ' + fromTree.toFixed(0) + ' / ' + fromStart.toFixed(0));
-    assert(Math.hypot(place.hole.x - place.pond.x, place.hole.z - place.pond.z) < place.pond.radius - 1, '낚시 구멍이 연못 위에 있지 않다');
-    // 이글루 뒤에서 가운데를 향해 걸어도 벽에 막힌다
-    const toward = (x, z) => snow(p, ([x, z, ix, iz]) => { const s = window.__snow; s.teleport(x, z); s.me.camYaw = Math.atan2(ix - x, iz - z); }, [x, z, place.igloo.x, place.igloo.z]);
-    await toward(place.igloo.x + 6, place.igloo.z - 3);
-    await walk(p, 0, 1, 6);
-    let s = await state(p);
-    assert(Math.hypot(s.x - place.igloo.x, s.z - place.igloo.z) >= place.igloo.radius + 0.29, '이글루 속으로 들어갔다: ' + Math.hypot(s.x - place.igloo.x, s.z - place.igloo.z).toFixed(2));
-    // 문 쪽에서 걸어가도 문간에서 막힌다 (낚시 구멍도 밟고 지나갈 수 없다)
-    await toward(place.pond.x, place.pond.z);
-    await walk(p, 0, 1, 8);
-    s = await state(p);
-    assert(Math.hypot(s.x - place.igloo.x, s.z - place.igloo.z) > place.igloo.radius + 0.29 && Math.hypot(s.x - place.hole.x, s.z - place.hole.z) >= place.hole.radius + 0.37, '문간이나 구멍 속으로 들어갔다: ' + JSON.stringify([s.x, s.z]));
-    // 얼음 위를 걸으면 발소리는 나지만 발자국은 남지 않는다
-    await snow(p, ([x, z]) => { const s = window.__snow; s.teleport(x, z); s.me.camYaw = Math.atan2(-x, -z); }, [place.pond.x - 2.5 * place.pond.x / Math.hypot(place.pond.x, place.pond.z), place.pond.z - 2.5 * place.pond.z / Math.hypot(place.pond.x, place.pond.z)]);
-    const a = await state(p);
-    await walk(p, 0, 1, 1.4);
-    const b = await state(p);
-    assert(b.audio.steps - a.audio.steps >= 3 && b.prints === a.prints, '얼음 위: 발소리 ' + (b.audio.steps - a.audio.steps) + '번, 발자국 ' + (b.prints - a.prints) + '개');
-    assert(b.audio.packed - a.audio.packed === b.audio.steps - a.audio.steps, '얼음 위의 발소리는 낮은 소리여야 한다');
-    await walk(p, 0, 1, 6);                                               // 연못을 벗어나면 다시 남는다
-    assert((await state(p)).prints > b.prints, '연못 밖인데 발자국이 안 남는다');
+    const place = await snow(p, async () => { const m = await import('./js/igloo.js'); const s = window.__snow; return { igloos: m.IGLOOS, ponds: m.PONDS, shown: s.camp.group.visible && s.camp.group.parent !== null, built: [s.camp.igloos.length, s.camp.ponds.length, s.camp.igloos.every((g) => g.children.length >= 5), s.camp.ponds.every((g) => g.children.length === 3)] }; });
+    assert(place.igloos.length === 3 && place.ponds.length === 3 && place.shown && place.built.join() === '3,3,true,true', '이글루 셋과 낚시터 셋이 그려져야 한다: ' + JSON.stringify(place.built));
+    const sites = [...place.igloos.map((g) => ({ ...g, kind: '이글루' })), ...place.ponds.map((g) => ({ ...g, kind: '낚시터' }))];
+    // 서로 겹치지 않고 멀리 떨어져 있다 (이글루끼리도, 낚시터끼리도, 이글루와 낚시터도)
+    let closest = 1e9;
+    for (let i = 0; i < sites.length; i++) for (let j = i + 1; j < sites.length; j++) closest = Math.min(closest, Math.hypot(sites[i].x - sites[j].x, sites[i].z - sites[j].z));
+    assert(closest > 40, '두 곳이 너무 가깝다: ' + closest.toFixed(1));
+    // 트리 둘레에 흩어져 있다: 트리에서 멀찍이, 들판 안에, 들어오는 자리에서 바로 보이지 않을 만큼 떨어져, 여러 방향에
+    for (const g of sites) {
+      const r = Math.hypot(g.x, g.z);
+      assert(r > 40 && r + g.radius + 4 < 110, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
+      assert(Math.hypot(g.x, g.z - 15) > 35, g.kind + '가 들어오는 자리에 너무 가깝다');
+    }
+    const angles = sites.map((g) => (Math.atan2(g.x, g.z) * 180 / Math.PI + 360) % 360).sort((a, b) => a - b);
+    const gaps = angles.map((a, i) => (angles[(i + 1) % angles.length] - a + 360) % 360);
+    assert(Math.max(...gaps) < 100 && Math.min(...gaps) > 30, '트리 둘레에 고루 흩어져 있어야 한다 (사이 각도: ' + gaps.map((g) => g.toFixed(0)) + ')');
+    for (const pond of place.ponds) assert(Math.hypot(pond.hole.x - pond.x, pond.hole.z - pond.z) < pond.radius - 1, '낚시 구멍이 연못 위에 있지 않다');
+    // 이글루마다: 뒤에서 걸어가도, 문 쪽에서 걸어가도 안으로 들어갈 수 없다
+    const toward = (x, z, tx, tz) => snow(p, ([x, z, tx, tz]) => { const s = window.__snow; s.teleport(x, z); s.me.camYaw = Math.atan2(tx - x, tz - z); }, [x, z, tx, tz]);
+    for (const g of place.igloos) {
+      const r = Math.hypot(g.x, g.z), ux = g.x / r, uz = g.z / r;          // 트리에서 이글루 쪽
+      await toward(g.x + ux * 7 + 2, g.z + uz * 7, g.x, g.z);
+      await walk(p, 0, 1, 7);
+      let s = await state(p);
+      assert(Math.hypot(s.x - g.x, s.z - g.z) >= g.radius + 0.29, '이글루 속으로 들어갔다: ' + Math.hypot(s.x - g.x, s.z - g.z).toFixed(2));
+      await toward(g.x - ux * 9, g.z - uz * 9, g.x, g.z);
+      await walk(p, 0, 1, 7);
+      s = await state(p);
+      assert(Math.hypot(s.x - g.x, s.z - g.z) >= 4.4, '문간으로 들어갔다: ' + Math.hypot(s.x - g.x, s.z - g.z).toFixed(2));
+    }
+    // 낚시터마다: 얼음 위를 걸으면 발소리는 나지만 발자국은 남지 않고, 구멍은 밟고 지나갈 수 없다
+    for (const pond of place.ponds) {
+      const r = Math.hypot(pond.x, pond.z), ux = pond.x / r, uz = pond.z / r;
+      await toward(pond.x + ux * 3.4, pond.z + uz * 3.4, pond.hole.x - uz * 0.3, pond.hole.z + ux * 0.3);      // 구멍을 살짝 비껴 향한다 (스치며 돌아 지나가게)
+      const a = await state(p);
+      await walk(p, 0, 1, 1.4);
+      const b = await state(p);
+      assert(b.audio.steps - a.audio.steps >= 3 && b.prints === a.prints, '얼음 위: 발소리 ' + (b.audio.steps - a.audio.steps) + '번, 발자국 ' + (b.prints - a.prints) + '개');
+      assert(b.audio.packed - a.audio.packed === b.audio.steps - a.audio.steps, '얼음 위의 발소리는 낮은 소리여야 한다');
+      await walk(p, 0, 1, 3);
+      const c = await state(p);
+      assert(Math.hypot(c.x - pond.hole.x, c.z - pond.hole.z) >= pond.hole.radius + 0.37, '낚시 구멍 속으로 들어갔다');
+      await walk(p, 0, 1, 7);                                             // 연못을 벗어나면 다시 남는다
+      assert((await state(p)).prints > b.prints, '연못 밖인데 발자국이 안 남는다');
+    }
+  });
+
+  await test('세 낚시터 어디서나 낚시를 할 수 있고, 이글루 곁에서는 눈 천사 버튼 그대로다', async () => {
+    const p = await page();
+    await byHand(p);
+    const n = await snow(p, () => window.__snow.place.holes.length);
+    for (let i = 0; i < n; i++) {
+      await snow(p, (i) => { const s = window.__snow, h = s.place.holes[i]; s.teleport(h.x + 1.2, h.z - 1.3); s.me.idle = 0; s.fishing.debug.biteIn(0.5); s.fishing.debug.next('smelt'); s.act(); }, i);
+      await walk(p, 0, 0, 1.3);
+      const f = await snow(p, (i) => { const s = window.__snow, h = s.place.holes[i]; return { phase: s.fishing.phase, dist: Math.hypot(s.me.x - h.x, s.me.z - h.z), angels: s.tracks.angelCount }; }, i);
+      assert(f.phase === 'bite' && Math.abs(f.dist - 1.55) < 0.02 && f.angels === 0, (i + 1) + '번째 낚시터에서 낚시가 되지 않는다: ' + JSON.stringify(f));
+      await snow(p, () => window.__snow.act());
+      await walk(p, 0, 0, 0.8);
+      assert((await snow(p, () => window.__snow.fishing.stats.caught)) === i + 1, (i + 1) + '번째 낚시터에서 낚이지 않는다');
+      await walk(p, 0, 0, 2.6);
+      await walk(p, 0, 1, 1.5);                                           // 일어나 걸어 나온다
+      assert(!(await snow(p, () => window.__snow.fishing.active)), '걸어 나왔는데 아직 낚시 중이다');
+    }
+    // 이글루 문 앞에서는 낚시가 아니라 눈 천사
+    await snow(p, () => { const s = window.__snow, g = s.place.igloos[0], r = Math.hypot(g.x, g.z); s.teleport(g.x - g.x / r * 6, g.z - g.z / r * 6); s.act(); });
+    await walk(p, 0, 0, 0.2);
+    assert((await state(p)).angel && !(await snow(p, () => window.__snow.fishing.active)), '이글루 앞에서는 눈 천사를 해야 한다');
   });
 
   await test('낚시 구멍 곁에 서면 눈 천사 버튼이 낚시 버튼으로 바뀌고, 누르면 앉아서 낚싯대를 드리운다. 걸으면 그만둔다', async () => {
@@ -816,13 +858,13 @@ try {
     assert(draws.smelt / 6000 > 0.5 && draws.smelt / 6000 < 0.64 && draws.boot / 6000 > 0.03 && draws.boot / 6000 < 0.09 && draws.cherry > draws.trout && draws.trout > draws.boot, '낚이는 비율: ' + JSON.stringify(draws));
   });
 
-  await test('여우는 이글루를 돌아서 다니고, 얼음 위에는 여우 발자국도 남지 않는다', async () => {
+  await test('여우는 이글루들을 돌아서 다니고, 얼음 위에는 여우 발자국도 남지 않는다', async () => {
     const p = await page();
     const r = await snow(p, async () => {
-      const { IGLOO, onIce } = await import('./js/igloo.js');
+      const { IGLOOS, onIce } = await import('./js/igloo.js');
       const s = window.__snow, t0 = s.clock.now();
       let near = 1e9, jump = 0, prev = s.fox.at(t0);
-      for (let i = 1; i <= 12 * 3600 * 2; i++) { const f = s.fox.at(t0 + i * 500); near = Math.min(near, Math.hypot(f.x - IGLOO.x, f.z - IGLOO.z)); jump = Math.max(jump, Math.hypot(f.x - prev.x, f.z - prev.z)); prev = f; }
+      for (let i = 1; i <= 12 * 3600 * 2; i++) { const f = s.fox.at(t0 + i * 500); for (const g of IGLOOS) near = Math.min(near, Math.hypot(f.x - g.x, f.z - g.z)); jump = Math.max(jump, Math.hypot(f.x - prev.x, f.z - prev.z)); prev = f; }
       // 여우가 연못을 지나간 때를 찾아 그 무렵의 발자국을 본다
       let onPond = null;
       for (let i = 0; i < 48 * 3600 && onPond === null; i++) { const f = s.fox.at(t0 + i * 1000); if (onIce(f.x, f.z) && f.move > 0.5) onPond = t0 + i * 1000; }

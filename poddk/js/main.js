@@ -9,7 +9,7 @@ import { build as buildPenguin, pose, setSnow, lie, randomLook, COLORS, STEP, ST
 import { createCrumble } from './crumble.js';
 import { createFox } from './fox.js';
 import { createSanta } from './santa.js';
-import { createCamp, BLOCKS, CLEARINGS, onIce, nearHole, HOLE } from './igloo.js';
+import { createCamp, BLOCKS, CLEARINGS, onIce, holeNear, HOLES, IGLOOS, PONDS } from './igloo.js';
 import { createFishing } from './fishing.js';
 import { createTracks } from './tracks.js';
 import { createWeather } from './weather.js';
@@ -45,7 +45,7 @@ const camera = new THREE.PerspectiveCamera(46, 1, 0.3, 1200);
 const clock = createClock();
 const sky = createSky(scene, { shadowSize: coarse ? 1024 : 2048 });
 const field = createField(scene, { clearings: CLEARINGS, blocks: BLOCKS });
-const camp = createCamp(scene);            // 이글루와 얼음 낚시터
+const camp = createCamp(scene);            // 이글루 셋과 얼음 낚시터 셋
 const tracks = createTracks(scene);
 const crumble = createCrumble(scene);
 const fox = createFox(scene, tracks, { skipPaw: onIce });      // 얼음 위에는 발자국이 남지 않는다
@@ -131,9 +131,9 @@ const fishing = createFishing(scene, {
 });
 let fishHint = false, holeHint = false;
 /** 지금 낚시를 시작할 수 있는가: 낚시 구멍 곁에 서 있고, 다른 것을 하고 있지 않다 */
-const canFish = () => started && !me.angel && !fishing.active && nearHole(me.x, me.z);
+const canFish = () => started && !me.angel && !fishing.active && holeNear(me.x, me.z) !== null;
 function startFishing() {
-  if (!canFish() || !fishing.start(me)) return;
+  if (!canFish() || !fishing.start(me, holeNear(me.x, me.z))) return;
   me.walk = 0;
   shakeOff(true); me.snow = 0;                           // 쌓인 눈은 앉으면서 털린다
   me.idle = 0;
@@ -419,7 +419,7 @@ raf = requestAnimationFrame(tick);
 // 개발자 도구와 자동 점검용
 window.__snow = {
   clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble, fox, santa, camp,
-  place: { hole: HOLE, onIce, nearHole },
+  place: { hole: HOLES[0], holes: HOLES, igloos: IGLOOS, ponds: PONDS, onIce, holeNear },
   get started() { return started; },
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },

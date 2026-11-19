@@ -3,7 +3,6 @@
 //   입질을 놓치면 물고기는 달아나고 다시 기다린다. 걸으려 하면 일어나 그만둔다.
 // 점수도 도감도 없다. 무엇이 올라올지는 그때그때 다르다.
 import * as THREE from 'three';
-import { HOLE } from './igloo.js';
 import { ROD_GRIP, sit } from './penguin.js';
 
 /** 낚이는 것들 (weight: 낚일 가능성의 비) */
@@ -82,13 +81,14 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
   float.visible = false; scene.add(float);
   const rings = [0, 1].map(() => {
     const m = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false }));
-    m.rotation.x = -Math.PI / 2; m.position.set(HOLE.x, 0.02, HOLE.z); m.renderOrder = 4; m.visible = false; m.userData.t = 9;
+    m.rotation.x = -Math.PI / 2; m.renderOrder = 4; m.visible = false; m.userData.t = 9;
     scene.add(m); return m;
   });
   const items = {};
   for (const c of CATCHES) { const o = MAKERS[c.id](); o.traverse((x) => { if (x.isMesh) x.castShadow = true; }); o.visible = false; scene.add(o); items[c.id] = o; }
 
   let state = null;                // { phase, t, wait, k(앉은 정도), from, to, kind, pressed, twitch }
+  let HOLE = { x: 0, z: 0, radius: 0.42 };       // 지금(또는 마지막으로) 낚시하는 구멍
   let forcedWait = null, forcedKind = null, time = 0;
   const stats = { started: 0, bites: 0, caught: 0, missed: 0, last: null };
   const tip = new THREE.Vector3(), end = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), hand = new THREE.Vector3();
@@ -103,6 +103,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
   }
   function ripple() {
     const m = rings.find((r) => r.userData.t >= 1) || rings[0];
+    m.position.set(HOLE.x, 0.02, HOLE.z);
     m.userData.t = 0; m.visible = true;
   }
   function go(phase) { state.phase = phase; state.t = 0; }
@@ -123,9 +124,10 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
     /** 점검·시안용: 다음 입질까지의 시간(초)과 다음에 낚일 것을 정해 둔다 */
     debug: { biteIn(sec) { forcedWait = sec; if (state && state.phase === 'wait') { state.wait = state.t + sec; forcedWait = null; } }, next(id) { forcedKind = id; }, draw: () => pick() },
 
-    /** 낚시를 시작한다. me: { x, z, yaw } */
-    start(me) {
-      if (state) return false;
+    /** 낚시를 시작한다. me: { x, z, yaw }, hole: 낚시할 구멍 { x, z, radius } */
+    start(me, hole) {
+      if (state || !hole) return false;
+      HOLE = hole;
       // 구멍에서 지금 서 있는 쪽으로 한 걸음 반 떨어진 자리에 앉는다. 그 자리가 막혀 있으면 옆으로 돌아가며 빈자리를 찾는다
       const bearing = Math.atan2(me.x - HOLE.x, me.z - HOLE.z);
       let to = null;
