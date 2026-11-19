@@ -483,14 +483,13 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
   outline: 2px dashed #e8a0a0; outline-offset: -5px; transform: rotate(6deg); box-shadow: 0 3px 6px rgba(60, 90, 140, 0.16); }
 .postcard-art .mark { position: absolute; right: 52px; top: 16px; width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(80, 110, 160, 0.35); color: rgba(60, 90, 140, 0.55);
   font-size: 9.5px; font-weight: 800; line-height: 1.35; white-space: nowrap; display: grid; place-items: center; align-content: center; text-align: center; transform: rotate(-14deg); }
-.start-card .what .tiles { list-style: none; margin: 0 0 6px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.start-card .what .tiles { list-style: none; margin: 0 0 16px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .start-card .what li { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px 7px; border-radius: 16px; background: #fff; box-shadow: 0 3px 10px rgba(120, 90, 60, 0.12);
   font-size: 12.5px; font-weight: 800; color: #4a3d35; word-break: keep-all; }
 .start-card .what li b { font-size: 24px; line-height: 1.1; }
-.start-card .what .cap { margin: 0 0 12px; font-size: 13px; font-weight: 800; color: #c0533f; word-break: keep-all; }
 #enter { color: #fff; text-shadow: none; background-color: #2f6fc4; background-image: linear-gradient(160deg, #5a9be6, #2f6fc4); box-shadow: inset 0 -10px 16px rgba(20, 60, 150, 0.25), 0 10px 22px rgba(47, 111, 196, 0.32); }      /* 파란 단추 (흰 글자가 또렷하게) */
 #enter::before { opacity: 0.5; }
 #start { background: rgba(232, 242, 255, 0.16); }
 /* 낮은 화면(가로로 눕힌 휴대폰 등): 그림은 접고 타일만 */
 @media (max-height: 640px) { .postcard-art { height: 76px; margin-bottom: 8px; } .postcard-art .scene { font-size: 28px; } .postcard-art .scene i.p { font-size: 24px; } .postcard-art .mark { display: none; } }
-@media (max-height: 430px) { .postcard-art { display: none; } .start-card .what li { flex-direction: row; justify-content: center; gap: 4px; padding: 6px 2px; } .start-card .what li b { font-size: 16px; } .start-card .what .cap { margin-bottom: 8px; } .start-card .me-name { margin-bottom: 8px; } }
+@media (max-height: 430px) { .postcard-art { display: none; } .start-card .what li { flex-direction: row; justify-content: center; gap: 4px; padding: 6px 2px; } .start-card .what li b { font-size: 16px; } .start-card .me-name { margin-bottom: 8px; } }

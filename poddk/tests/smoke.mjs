@@ -81,9 +81,9 @@ try {
     const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').textContent.trim(), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
     const SAYINGS = ['우연히 뽀드득 명당을 발견했다!오늘 산책은 여기로 정했어.', '뽀드득 소리가 딱 좋은 눈밭이다!조금만 더 놀다 가야지.', '아무도 안 밟은 새하얀 눈밭이잖아?내 발자국부터 남겨봐야지.', '뒤뚱뒤뚱 걷다 보니 눈밭을 찾았네.여기 눈, 소리가 유난히 좋잖아?'];
     assert(card.title === '뽀드득' && card.sub === null && SAYINGS.includes(card.say) && card.button === '눈 밟으러 가기' && card.hint.includes('소리'), '처음 화면의 글: ' + JSON.stringify(card));
-    // 그 아래에는 여기서 무엇을 할 수 있는지: 얼음 낚시, 이글루, 산타가 흘린 선물
+    // 그 아래에는 여기서 무엇을 할 수 있는지 세 칸: 얼음 낚시, 이글루 불멍, 산타 선물
     const what = await p.evaluate(() => document.querySelector('.start-card .what').textContent);
-    assert(what.includes('낚시') && what.includes('이글루') && what.includes('산타가 흘린 선물'), '할 수 있는 일: ' + what);
+    assert(what.includes('낚시') && what.includes('이글루') && what.includes('산타 선물'), '할 수 있는 일: ' + what);
     // 제목 아래의 한마디는 올 때마다 넷 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
     for (const n of [1, 2, 3, 4]) {
       const q = await page('t=14:00&speed=0&say=' + n, { enter: false });
