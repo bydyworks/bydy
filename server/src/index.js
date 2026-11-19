@@ -6,15 +6,20 @@
 //     (눈밭의 규칙대로 6시간이 지난 자국은 지운다. 폭설에 덮이는 것은 화면에서 저마다 계산한다).
 // 이름은 정해진 낱말 목록에서 만든 것만, 상태는 번호만 받는다 (아무 글이나 다른 사람 화면에 뜨지 않게).
 import { ADJ, NOUN } from '../../poddk/js/names.js';
+import { checkWish } from './filter.js';
 
 const MAX_PEERS = 60;                 // 한 눈밭에 함께 있을 수 있는 펭귄 수
 const MARK_LIFE = 6 * 3600e3;         // 자국을 들고 있는 시간
 const SEND_ON_JOIN = 4000;            // 들어올 때 보내 주는 지난 자국의 최대 수
 const FIELD_R = 112, DEN = { x: 2000, z: 2000, step: 80, r: 7 };      // 펭귄이 있을 수 있는 곳: 들판, 그리고 이글루 셋의 방
 const OUTFIT = [5, 8, 5];            // 패션 아이템의 수: 안경, 모자, 귀마개
-const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 7, STATUSES = 15, SEATS = 6, IGLOOS = 3;
-const MAX_MSG = 4096, MAX_RATE = 12;  // 한 번에 받는 글의 크기, 1초에 받는 글의 수
-const GAME_LIFE = 90e3, INVITE_GAP = 12e3;      // 주사위 놀이: 이만큼 아무 일이 없으면 닫는다, 한 펭귄이 다시 부르려면 이만큼 기다린다
+const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 8, STATUSES = 15, SEATS = 6, IGLOOS = 3;
+const MAX_MSG = 8192, MAX_RATE = 12;  // 한 번에 받는 글의 크기, 1초에 받는 글의 수
+const GAME_LIFE = 90e3, INVITE_GAP = 12e3;
+const WISH_LEN = 30, WISHES_SHOWN = 40;          // 소원: 길이, 소원판에 붙여 보여 주는 수 (한 기기에 한 철 한 번)
+const SNOWMEN = 40, SNOWMAN_LIFE = 6 * 3600e3, SNOWMAN_POINTS = 900, REPORTS_TO_HIDE = 2;      // 눈사람: 눈밭에 서 있는 최대 수, 녹기까지, 그림의 점 수 상한, 이만큼 신고되면 치운다
+/** 소원의 철: 한국 시각으로 그해 (1~2월은 지난해 겨울로 친다) */
+const season = (ms) => { const d = new Date(ms + 9 * 3600e3); return d.getUTCMonth() < 2 ? d.getUTCFullYear() - 1 : d.getUTCFullYear(); };      // 주사위 놀이: 이만큼 아무 일이 없으면 닫는다, 한 펭귄이 다시 부르려면 이만큼 기다린다
 
 const isName = (s) => typeof s === 'string' && s.length <= 24 && ADJ.some((a) => s.startsWith(a + ' ') && NOUN.includes(s.slice(a.length + 1)));
 const num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
@@ -50,6 +55,9 @@ export class Field {
     this.sql = ctx.storage.sql;
     this.sql.exec('CREATE TABLE IF NOT EXISTS marks (kind INTEGER, x REAL, z REAL, yaw REAL, side INTEGER, birth INTEGER, owner TEXT)');      // owner: 남긴 기기 (그 기기에는 다시 보내지 않는다. 다른 펭귄에게는 보이지 않는다)
     this.sql.exec('CREATE INDEX IF NOT EXISTS marks_birth ON marks (birth)');
+    this.sql.exec('CREATE TABLE IF NOT EXISTS wishes (text TEXT, device TEXT, season INTEGER, birth INTEGER)');
+    this.sql.exec('CREATE UNIQUE INDEX IF NOT EXISTS wishes_once ON wishes (device, season)');
+    this.sql.exec('CREATE TABLE IF NOT EXISTS snowmen (id TEXT PRIMARY KEY, x REAL, z REAL, yaw REAL, d TEXT, device TEXT, birth INTEGER, reports TEXT DEFAULT \'\')');
     this.inserts = 0;
     this.games = new Map();         // 이글루 번호 → 주사위 놀이 { gid, host, hostName, players: Map(id → name), at }
   }
@@ -68,7 +76,11 @@ export class Field {
     const now = Date.now();
     const peers = this.ctx.getWebSockets().filter((w) => w !== server).map((w) => w.deserializeAttachment()).filter(Boolean).map(({ id, name, look, color, s }) => ({ id, name, look, color, s }));
     const marks = this.sql.exec('SELECT kind, x, z, yaw, side, birth FROM marks WHERE birth > ? AND owner <> ? ORDER BY birth DESC LIMIT ?', now - MARK_LIFE, device, SEND_ON_JOIN).toArray().map((m) => [m.kind, m.x, m.z, m.yaw, m.side, m.birth]);
-    server.send(JSON.stringify({ t: 'hello', id, now, peers, marks }));
+    const sea = season(now);
+    const wishes = this.sql.exec('SELECT text, birth FROM wishes WHERE season = ? ORDER BY birth DESC LIMIT ?', sea, WISHES_SHOWN).toArray();
+    const wrote = this.sql.exec('SELECT COUNT(*) AS n FROM wishes WHERE device = ? AND season = ?', device, sea).one().n > 0;
+    const snowmen = this.sql.exec('SELECT id, x, z, yaw, d, birth, device FROM snowmen WHERE birth > ? ORDER BY birth DESC LIMIT ?', now - SNOWMAN_LIFE, SNOWMEN).toArray().map((r) => ({ id: r.id, x: r.x, z: r.z, yaw: r.yaw, d: JSON.parse(r.d), birth: r.birth, mine: r.device === device }));
+    server.send(JSON.stringify({ t: 'hello', id, now, peers, marks, wishes, wrote, snowmen }));
     this.broadcast({ t: 'join', id, name, look, color }, server);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -117,7 +129,64 @@ export class Field {
       return;
     }
     if (m.t === 'g') { this.game(ws, me, m, now); ws.serializeAttachment(me); return; }
+    if (m.t === 'wish') { ws.serializeAttachment(me); this.wish(ws, me, m, now); return; }
+    if (m.t === 'sm' || m.t === 'smr' || m.t === 'smd') { ws.serializeAttachment(me); this.snowman(ws, me, m, now); return; }
+    if (m.t === 'b') {
+      // 눈덩이: 던진 자리와 떨어질 자리 (들판 안, 14 걸음 안), 맞힐 펭귄의 번호. 같은 곳(들판)에 있는 펭귄들에게 전한다
+      const ok = me.s && me.s.i === -1 && [m.x, m.z, m.tx, m.tz].every((v) => num(v, -FIELD_R, FIELD_R)) && Math.hypot(m.x - me.s.x, m.z - me.s.z) < 3 && Math.hypot(m.tx - m.x, m.tz - m.z) <= 16 && typeof m.to === 'string' && m.to.length <= 8;
+      if (ok) this.broadcast({ t: 'b', id: me.id, x: r2(m.x), z: r2(m.z), tx: r2(m.tx), tz: r2(m.tz), to: m.to }, ws);
+      ws.serializeAttachment(me); return;
+    }
     ws.serializeAttachment(me);
+  }
+
+  // ---------- 크리스마스 소원판 ----------
+  // 짧은 소원을 익명으로 붙인다 (한 기기에 한 철 한 번). 욕·성적인 말·연락처는 받지 않는다 (filter.js)
+  wish(ws, me, m, now) {
+    const reply = (ok, why) => ws.send(JSON.stringify({ t: 'wished', ok, why }));
+    const c = checkWish(m.text, WISH_LEN);
+    if (!c.ok) { reply(false, c.why); return; }
+    const sea = season(now);
+    try { this.sql.exec('INSERT INTO wishes (text, device, season, birth) VALUES (?, ?, ?, ?)', c.text, me.device, sea, now); }
+    catch { reply(false, 'once'); return; }      // (이번 철에 이미 썼다)
+    reply(true, '');
+    this.broadcast({ t: 'wish', text: c.text, birth: now });
+  }
+
+  // ---------- 눈사람 ----------
+  // 눈을 굴려 만든 눈사람: 자리와 그림(획마다 [색, 굵기, 점들(0..255 짝을 base64 로)])을 받아 6시간 세워 둔다. 한 기기에 하나 (새로 세우면 앞의 것은 치운다).
+  // 이상한 그림은 두 기기가 신고하면 치운다. 세운 펭귄은 스스로 허물 수 있다
+  snowman(ws, me, m, now) {
+    if (m.t === 'sm') {
+      const ok = me.s && me.s.i === -1 && [m.x, m.z].every((v) => num(v, -FIELD_R, FIELD_R)) && Math.hypot(m.x, m.z) <= FIELD_R && Math.hypot(m.x - me.s.x, m.z - me.s.z) < 10 && num(m.yaw, -100, 100) && Array.isArray(m.d) && m.d.length <= 120;
+      if (!ok) return;
+      let points = 0;
+      for (const st of m.d) {
+        if (!Array.isArray(st) || st.length !== 3 || !int(st[0], 0, 4) || !int(st[1], 1, 3) || typeof st[2] !== 'string' || !/^[A-Za-z0-9+/]*={0,2}$/.test(st[2])) return;
+        points += Math.floor(st[2].length * 3 / 4 / 2);
+      }
+      if (points > SNOWMAN_POINTS) return;
+      const id = crypto.randomUUID().slice(0, 8), row = { id, x: r2(m.x), z: r2(m.z), yaw: r2(m.yaw), d: m.d, birth: now };
+      const old = this.sql.exec('SELECT id FROM snowmen WHERE device = ?', me.device).toArray();
+      this.sql.exec('DELETE FROM snowmen WHERE device = ? OR birth < ?', me.device, now - SNOWMAN_LIFE);
+      for (const o of old) this.broadcast({ t: 'smx', id: o.id });
+      this.sql.exec('INSERT INTO snowmen (id, x, z, yaw, d, device, birth) VALUES (?, ?, ?, ?, ?, ?, ?)', id, row.x, row.z, row.yaw, JSON.stringify(m.d), me.device, now);
+      const extra = this.sql.exec('SELECT id FROM snowmen ORDER BY birth DESC LIMIT -1 OFFSET ?', SNOWMEN).toArray();      // 너무 많으면 오래된 것부터
+      for (const o of extra) { this.sql.exec('DELETE FROM snowmen WHERE id = ?', o.id); this.broadcast({ t: 'smx', id: o.id }); }
+      ws.send(JSON.stringify({ t: 'sm', ...row, mine: true }));
+      this.broadcast({ t: 'sm', ...row, mine: false }, ws);
+      return;
+    }
+    if (typeof m.id !== 'string' || !/^[a-f0-9-]{1,8}$/.test(m.id)) return;
+    const r = this.sql.exec('SELECT device, reports FROM snowmen WHERE id = ?', m.id).toArray()[0];
+    if (!r) { ws.send(JSON.stringify({ t: 'smx', id: m.id })); return; }
+    if (m.t === 'smd') { if (r.device !== me.device) return; }
+    else {
+      const who = new Set(r.reports ? r.reports.split(',') : []); who.add(me.device);
+      if (who.size < REPORTS_TO_HIDE) { this.sql.exec('UPDATE snowmen SET reports = ? WHERE id = ?', [...who].join(','), m.id); return; }
+    }
+    this.sql.exec('DELETE FROM snowmen WHERE id = ?', m.id);
+    this.broadcast({ t: 'smx', id: m.id });
   }
 
   // ---------- 이글루 안의 주사위 놀이 ----------

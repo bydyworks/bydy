@@ -231,7 +231,7 @@ try {
     await snow(p, () => { const s = window.__snow; s.teleport(0, 108); s.me.camYaw = 0; });      // 가장자리 근처에서 바깥(+Z)을 향해
     await walk(p, 0, 1, 6);
     let s = await state(p);
-    assert(Math.hypot(s.x, s.z) <= 110.01, '들판 밖으로 나갔다: ' + Math.hypot(s.x, s.z).toFixed(2));
+    assert(Math.hypot(s.x, s.z) <= 78.01, '들판 밖으로 나갔다: ' + Math.hypot(s.x, s.z).toFixed(2));
     assert(await p.evaluate(() => document.querySelector('#toast').classList.contains('show')), '끝에 닿았다는 안내가 없다');
     await snow(p, () => { const s = window.__snow; s.teleport(0, 6); s.me.camYaw = Math.PI; });   // 나무를 향해
     await walk(p, 0, 1, 8);
@@ -363,13 +363,13 @@ try {
     await byHand(p);
     await snow(p, () => window.__snow.sim(0.1));
     const tone = () => p.evaluate(() => { const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; const lum = (s) => { const [r, g, b] = s.match(/[\d.]+/g).slice(0, 3).map(Number).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const el = document.querySelector('#angel'), cs = getComputedStyle(el); const bg = /rgba\(.*,\s*0\)$/.test(cs.backgroundColor) ? 'rgb(228, 240, 252)' : cs.backgroundColor; const x = lum(cs.color), y = lum(bg); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); });
-    await until(async () => p.evaluate(() => document.querySelector('#angel').classList.contains('fish')), { what: '낚시 단추' });
+    await until(async () => p.evaluate(() => document.querySelector('#act').classList.contains('fish')), { what: '낚시 단추' });
     await sleep(300); assert((await tone()) >= 3, '낚시하기 단추의 대비 ' + (await tone()).toFixed(2));
     await snow(p, () => { const s = window.__snow; s.fishing.debug.biteIn(1.2); s.act(); s.sim(1.5); });
-    await until(async () => p.evaluate(() => document.querySelector('#angel').classList.contains('quit')), { what: '그만두기 단추' });
+    await until(async () => p.evaluate(() => document.querySelector('#act').classList.contains('quit')), { what: '그만두기 단추' });
     await sleep(300); assert((await tone()) >= 3, '그만두기 단추의 대비 ' + (await tone()).toFixed(2));
     await snow(p, () => window.__snow.sim(0.5));
-    await until(async () => p.evaluate(() => document.querySelector('#angel').classList.contains('bite')), { what: '입질 단추' });
+    await until(async () => p.evaluate(() => document.querySelector('#act').classList.contains('bite')), { what: '입질 단추' });
     await sleep(300); assert((await tone()) >= 3, '입질 단추의 대비 ' + (await tone()).toFixed(2));
   });
 
@@ -393,7 +393,7 @@ try {
 
   await test('버튼은 글자 없이 그림만 있고, 소리 버튼을 누르면 꺼짐 그림으로 바뀐다', async () => {
     const p = await page();
-    const ui = await p.evaluate(() => ['#mute', '#shot', '#slide', '#angel', '#flap'].map((q) => { const el = document.querySelector(q); return { q, text: el.textContent.trim(), label: el.getAttribute('aria-label') || '', svg: el.querySelectorAll('svg').length }; }));
+    const ui = await p.evaluate(() => ['#mute', '#shot', '#act', '#slide', '#angel', '#flap'].map((q) => { const el = document.querySelector(q), c = el.cloneNode(true); c.querySelectorAll('.emo').forEach((x) => x.remove()); return { q, text: c.textContent.trim(), label: el.getAttribute('aria-label') || '', svg: el.querySelectorAll('svg').length }; }));
     for (const b of ui) assert(b.text === '' && b.label.length > 2 && b.svg >= 1, '글자 없이 그림과 설명만 있어야 한다: ' + JSON.stringify(b));
     const mute = () => p.evaluate(() => { const el = document.querySelector('#mute'), show = (c) => getComputedStyle(el.querySelector(c)).display !== 'none'; return { pressed: el.getAttribute('aria-pressed'), label: el.getAttribute('aria-label'), on: show('.on'), off: show('.off') }; });
     let m = await mute();
@@ -573,7 +573,7 @@ try {
   });
 
   await test('[배 썰매] 버튼을 누르면 엎드려 미끄러지다 멈추고 일어난다. 눈 위에는 배 자국이 남고, 얼음 위에서는 훨씬 멀리 간다', async () => {
-    const p = await page();
+    const p = await page('t=14:00&speed=0&look=scarf&color=0&xmas=0');      // (오밀조밀한 눈밭에서 미끄러진 끝에 선물 상자가 있으면 선물 창이 떠서 걷지 못한다)
     await byHand(p);
     // 눈 위: 바라보던 쪽으로 미끄러지고, 그동안은 걷지 않으며, 자국과 소리가 남는다
     const a = await snow(p, () => {
@@ -673,7 +673,7 @@ try {
   });
 
   await test('눈사람이 되는 순간 "뿅" 소리가, 쌓인 눈이 털리거나 눈사람이 부서질 때도 소리가 난다', async () => {
-    const p = await page();
+    const p = await page('t=14:00&speed=0&look=scarf&color=0&xmas=0');      // (정각이라 트리 곁의 산타가 허허허 웃지 않게)
     await byHand(p);
     const fx = () => snow(p, () => [...window.__snow.audio.snowFx]);
     // 머리와 어깨에만 쌓였을 때 걸음을 떼면: 후두둑
@@ -868,7 +868,7 @@ try {
     });
     assert(r.bad === 0, '여우의 자리가 숫자가 아니다');
     assert(r.jump < 0.75, '여우가 한순간에 건너뛴다 (0.25초에 ' + r.jump.toFixed(2) + ')');
-    assert(r.far <= 96.01 && r.near >= 3.4, '들판 밖이나 나무 속으로 갔다: ' + r.far.toFixed(1) + ' / ' + r.near.toFixed(1));
+    assert(r.far <= 68.01 && r.near >= 3.4, '들판 밖이나 나무 속으로 갔다: ' + r.far.toFixed(1) + ' / ' + r.near.toFixed(1));
     assert(r.turn < 0.9, '몸을 한순간에 홱 돌린다: ' + r.turn.toFixed(2));
     assert(r.moving > 0.3 && r.moving < 0.75, '걷는 시간의 비율: ' + r.moving.toFixed(2));
     assert(r.sat > 0.03, '앉아 쉬는 때가 없다: ' + r.sat.toFixed(3));
@@ -891,7 +891,7 @@ try {
     const paws = await snow(p, () => {
       const s = window.__snow, now = s.clock.now(), list = s.tracks.paws();
       let off = 0, newest = -Infinity, oldest = Infinity;
-      for (const it of list) { const f = s.fox.at(it.birth); off = Math.max(off, Math.hypot(it.x - f.x, it.z - f.z)); newest = Math.max(newest, it.birth); oldest = Math.min(oldest, it.birth); }
+      for (const it of list) { const f = s.fox.at(it.birth), g = s.arctic.at(it.birth); off = Math.max(off, Math.min(Math.hypot(it.x - f.x, it.z - f.z), Math.hypot(it.x - g.x, it.z - g.z))); newest = Math.max(newest, it.birth); oldest = Math.min(oldest, it.birth); }      // (붉은여우나 북극여우 가운데 하나의 길 위)
       const f = s.fox.at(now), last = list.reduce((a, b) => (b.birth > a.birth ? b : a), list[0]);
       return { n: list.length, alive: s.tracks.pawsAlive, off, newest: now - newest, oldest: now - oldest, lastGap: Math.hypot(last.x - f.x, last.z - f.z), prints: s.tracks.printCount };
     });
@@ -1017,12 +1017,12 @@ try {
     // 서로 겹치지 않고 멀리 떨어져 있다 (이글루끼리도, 낚시터끼리도, 이글루와 낚시터도)
     let closest = 1e9;
     for (let i = 0; i < sites.length; i++) for (let j = i + 1; j < sites.length; j++) closest = Math.min(closest, Math.hypot(sites[i].x - sites[j].x, sites[i].z - sites[j].z));
-    assert(closest > 40, '두 곳이 너무 가깝다: ' + closest.toFixed(1));
+    assert(closest > 24, '두 곳이 너무 가깝다: ' + closest.toFixed(1));      // (눈밭을 줄여 트리 둘레에 오밀조밀하게 모았다)
     // 트리 둘레에 흩어져 있다: 트리에서 멀찍이, 들판 안에, 들어오는 자리에서 바로 보이지 않을 만큼 떨어져, 여러 방향에
     for (const g of sites) {
       const r = Math.hypot(g.x, g.z);
-      assert(r > 40 && r + g.radius + 4 < 110, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
-      assert(Math.hypot(g.x, g.z - 15) > 35, g.kind + '가 들어오는 자리에 너무 가깝다');
+      assert(r > 24 && r + g.radius + 4 < 78, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
+      assert(Math.hypot(g.x, g.z - 15) > 18, g.kind + '가 들어오는 자리에 너무 가깝다');      // (오밀조밀해졌어도 들어오는 자리 바로 앞은 아니게)
     }
     const angles = sites.map((g) => (Math.atan2(g.x, g.z) * 180 / Math.PI + 360) % 360).sort((a, b) => a - b);
     const gaps = angles.map((a, i) => (angles[(i + 1) % angles.length] - a + 360) % 360);
@@ -1081,19 +1081,20 @@ try {
     assert((await state(p)).angel && !(await snow(p, () => window.__snow.fishing.active)), '이글루 옆에서는 눈 천사를 해야 한다');
   });
 
-  await test('낚시 구멍 곁에 서면 눈 천사 버튼이 낚시 버튼으로 바뀌고, 누르면 앉아서 낚싯대를 드리운다. 같은 자리의 ✕ 버튼을 눌러야 그만둔다', async () => {
+  await test('낚시 구멍 곁에 서면 오른쪽 단추 줄 맨 위에 낚시 단추가 나타나고, 누르면 앉아서 낚싯대를 드리운다. 같은 자리의 ✕ 단추를 눌러야 그만둔다 (행동 단추 셋은 제자리)', async () => {
     const p = await page();
-    const button = () => p.evaluate(() => { const el = document.querySelector('#angel'), show = (c) => getComputedStyle(el.querySelector(c)).display !== 'none'; return { label: el.getAttribute('aria-label'), angel: show('.angel-icon'), fish: show('.fish-icon'), quit: show('.quit-icon'), at: [el.offsetLeft, el.offsetTop, el.offsetWidth] }; });      // 놓인 자리 (누를 때 잠깐 튀는 것은 빼고)
+    const button = () => p.evaluate(() => { const el = document.querySelector('#act'), a = document.querySelector('#angel'), show = (c) => getComputedStyle(el.querySelector(c)).display !== 'none', r = (q) => { const e = document.querySelector(q); return [e.offsetLeft, e.offsetTop]; };      // (뿅 커지는 중에도 같은 자리로 재도록, 바뀐 크기가 아닌 놓인 자리)
+      return { label: el.getAttribute('aria-label'), shown: !el.classList.contains('idle') && getComputedStyle(el).visibility === 'visible', fish: show('.fish-icon'), quit: show('.quit-icon'), at: r('#act'), angelAt: r('#angel'), angelOff: a.classList.contains('off'), angelLabel: a.getAttribute('aria-label') }; });
     let b = await button();
-    const home = b.at.join();
-    assert(b.angel && !b.fish && !b.quit && b.label === '눈 천사 만들기', '평소에는 눈 천사 버튼: ' + JSON.stringify(b));
+    const home = b.at.join(), angelHome = b.angelAt.join();
+    assert(b.label === '눈 굴리기' && !b.fish && !b.angelOff && b.angelLabel === '눈 천사 만들기', '평소 눈 위에서는 상황 단추가 눈 굴리기, 눈 천사 단추는 그대로: ' + JSON.stringify(b));
     await toHole(p);
-    await until(async () => (await button()).fish, { what: '낚시 버튼' });
+    await until(async () => { const v = await button(); return v.fish && v.shown; }, { what: '낚시 버튼' });      // (뿅 나타나는 동안을 기다린다)
     b = await button();
-    assert(!b.angel && !b.quit && b.label === '낚시하기' && b.at.join() === home, '구멍 곁에서는 같은 자리에 물고기 그림: ' + JSON.stringify(b));
+    assert(b.shown && !b.quit && b.label === '낚시하기' && b.at.join() === home && b.angelAt.join() === angelHome, '구멍 곁에서는 상황 단추 자리에 물고기 그림 (눈 천사 단추는 제자리): ' + JSON.stringify(b));
     await until(async () => (await p.textContent('#toast')).includes('얼음 구멍'), { what: '낚시터 안내' });
     await snow(p, () => window.__snow.fishing.debug.biteIn(60));           // 이 점검에서는 입질도 가짜 입질도 오지 않게 한다
-    await p.click('#angel');
+    await p.click('#act');
     await walk(p, 0, 0, 1.3);
     let f = await fishLook(p);
     assert(f.active && f.phase === 'wait' && f.angels === 0, '버튼을 눌렀는데 낚시를 시작하지 않았다: ' + JSON.stringify(f));
@@ -1101,9 +1102,9 @@ try {
     assert(f.rod && f.item === null && f.floatY !== null && f.floatY > 0.02 && f.floatY < 0.08, '낚싯대를 들고, 찌가 물 위에 떠 있어야 한다: ' + JSON.stringify(f));
     await until(async () => (await p.textContent('#toast')).includes('찌가 쑥'), { what: '낚시 방법 안내' });
     // 낚시하는 동안 그 버튼은 같은 자리의 그만두기(✕) 버튼이다
-    await until(async () => (await button()).quit, { what: '그만두기 버튼' });
+    await until(async () => { const v = await button(); return v.quit && v.shown; }, { what: '그만두기 버튼' });
     b = await button();
-    assert(!b.angel && !b.fish && b.label === '낚시 그만두기' && b.at.join() === home, '낚시 중에는 같은 자리에 ✕ 그림: ' + JSON.stringify(b));
+    assert(b.shown && !b.fish && b.label === '낚시 그만두기' && b.at.join() === home && b.angelOff, '낚시 중에는 같은 자리에 ✕ 그림, 눈 천사 단추는 흐리게: ' + JSON.stringify(b));
     // 걸으려 해도 일어나지 않는다 (조이스틱을 건드려 낚시가 풀리지 않게)
     const before = await state(p);
     await walk(p, 0, 1, 3);
@@ -1111,7 +1112,7 @@ try {
     const still = await state(p);
     assert(f.active && f.phase === 'wait' && Math.hypot(still.x - before.x, still.z - before.z) < 1e-6, '걸으려 했더니 낚시가 풀렸다: ' + JSON.stringify(f));
     // ✕ 버튼을 누르면 일어난다
-    await p.click('#angel');
+    await p.click('#act');
     await walk(p, 0, 0, 0.6);
     f = await fishLook(p);
     assert(!f.active && f.sitY === 0 && Math.abs(f.footZ - 0.02) < 1e-6 && f.floatY === null && !f.rod, '그만두기 버튼을 누르면 일어나야 한다: ' + JSON.stringify(f));
@@ -1121,7 +1122,7 @@ try {
     assert(Math.hypot(after.x - before.x, after.z - before.z) > 1, '일어난 뒤에 걸을 수 없다');
     // 구멍에서 멀어지면 다시 눈 천사 버튼
     await snow(p, () => window.__snow.teleport(0, 20));
-    await until(async () => (await button()).angel, { what: '눈 천사 버튼으로 돌아옴' });
+    await until(async () => (await button()).label === '눈 굴리기', { what: '상황 단추가 눈 굴리기로 돌아옴' });
     await p.click('#angel');
     assert((await state(p)).angel, '구멍에서 먼 곳에서는 눈 천사를 해야 한다');
   });
@@ -1141,12 +1142,12 @@ try {
     assert(f.stats.nibbles === 1 && f.water === water + 1, '가짜 입질이 오지 않았다: ' + JSON.stringify(f.stats));
     assert(f.floatY < rest - 0.02 && f.floatY > -0.01, `찌는 살짝만 내려가야 한다 (물 밖에 남는다): ${rest.toFixed(3)} → ${f.floatY.toFixed(3)}`);
     assert(f.phase === 'wait' && button === null && f.stats.bites === 0, '가짜 입질 동안 단추는 물고기로 바뀌지도, 그만두기로 눌리지도 않아야 한다: ' + button);
-    const look = () => p.evaluate(() => { const el = document.querySelector('#angel'); return { rest: el.classList.contains('rest'), quit: el.classList.contains('quit'), bite: el.classList.contains('bite'), opacity: Number(getComputedStyle(el).opacity), clickable: getComputedStyle(el).pointerEvents !== 'none' }; });
+    const look = () => p.evaluate(() => { const el = document.querySelector('#act'); return { rest: el.classList.contains('rest'), quit: el.classList.contains('quit'), bite: el.classList.contains('bite'), opacity: Number(getComputedStyle(el).opacity), clickable: getComputedStyle(el).pointerEvents !== 'none' }; });
     await until(async () => { const v = await look(); return v.rest && v.opacity === 0.5; }, { what: '단추가 흐려져 쉬는 모습' });
     let b = await look();
     assert(b.quit && !b.bite && b.clickable, '가짜 입질 동안의 단추: ' + JSON.stringify(b));
     // 서둘러 눌렀다: 일어나지 않고, 기다림은 그대로 이어진다. 처음 한 번은 일렀다고 알려 준다
-    await p.click('#angel');
+    await p.click('#act');
     await snow(p, () => window.__snow.sim(0.3));
     f = await fishLook(p);
     assert(f.active && f.phase === 'wait' && f.stats.early === 1 && f.stats.missed === 0, '서둘러 눌렀더니 낚시가 풀렸거나 놓친 것으로 쳤다: ' + JSON.stringify(f));
@@ -1171,7 +1172,7 @@ try {
     await byHand(p);
     await toHole(p);
     const act = () => snow(p, () => window.__snow.act());
-    const label = () => p.getAttribute('#angel', 'aria-label');
+    const label = () => p.getAttribute('#act', 'aria-label');
     await snow(p, () => { const s = window.__snow; s.fishing.debug.biteIn(2); s.act(); });
     await walk(p, 0, 0, 0.7);
     await act();                                                          // 막 앉자마자 누른 것은 그만두기로 치지 않는다
@@ -1185,7 +1186,7 @@ try {
     let low = 9;
     for (let i = 0; i < 12; i++) { await walk(p, 0, 0, 1 / 30); low = Math.min(low, (await fishLook(p)).floatY); }
     assert(low < 0, '입질인데 찌가 물속으로 들어가지 않는다: ' + low);
-    await until(async () => p.evaluate(() => { const c = document.querySelector('#angel').classList; return c.contains('bite') && c.contains('fish') && !c.contains('quit'); }), { what: '두근거리는 물고기 버튼' });
+    await until(async () => p.evaluate(() => { const c = document.querySelector('#act').classList; return c.contains('bite') && c.contains('fish') && !c.contains('quit'); }), { what: '두근거리는 물고기 버튼' });
     assert((await label()) === '낚아 올리기', '입질 때의 버튼 설명: ' + await label());
     // 놓치면: 물고기는 달아나고 다시 기다린다. 한 박자 늦게 누른 것은 그만두기로 치지 않는다
     await walk(p, 0, 0, 2.3);
@@ -1195,7 +1196,7 @@ try {
     assert(f.active && f.phase === 'wait' && f.stats.missed === 1 && f.stats.caught === 0, '입질을 놓치면 다시 기다려야 한다 (늦게 눌러도 낚시는 이어진다): ' + JSON.stringify(f));
     await until(async () => (await label()) === '낚시 그만두기', { what: '다시 그만두기 버튼' });
     // 네 가지가 모두 낚인다: 누르면 올라오고, 이름을 알려 주고, 잠깐 들어 보인 뒤 놓아준다
-    for (const [id, name] of [['smelt', '빙어'], ['cherry', '산천어'], ['trout', '송어'], ['boot', '낡은 장화']]) {
+    for (const [id, name] of [['smelt', '빙어'], ['cherry', '산천어'], ['trout', '송어'], ['carp', '붕어'], ['catfish', '메기'], ['goldcarp', '황금 잉어'], ['boot', '낡은 장화'], ['mitten', '털장갑 한 짝'], ['duck', '고무 오리'], ['can', '찌그러진 깡통'], ['bottle', '병 속 편지'], ['treasure', '작은 보물 상자']]) {
       const w = (await fishLook(p)).water, n = (await fishLook(p)).stats.caught;
       await snow(p, (k) => { const s = window.__snow; s.fishing.debug.biteIn(0.2); s.fishing.debug.next(k); }, id);
       await walk(p, 0, 0, 0.4);
@@ -1207,7 +1208,7 @@ try {
       assert(f.phase === 'show' && f.stats.caught === n + 1 && f.stats.last === id && f.item === id && f.floatY === null, id + ': 낚은 것을 들어 보여야 한다: ' + JSON.stringify(f));
       // 낚은 것을 보여 주는 카드가 뿅 뜨고, 그 안에서 낚은 것이 3D 로 돈다 (WebGL 이 되면), 그리고 소리
       const card = await p.evaluate(() => { const el = document.querySelector('#catch'); return { shown: !el.hidden, kind: el.dataset.kind, name: el.querySelector('.name').textContent, canvas: !!el.querySelector('.view canvas') || el.classList.contains('flat') }; });
-      assert(card.shown && card.kind === id && card.name === name + '를 낚았어요!' && card.canvas, '낚은 것을 보여 주는 카드: ' + JSON.stringify(card));
+      assert(card.shown && card.kind === id && card.name === (/[짝통]$/.test(name) ? name + '을' : name + '를') + ' 낚았어요!' && card.canvas, '낚은 것을 보여 주는 카드: ' + JSON.stringify(card));
       await p.click('#catch');
       assert(await p.evaluate(() => document.querySelector('#catch').hidden), '누르면 카드가 닫혀야 한다');
       await act();                                                        // 들어 보이는 동안에는 눌러도, 걸으려 해도 그대로 있는다
@@ -1227,9 +1228,10 @@ try {
     await walk(p, 0, 0, 20);
     f = await fishLook(p);
     assert(!f.active && f.snow === 1 && f.hat, '그만두고 서 있으면 다시 쌓여야 한다: ' + JSON.stringify(f));
-    // 무엇이 낚일지: 빙어가 절반을 넘고, 장화는 드물다
-    const draws = await snow(p, () => { const n = {}; for (let i = 0; i < 6000; i++) { const k = window.__snow.fishing.debug.draw(); n[k] = (n[k] || 0) + 1; } return n; });
-    assert(draws.smelt / 6000 > 0.5 && draws.smelt / 6000 < 0.64 && draws.boot / 6000 > 0.03 && draws.boot / 6000 < 0.09 && draws.cherry > draws.trout && draws.trout > draws.boot, '낚이는 비율: ' + JSON.stringify(draws));
+    // 무엇이 낚일지: 열두 가지가 다 나오고, 빙어가 가장 흔하고, 물고기가 엉뚱한 것보다 훨씬 많고, 보물 상자가 가장 드물다
+    const draws = await snow(p, async () => { const { CATCHES } = await import('./js/fishing.js'); const n = {}; for (let i = 0; i < 6000; i++) { const k = window.__snow.fishing.debug.draw(); n[k] = (n[k] || 0) + 1; } const junk = CATCHES.filter((c) => c.junk).reduce((a, c) => a + (n[c.id] || 0), 0); return { n, kinds: CATCHES.length, junk }; });
+    const d = draws.n, most = Math.max(...Object.values(d));
+    assert(Object.keys(d).length === draws.kinds && draws.kinds === 12 && d.smelt === most && d.smelt / 6000 > 0.33 && d.smelt / 6000 < 0.47 && draws.junk / 6000 > 0.08 && draws.junk / 6000 < 0.16 && d.treasure === Math.min(...Object.values(d)) && d.cherry > d.trout && d.trout > d.goldcarp, '낚이는 비율: ' + JSON.stringify(draws));
   });
 
   await test('이글루 벽 곁이나 연못 가에서 눈 천사를 만들면 조금 비켜나서 눕고, 얼음 위에서는 만들지 않는다', async () => {
@@ -1390,17 +1392,18 @@ try {
     await snow(p, () => { const s = window.__snow, x = s.xmas.gifts[0]; s.teleport(x.x, x.z + 3); s.me.yaw = s.me.camYaw = Math.PI; s.controls.debugMove(0, 1); for (let i = 0; i < 300 && !s.gift; i++) s.sim(1 / 60); s.controls.debugMove(0, 0); });
     const box = () => p.evaluate(() => { const el = document.querySelector('#gift'); return { shown: !el.hidden, cls: el.className, item: el.querySelector('.name').textContent, close: getComputedStyle(el.querySelector('.gift-close')).visibility }; });
     let b = await box();
-    assert(b.shown && b.cls === '' && b.close === 'hidden', '선물 창이 뜨지 않았다: ' + JSON.stringify(b));
+    assert(b.shown && !/tap|opened/.test(b.cls) && b.close === 'hidden', '선물 창이 뜨지 않았다: ' + JSON.stringify(b));
+    assert(await p.evaluate(() => document.querySelector('#gift').classList.contains('three') && !!document.querySelector('#gift .gift-box .view canvas')), '선물 상자가 3D 로 그려지지 않았다');
     const at = await state(p);
     await walk(p, 0, 1, 1);
     assert(Math.hypot((await state(p)).x - at.x, (await state(p)).z - at.z) < 1e-6, '선물 창이 떠 있는데 걸었다');
     await p.click('#gift .gift-box'); await p.click('#gift .gift-box');
     b = await box();
-    assert(b.cls === 'tap2' && b.close === 'hidden', '두 번 두드렸는데 벌써 열렸다: ' + JSON.stringify(b));
+    assert(b.cls.split(' ').includes('tap2') && b.close === 'hidden', '두 번 두드렸는데 벌써 열렸다: ' + JSON.stringify(b));
     await p.click('#gift .gift-box');
     b = await box();
     const names = await snow(p, async () => (await import('./js/outfit.js')).ITEMS.map((x) => x.name));
-    assert(b.cls === 'opened' && names.includes(b.item) && b.close === 'visible', '세 번째에 선물이 나와야 한다: ' + JSON.stringify(b));
+    assert(b.cls.split(' ').includes('opened') && names.includes(b.item) && b.close === 'visible', '세 번째에 선물이 나와야 한다: ' + JSON.stringify(b));
     // 선물은 패션 아이템: 나오자마자 펭귄이 쓰고 있다
     const wore = await snow(p, async () => { const { ITEMS, SLOTS } = await import('./js/outfit.js'); const it = window.__snow.gift.item, w = window.__snow.outfit.worn; return { it: it && it.name, ok: !!it && w[SLOTS.indexOf(it.slot)] === it.n, n: ITEMS.length }; });
     assert(wore.ok && wore.n === 18 && wore.it === b.item, '나온 아이템을 쓰고 있어야 한다: ' + JSON.stringify(wore));
@@ -1442,7 +1445,7 @@ try {
   await test('트리 옆 우체통에 다가가면 엽서 단추가 되고, 누르면 친구에게 보낼 엽서가 뜬다 (공유 창이 없으면 주소 복사)', async () => {
     const p = await page('t=14:20&speed=0');
     await byHand(p);
-    const label = () => p.evaluate(() => document.querySelector('#angel').getAttribute('aria-label'));
+    const label = () => p.evaluate(() => document.querySelector('#act').getAttribute('aria-label'));
     const POSTBOX = await snow(p, async () => ({ ...(await import('./js/postbox.js')).POSTBOX }));
     await snow(p, (b) => { const s = window.__snow; s.teleport(b.x, b.z + 1.2); s.sim(0.1); }, POSTBOX);
     await until(async () => (await label()) === '친구에게 엽서 보내기', { what: '엽서 단추' });
@@ -1504,7 +1507,7 @@ try {
   await test('이글루 문 앞에서 들어가면 모닥불 둘레에 방석 여섯이 있는 방이다. 앉으면 지금 하는 일을 고를 수 있고, 문 앞에서 나온다', async () => {
     const p = await page('t=21:30&speed=0');
     await byHand(p);
-    const label = () => p.evaluate(() => document.querySelector('#angel').getAttribute('aria-label'));
+    const label = () => p.evaluate(() => document.querySelector('#act').getAttribute('aria-label'));
     // 문 앞
     await snow(p, () => { const s = window.__snow, e = s.entrances[1]; s.teleport(e.x, e.z); s.sim(0.1); });
     await until(async () => (await label()) === '이글루에 들어가기', { what: '들어가기 단추' });
@@ -1734,22 +1737,23 @@ try {
       const p = await page(undefined, { viewport: { width: w, height: h }, mobile });
       await sleep(900);
       const r = await p.evaluate(() => {
-        const box = (sel) => { const b = document.querySelector(sel).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
+        const box = (sel) => { const e = document.querySelector(sel), b = e.getBoundingClientRect(); if (sel === '#act') return { l: e.offsetLeft, t: e.offsetTop, r: e.offsetLeft + e.offsetWidth, b: e.offsetTop + e.offsetHeight }; return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };      // (뿅 나타나는 상황 단추는 놓인 자리로 잰다)
         const c = document.querySelector('#view').getBoundingClientRect();
-        return { hud: box('#hud'), mute: box('#mute'), flap: box('#flap'), shot: box('#shot'), slide: box('#slide'), angel: box('#angel'), canvas: [c.width, c.height], view: [innerWidth, innerHeight], scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight] };
+        return { hud: box('#hud'), mute: box('#mute'), flap: box('#flap'), shot: box('#shot'), act: box('#act'), slide: box('#slide'), angel: box('#angel'), canvas: [c.width, c.height], view: [innerWidth, innerHeight], scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight] };
       });
       const inside = (b) => b.l >= 0 && b.t >= 0 && b.r <= r.view[0] && b.b <= r.view[1];
       const overlap = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
-      const parts = [r.hud, r.mute, r.flap, r.shot, r.slide, r.angel];
+      const parts = [r.hud, r.mute, r.flap, r.shot, r.act, r.slide, r.angel];
       assert(parts.every(inside), '화면 밖으로 나간 것이 있다: ' + JSON.stringify(r));
       assert(parts.every((a, i) => parts.every((b, j) => i >= j || !overlap(a, b))), '겹친다: ' + JSON.stringify(r));
-      // 오른쪽 아래 한 줄: 위에서부터 캡쳐, 배 썰매, 눈 천사, 파닥파닥. 모두 같은 크기의 동그라미로 한 줄
+      // 오른쪽 위: 소리 단추 바로 아래에 캡쳐. 오른쪽 아래 한 줄: 위에서부터 (상황 단추 자리), 배 썰매, 눈 천사, 파닥파닥. 모두 같은 크기의 동그라미
       const size = (b) => [Math.round(b.r - b.l), Math.round(b.b - b.t)];
-      const col = [r.shot, r.slide, r.angel, r.flap];
-      assert(col.every((b) => size(b).join() === size(r.shot).join() && Math.abs(b.l - r.shot.l) < 0.5) && size(r.shot)[0] === size(r.shot)[1], '네 버튼이 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
-      assert(r.shot.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 캡쳐, 배 썰매, 눈 천사, 파닥파닥)');
+      assert(size(r.shot).join() === size(r.mute).join() && Math.abs(r.shot.l - r.mute.l) < 0.5 && r.shot.t > r.mute.b && r.shot.t - r.mute.b < 16, '캡쳐 단추가 소리 단추 바로 아래에 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
+      const col = [r.act, r.slide, r.angel, r.flap];
+      assert(col.every((b) => size(b).join() === size(r.slide).join() && Math.abs(b.l - r.slide.l) < 0.5) && size(r.slide)[0] === size(r.slide)[1], '네 자리가 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
+      assert(r.act.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 상황 단추, 배 썰매, 눈 천사, 파닥파닥)');
       assert(Math.abs((r.view[1] - r.flap.b) - (r.view[1] < 431 ? 12 : 26)) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
-      assert(size(r.shot)[0] >= 40 && size(r.shot).join() === size(r.mute).join() && (await p.$('#zoom')) === null, '오른쪽 아래 단추가 소리 단추와 크기가 같아야 한다: ' + size(r.shot) + ' / ' + size(r.mute));
+      assert(size(r.slide)[0] >= 40 && size(r.slide).join() === size(r.mute).join() && (await p.$('#zoom')) === null, '오른쪽 아래 단추가 소리 단추와 크기가 같아야 한다: ' + size(r.slide) + ' / ' + size(r.mute));
       assert(r.canvas[0] === r.view[0] && r.canvas[1] === r.view[1], '눈밭이 화면을 다 채우지 않는다');
       assert(r.scroll[0] <= r.view[0] && r.scroll[1] <= r.view[1], '화면이 밀린다');
     });

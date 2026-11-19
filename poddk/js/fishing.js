@@ -11,11 +11,21 @@ import { ROD_GRIP, sit } from './penguin.js';
 
 /** 낚이는 것들 (weight: 낚일 가능성의 비) */
 export const CATCHES = [
-  { id: 'smelt', name: '빙어', weight: 57 },
-  { id: 'cherry', name: '산천어', weight: 25 },
-  { id: 'trout', name: '송어', weight: 12 },
-  { id: 'boot', name: '낡은 장화', weight: 6 },
+  { id: 'smelt', name: '빙어', weight: 40 },
+  { id: 'cherry', name: '산천어', weight: 20 },
+  { id: 'trout', name: '송어', weight: 10 },
+  { id: 'carp', name: '붕어', weight: 10 },
+  { id: 'catfish', name: '메기', weight: 6 },
+  { id: 'goldcarp', name: '황금 잉어', weight: 2, rare: true },
+  { id: 'boot', name: '낡은 장화', weight: 3, junk: true },
+  { id: 'mitten', name: '털장갑 한 짝', weight: 3, junk: true },
+  { id: 'duck', name: '고무 오리', weight: 2, junk: true },
+  { id: 'can', name: '찌그러진 깡통', weight: 2, junk: true },
+  { id: 'bottle', name: '병 속 편지', weight: 1.5, junk: true },
+  { id: 'treasure', name: '작은 보물 상자', weight: 0.5, junk: true, rare: true },
 ];
+/** 이름 뒤에 붙는 '을/를' (받침이 있으면 '을') */
+export const objectOf = (name) => { const c = name.charCodeAt(name.length - 1); return name + (c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 ? '을' : '를'); };
 export const SEAT = 1.55;                 // 구멍에서 이만큼 떨어져 앉는다
 const T = { sit: 0.6, bite: 2.6, pull: 0.55, show: 1.9, release: 0.65, stand: 0.45 };      // 단계마다 걸리는 시간(초)
 const WAIT = [4, 12];              // 입질을 기다리는 시간의 범위(초)
@@ -43,6 +53,7 @@ function fish(len, back, belly, stripe) {
   const fin = new THREE.Mesh(new THREE.ConeGeometry(half * 0.16, half * 0.3, 4), mat(back, 0.5));
   fin.position.set(half * 0.36, half * 0.1, 0); fin.rotation.z = -1.1; fin.scale.z = 0.3; g.add(fin);
   [-1, 1].forEach((s) => { const eye = ball(half * 0.06, mat('#17181d', 0.4)); eye.position.set(half * 0.06, half * 0.66, s * half * 0.2); g.add(eye); });
+  g.userData.hook = half;                          // 줄이 매달리는 높이 (머리 끝)
   return g;
 }
 /** 낡은 장화: 발목을 위로 하고 매달린다 */
@@ -52,13 +63,88 @@ function boot() {
   const foot = ball(0.12, brown, 1, 0.72, 1.55); foot.position.set(0, -0.2, 0.09); g.add(foot);
   const sole = ball(0.123, dark, 1, 0.3, 1.58); sole.position.set(0, -0.265, 0.09); g.add(sole);
   const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.02, 6, 14), dark); cuff.rotation.x = Math.PI / 2; cuff.position.y = 0.15; g.add(cuff);
+  g.userData.hook = 0.17;
+  return g;
+}
+/** 메기: 거무스름하고 넓적한 머리에 긴 수염 넷 */
+function catfish() {
+  const g = fish(0.62, '#4b4a44', '#c9c3ad', null), half = 0.31;
+  for (const [s, k] of [[-1, 0], [1, 0], [-1, 1], [1, 1]]) {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.004, 0.22 - k * 0.08, 5), mat('#2f2e2a', 0.6));
+    w.position.set(half * 0.2 + 0.05, half * 0.72 - k * 0.04, s * 0.06); w.rotation.set(s * 0.6, 0, -0.9 - k * 0.4); g.add(w);
+  }
+  return g;
+}
+/** 황금 잉어: 반짝이는 금빛 */
+function goldcarp() {
+  const g = fish(0.6, '#f2b32a', '#ffe7a3', '#ff8a3a');
+  g.traverse((o) => { if (o.isMesh && o.material.color.getHex() !== 0x17181d) { o.material.metalness = 0.55; o.material.roughness = 0.25; } });
+  return g;
+}
+/** 털장갑 한 짝: 손목을 위로 하고 매달린다 */
+function mitten() {
+  const g = new THREE.Group(), red = mat('#d8443a', 1), white = mat('#f6efe4', 1);
+  const palm = ball(0.11, red, 0.95, 1.3, 0.55); palm.position.y = -0.08; g.add(palm);
+  const thumb = ball(0.045, red, 1, 1.5, 0.9); thumb.position.set(0.1, -0.03, 0); thumb.rotation.z = -0.6; g.add(thumb);
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.1, 0.08, 16), white); cuff.position.y = 0.08; cuff.scale.z = 0.62; g.add(cuff);
+  for (let k = 0; k < 3; k++) { const dot = ball(0.014, white); dot.position.set(-0.04 + k * 0.04, -0.06, 0.062); g.add(dot); }
+  g.userData.hook = 0.12;
+  return g;
+}
+/** 고무 오리: 노란 몸, 주황 부리 (줄이 목에 걸려 있다) */
+function duck() {
+  const g = new THREE.Group(), yel = mat('#ffd23a', 0.35);
+  const body = ball(0.12, yel, 1.25, 0.85, 1); body.position.y = -0.1; g.add(body);
+  const head = ball(0.075, yel); head.position.set(0.08, 0.02, 0); g.add(head);
+  const beak = ball(0.035, mat('#ff8a2a', 0.4), 1.5, 0.6, 1); beak.position.set(0.16, 0.0, 0); g.add(beak);
+  for (const s of [-1, 1]) { const e = ball(0.012, mat('#17181d', 0.4)); e.position.set(0.12, 0.04, s * 0.045); g.add(e); }
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.08, 8), yel); tail.position.set(-0.15, -0.06, 0); tail.rotation.z = 1.1; g.add(tail);
+  g.userData.hook = 0.1;
+  return g;
+}
+/** 찌그러진 깡통: 빨간 띠, 한쪽이 우그러졌다 */
+function can() {
+  const g = new THREE.Group();
+  const geo = new THREE.CylinderGeometry(0.07, 0.07, 0.22, 18, 4), pos = geo.attributes.position;
+  for (let k = 0; k < pos.count; k++) { const x = pos.getX(k), y = pos.getY(k); if (x > 0.02) pos.setX(k, x - 0.03 * (1 - Math.abs(y) / 0.11)); }      // 한쪽이 쑥 들어갔다
+  geo.computeVertexNormals();
+  const body = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: '#b9c0c8', roughness: 0.3, metalness: 0.7 })); g.add(body);
+  const label = new THREE.Mesh(new THREE.CylinderGeometry(0.0715, 0.0715, 0.09, 18, 1, true), mat('#d8443a', 0.6)); label.scale.x = 0.86; g.add(label);
+  const tab = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.005, 6, 12), new THREE.MeshStandardMaterial({ color: '#d0d4da', metalness: 0.7, roughness: 0.3 })); tab.position.y = 0.115; tab.rotation.x = Math.PI / 2; g.add(tab);
+  g.rotation.z = 0.35;
+  g.userData.hook = 0.12;
+  return g;
+}
+/** 병 속 편지: 초록빛 유리병, 코르크 마개, 안에 돌돌 만 편지 */
+function bottle() {
+  const g = new THREE.Group();
+  const glass = new THREE.MeshStandardMaterial({ color: '#8fd4a8', roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.45, depthWrite: false });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.2, 18), glass); body.position.y = -0.06; g.add(body);
+  const shoulder = ball(0.07, glass, 1, 0.5, 1); shoulder.position.y = 0.04; g.add(shoulder);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.08, 12), glass); neck.position.y = 0.1; g.add(neck);
+  const cork = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.022, 0.04, 10), mat('#b9894f', 0.9)); cork.position.y = 0.155; g.add(cork);
+  const paper = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.15, 12), mat('#f6ead0', 0.9)); paper.position.y = -0.06; paper.rotation.z = 0.15; g.add(paper);
+  const ribbon = new THREE.Mesh(new THREE.TorusGeometry(0.031, 0.006, 6, 14), mat('#d8443a', 0.6)); ribbon.position.y = -0.06; ribbon.rotation.x = Math.PI / 2; g.add(ribbon);
+  g.userData.hook = 0.18;
+  return g;
+}
+/** 작은 보물 상자: 나무 상자에 금 테, 반쯤 열린 뚜껑 사이로 금화가 반짝 */
+function treasure() {
+  const g = new THREE.Group(), wood = mat('#8a5a36', 0.8), gold = new THREE.MeshStandardMaterial({ color: '#f3c12f', roughness: 0.25, metalness: 0.6 });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.14, 0.17), wood); box.position.y = -0.1; g.add(box);
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.26, 16, 1, false, 0, Math.PI), wood); lid.rotation.set(0, 0, Math.PI / 2); lid.position.set(0, -0.03, -0.02); lid.rotation.x = -0.5; g.add(lid);
+  for (const x of [-0.1, 0.1]) { const band = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.145, 0.175), gold); band.position.set(x, -0.1, 0); g.add(band); }
+  for (let k = 0; k < 5; k++) { const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.008, 14), gold); coin.position.set(-0.07 + k * 0.035, -0.025 + (k % 2) * 0.01, 0.03); coin.rotation.x = 1.2; g.add(coin); }
+  const lock = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.02), gold); lock.position.set(0, -0.06, 0.09); g.add(lock);
+  g.userData.hook = 0.07;
   return g;
 }
 const MAKERS = {
   smelt: () => fish(0.36, '#8ea4c2', '#e8eef6', null),
   cherry: () => fish(0.52, '#7c8f58', '#f1ead6', '#e79aa6'),
   trout: () => fish(0.7, '#7f8fa8', '#eef0f2', '#ea8c9f'),
-  boot,
+  carp: () => fish(0.42, '#8a7a3e', '#e9dfb6', null),
+  catfish, goldcarp, boot, mitten, duck, can, bottle, treasure,
 };
 
 /**
@@ -229,7 +315,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free, ear
         wiggle = 1;
         if (s.t >= T.pull) {
           go('show'); stats.caught++; stats.last = s.kind;
-          if (caught) caught(s.kind); else toast(CATCHES.find((c) => c.id === s.kind).name + '를 낚았어요', 2200);
+          if (caught) caught(s.kind); else toast(objectOf(CATCHES.find((c) => c.id === s.kind).name) + ' 낚았어요', 2200);
         }
       } else if (s.phase === 'show') {
         s.k = 1; lean = -0.14; lift = -0.3;
@@ -277,7 +363,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free, ear
         o.rotation.set(0, me.yaw + Math.PI / 2, Math.sin(time * 17) * 0.38 * wiggle);
       }
       // 낚싯줄: 낚싯대 끝에서 찌(또는 낚인 것의 머리)까지
-      const to = item ? end.set(itemPos.x, itemPos.y + (item === 'boot' ? 0.17 : items[item].children[0].geometry.parameters.radius), itemPos.z) : float.position;
+      const to = item ? end.set(itemPos.x, itemPos.y + items[item].userData.hook, itemPos.z) : float.position;
       const p = lineGeo.attributes.position;
       p.setXYZ(0, tip.x, tip.y, tip.z); p.setXYZ(1, to.x, Math.max(0.015, to.y), to.z); p.needsUpdate = true;
       line.visible = s.k > 0.5;

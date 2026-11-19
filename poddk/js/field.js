@@ -2,7 +2,7 @@
 // 온통 흰 땅에서는 걸어도 움직이는 느낌이 나지 않으므로, 눈 위로 삐죽 나온 마른 풀을 드문드문 심어 둔다.
 import * as THREE from 'three';
 
-export const FIELD_RADIUS = 110;      // 걸어 다닐 수 있는 들판의 반지름 (끝에서 끝까지 걸어서 3분쯤)
+export const FIELD_RADIUS = 78;       // 걸어 다닐 수 있는 들판의 반지름 (트리 둘레에 이글루·낚시터·선물이 오밀조밀 모이도록)
 export const TREE_RADIUS = 1.9;       // 나무 둥치 둘레 — 이 안으로는 못 들어간다
 
 function mulberry(a) {

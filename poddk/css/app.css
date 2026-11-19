@@ -84,7 +84,7 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
   border-radius: 50%; box-shadow: 0 0 0 3px var(--cream), 0 5px 12px rgba(80, 58, 36, 0.16);
 }
 .round:active { transform: scale(0.92); transition-duration: .6s, .08s, .2s; }
-#shot, #slide, #angel, #flap { right: var(--col-r); width: var(--btn); }
+#act, #slide, #angel, #flap { right: var(--col-r); width: var(--btn); }
 
 #mute { --c: var(--mint); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t)); width: 40px; height: 40px; }
 #mute .g { width: 22px; height: 22px; }
@@ -92,7 +92,8 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 #mute[aria-pressed="true"] .off { display: block; }
 #mute[aria-pressed="true"] { --c: var(--gray); }
 
-#shot { --c: var(--coral); bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); height: var(--btn); }
+#shot { --c: var(--coral); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 40px + 10px); width: 40px; height: 40px; }      /* 소리 단추 바로 아래 */
+#act { bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); height: var(--btn); }      /* 상황 단추: 오른쪽 단추 줄의 맨 위 */
 /* 배 썰매: 사진과 눈 천사 사이 */
 #slide { --c: var(--sky); bottom: calc(var(--col-b) + 2 * var(--btn) + 2 * var(--gap)); height: var(--btn); }
 #slide .slide-icon { width: 34px; height: 26px; }
@@ -110,18 +111,17 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 #angel .angel-icon { width: 33px; height: 29px; fill: #fff; }      /* 눈 위에 남는 자국과 같은 모양. 눈 자국이므로 이 그림만 흰색이다 */
 #angel.busy { opacity: 0.5 !important; pointer-events: none; }
 /* 낚시 구멍 곁에서는 물고기 그림(낚시하기), 낚시하는 동안에는 ✕(그만두기). 입질이 오면 다시 물고기 그림이 되어 노랗게 통통 뛴다 */
-#angel .fish-icon, #angel .quit-icon { display: none; width: 30px; height: 30px; }
-#angel .quit-icon { width: 26px; height: 26px; }
-#angel .quit-icon .s { stroke-width: 3.2; }
-#angel.fish .angel-icon, #angel.quit .angel-icon { display: none; }
-#angel.fish { --c: var(--aqua); }
-#angel.fish .fish-icon { display: block; }
-#angel.quit { --c: var(--gray); }
-#angel.quit .quit-icon { display: block; }
-#angel.hold { opacity: 0.5 !important; pointer-events: none; }
-#angel.rest { opacity: 0.5 !important; }       /* 가짜 입질이 지나가는 잠깐: 흐려져 쉰다. 눌리기는 하지만 그만두지는 않는다 */
-#angel.fish, #angel.quit { transition-duration: .16s, .28s, .2s; }      /* 낚시하는 동안의 단추는 모습이 바로바로 바뀐다 (찌의 움직임과 어긋나지 않게) */
-#angel.bite { --c: var(--sun); animation: bite .46s ease-in-out infinite; }
+#act .fish-icon, #act .quit-icon { display: none; width: 30px; height: 30px; }
+#act .quit-icon { width: 26px; height: 26px; }
+#act .quit-icon .s { stroke-width: 3.2; }
+#act.fish { --c: var(--aqua); }
+#act.fish .fish-icon { display: block; }
+#act.quit { --c: var(--gray); }
+#act.quit .quit-icon { display: block; }
+#act.hold { opacity: 0.5 !important; pointer-events: none; }
+#act.rest { opacity: 0.5 !important; }       /* 가짜 입질이 지나가는 잠깐: 흐려져 쉰다. 눌리기는 하지만 그만두지는 않는다 */
+#act.fish, #act.quit { transition-duration: .16s, .28s, .2s; }      /* 낚시하는 동안의 단추는 모습이 바로바로 바뀐다 (찌의 움직임과 어긋나지 않게) */
+#act.bite { --c: var(--sun); animation: bite .46s ease-in-out infinite; }
 @keyframes bite { 0%, 100% { transform: scale(1) rotate(-5deg); } 50% { transform: scale(1.16) rotate(5deg); } }
 
 /* 확대·축소: 크림색 알약 쪽지 하나에 더하기와 빼기, 사이에 점선 */
@@ -195,7 +195,7 @@ body.in #start { opacity: 0; pointer-events: none; }
   #shot .g { width: 24px; height: 24px; }
   #slide .slide-icon { width: 30px; height: 23px; }
   #flap .flap-icon { width: 30px; height: 26px; }
-  #angel .fish-icon { width: 26px; height: 26px; }
+  #act .fish-icon { width: 26px; height: 26px; }
   #toast { top: calc(12px + var(--safe-t)); left: calc(50% + 80px); max-width: min(46vw, 400px); }      /* 왼쪽 위의 시각 표시와 오른쪽 위의 소리 버튼 사이에 */
   #coach .walk { bottom: calc(10% + var(--safe-b)); }
   #coach .pad { width: 70px; height: 70px; }
@@ -260,8 +260,8 @@ html, body { color: var(--ink); }
 .round:active { box-shadow: inset 0 2px 1px rgba(255, 255, 255, 0.98), inset 0 -8px 12px rgba(140, 190, 238, 0.4), 0 3px 8px rgba(36, 64, 110, 0.18); }
 .round .angel-icon { fill: #2f5f96 !important; }
 #mute[aria-pressed="true"] { color: rgba(47, 95, 150, 0.45); }
-#angel.quit { color: #5c7693; }
-#angel.bite { color: #9a6400; animation: biteFrost .42s ease-in-out infinite; }
+#act.quit { color: #5c7693; }
+#act.bite { color: #9a6400; animation: biteFrost .42s ease-in-out infinite; }
 @keyframes biteFrost { 0%, 100% { transform: scale(1); box-shadow: inset 0 2px 1px rgba(255,255,255,.98), inset 0 -8px 12px rgba(247,201,92,.55), 0 7px 18px rgba(36,64,110,.2), 0 0 0 0 rgba(247,201,92,.6); } 50% { transform: scale(1.13); box-shadow: inset 0 2px 1px rgba(255,255,255,.98), inset 0 -8px 12px rgba(247,201,92,.55), 0 7px 18px rgba(36,64,110,.2), 0 0 0 11px rgba(247,201,92,0); } }
 .badge { background: linear-gradient(150deg, #fff, #d9ebfb) !important; color: #2f5f96; }
 body[data-sky="night"] .badge.time { color: #5a63c4; }
@@ -341,11 +341,10 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 @media (max-height: 430px) { .start-card .me-name { margin: -4px 0 8px; font-size: 13px; } }
 
 /* ---------- 이글루 안 ---------- */
-#angel .enter-icon, #angel .exit-icon, #angel .sit-icon, #angel .stand-icon { display: none; width: 28px; height: 28px; }
-#angel.enter .angel-icon, #angel.exit .angel-icon, #angel.sitdown .angel-icon, #angel.standup .angel-icon, #angel.none .angel-icon { display: none; }
-#angel.enter .enter-icon, #angel.exit .exit-icon, #angel.sitdown .sit-icon, #angel.standup .stand-icon { display: block; }
-#angel.none { opacity: 0.35 !important; pointer-events: none; }
-#angel .exit-icon .s, #angel .stand-icon .s { stroke-width: 3; }
+#act .enter-icon, #act .exit-icon, #act .sit-icon, #act .stand-icon { display: none; width: 28px; height: 28px; }
+#act.enter .enter-icon, #act.exit .exit-icon, #act.sitdown .sit-icon, #act.standup .stand-icon { display: block; }
+#act.none { opacity: 0.35 !important; pointer-events: none; }
+#act .exit-icon .s, #act .stand-icon .s { stroke-width: 3; }
 #fade { position: fixed; inset: 0; z-index: 3; background: #0d1226; opacity: 0; pointer-events: none; transition: opacity .32s; }
 #fade.on { opacity: 1; }
 #status { position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); z-index: 3; width: min(92vw, 380px); transform: translateX(-50%); padding: 14px 14px 12px; border-radius: 24px; text-align: center; color: #27405f;
@@ -367,9 +366,9 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #slide .slide-icon { width: 26px; height: 20px; }
 #angel .angel-icon { width: 25px; height: 22px; }
 #flap .flap-icon { width: 26px; height: 23px; }
-#angel .fish-icon { width: 23px; height: 23px; }
-#angel .quit-icon { width: 20px; height: 20px; }
-#angel .enter-icon, #angel .exit-icon, #angel .sit-icon, #angel .stand-icon { width: 22px; height: 22px; }
+#act .fish-icon { width: 23px; height: 23px; }
+#act .quit-icon { width: 20px; height: 20px; }
+#act .enter-icon, #act .exit-icon, #act .sit-icon, #act .stand-icon { width: 22px; height: 22px; }
 @media (max-height: 430px) { :root { --btn: 40px; --gap: 9px; } }
 
 /* 함께 걷는 펭귄 수, 다른 펭귄의 말풍선 */
@@ -408,9 +407,8 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .gift-item.flat .view { display: none; }
 .gift-item.flat .emoji { display: block; }
 /* 우체통 곁: 엽서 단추 */
-#angel .mail-icon { display: none; width: 22px; height: 22px; }
-#angel.mail .angel-icon { display: none; }
-#angel.mail .mail-icon { display: block; }
+#act .mail-icon { display: none; width: 22px; height: 22px; }
+#act.mail .mail-icon { display: block; }
 /* 친구에게 보내는 엽서 */
 #postcard { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 #postcard[hidden] { display: none; }
@@ -493,3 +491,98 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 /* 낮은 화면(가로로 눕힌 휴대폰 등): 그림은 접고 타일만 */
 @media (max-height: 640px) { .postcard-art { height: 76px; margin-bottom: 8px; } .postcard-art .scene { font-size: 28px; } .postcard-art .scene i.p { font-size: 24px; } .postcard-art .mark { display: none; } }
 @media (max-height: 430px) { .postcard-art { display: none; } .start-card .what li { flex-direction: row; justify-content: center; gap: 4px; padding: 6px 2px; } .start-card .what li b { font-size: 16px; } .start-card .me-name { margin-bottom: 8px; } }
+/* 선물 상자: 3D 로 그릴 수 있으면 그림 상자 대신 3D 상자 (뚜껑이 날아간 뒤 살며시 사라진다) */
+.gift-box .view { display: none; }
+#gift.three .gift-box svg { display: none; }
+#gift.three .gift-box .view { display: block; width: 168px; height: 168px; transition: opacity .3s .32s; }
+#gift.three.opened .gift-box .view { opacity: 0; }
+/* 드물게 낚이는 것 (황금 잉어, 보물 상자): 카드가 금빛으로 */
+#catch.rare { background: linear-gradient(150deg, #fff8dc, #ffe9a6 55%, #ffd76a); box-shadow: inset 0 -9px 14px rgba(230, 170, 40, 0.3), 0 14px 32px rgba(180, 120, 20, 0.3); }
+#catch.rare .say { color: #8a5a12; }
+/* 상황 단추는 할 수 있는 것이 있을 때만 뿅 나타난다. 눈 천사 단추는 눈 천사를 할 수 없을 때 흐려진다 */
+#act { transition: opacity .2s, transform .25s cubic-bezier(.3, 1.6, .6, 1), visibility 0s; }
+#act.idle { opacity: 0 !important; transform: scale(0.6); visibility: hidden; pointer-events: none; transition: opacity .15s, transform .15s, visibility 0s .15s; }
+#angel.off { opacity: 0.5 !important; pointer-events: none; }
+/* 상황 단추: 인사(👋), 눈덩이(❄️) */
+#act .emo { display: none; font-size: 21px; line-height: 1; }
+#act.wave .wave-icon, #act.throw .throw-icon { display: block; }
+#act.wave { --c: var(--sun); }
+#act.throw { --c: var(--sky); }
+/* 다른 펭귄 머리 위의 이름 (가까이 다가갔을 때 잠깐) */
+.peer-name { position: fixed; left: 0; top: 0; z-index: 1; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 800; color: #27405f; white-space: nowrap; pointer-events: none;
+  background: rgba(255, 255, 255, 0.82); box-shadow: 0 4px 10px rgba(36, 64, 110, 0.16); transform: translate(-50%, -100%); transition: opacity .5s; }
+.peer-name[hidden] { display: none; }
+.peer-name.fade { opacity: 0; }
+/* 옷장 단추 (캡쳐 단추 아래)와 옷장 */
+#closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px)); width: 40px; height: 40px; }
+#closet[hidden] { display: none; }
+#closet.new { animation: catch-pop .55s cubic-bezier(.3, 1.7, .6, 1); }
+#closet .g { width: 22px; height: 22px; }
+#closet-panel { position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); z-index: 4; width: min(92vw, 400px); max-height: min(70vh, 560px); overflow: auto; transform: translateX(-50%); padding: 14px 14px 10px; border-radius: 24px; text-align: center; color: var(--ink);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(228, 241, 255, 0.82) 52%, rgba(204, 228, 250, 0.88)); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow: inset 0 -9px 14px rgba(150, 196, 240, 0.24), 0 12px 30px rgba(36, 64, 110, 0.22); }
+#closet-panel[hidden] { display: none; }
+#closet-panel .title { margin: 0; font-size: 16px; font-weight: 900; }
+#closet-panel .note { margin: 2px 0 10px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+#closet-panel .shelf { margin: 0 0 10px; text-align: left; }
+#closet-panel .shelf b { display: block; margin: 0 4px 6px; font-size: 13px; font-weight: 900; }
+#closet-panel .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+#closet-panel .items button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 7px; border-radius: 16px; font-size: 11.5px; font-weight: 800; line-height: 1.25; color: #27405f; word-break: keep-all;
+  background: rgba(255, 255, 255, 0.78); box-shadow: 0 2px 6px rgba(36, 64, 110, 0.12); }
+#closet-panel .items img { width: 56px; height: 56px; }
+#closet-panel .items button[aria-pressed="true"] { background: #fff; box-shadow: 0 0 0 2.5px #5a9be6, 0 3px 8px rgba(47, 111, 196, 0.25); }
+#closet-panel .items button[aria-pressed="true"]::after { content: '입는 중'; position: absolute; top: 4px; right: 4px; padding: 1px 6px; border-radius: 8px; font-size: 9.5px; color: #fff; background: #2f6fc4; }
+#closet-panel .empty { margin: 0 4px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+#closet-panel .close { margin-top: 2px; height: 36px; padding: 0 18px; border-radius: 18px; font-size: 13px; font-weight: 700; color: #4a6382; background: none; }
+/* 상황 단추: 눈 굴리기(⛄), 소원판(🎄), 눈사람 보기(🔍) */
+#act.roll .roll-icon, #act.rollstop .quit-icon, #act.wish .wish-icon, #act.look .look-icon { display: block; }
+#act.roll { --c: var(--sky); } #act.rollstop { --c: var(--gray); } #act.wish { --c: var(--mint); } #act.look { --c: var(--sky); }
+/* 소원판 */
+#wishes, #sculpt { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+#wishes[hidden], #sculpt[hidden], #snowcard[hidden] { display: none; }
+#wishes .board { width: min(100%, 380px); max-height: 86vh; overflow: auto; padding: 16px 14px 10px; border-radius: 22px; text-align: center; color: #3b2f2a;
+  background: #c99a6b linear-gradient(160deg, #d8ab7c, #b98557); box-shadow: inset 0 0 0 6px #8a5a36, 0 18px 44px rgba(36, 64, 110, 0.3); }
+#wishes .title { margin: 2px 0 10px; display: inline-block; padding: 6px 16px; border-radius: 10px; font-size: 16px; font-weight: 900; color: #7a3b22; background: #fff3c4; box-shadow: 0 3px 6px rgba(80, 40, 10, 0.2); }
+#wishes .notes { display: grid; grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)); gap: 10px; padding: 4px 2px 10px; }
+#wishes .notes p { position: relative; margin: 0; min-height: 64px; padding: 14px 8px 8px; font-size: 12.5px; font-weight: 800; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; color: #3b2f2a; border-radius: 3px; box-shadow: 0 4px 8px rgba(60, 30, 10, 0.22); }
+#wishes .notes p::before { content: ''; position: absolute; left: 50%; top: 4px; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: var(--pin, #e0503f); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); }
+#wishes .notes p.mine { outline: 2.5px dashed rgba(255, 255, 255, 0.95); outline-offset: -5px; }
+#wishes .empty { margin: 6px 0 12px; font-size: 13px; font-weight: 800; color: #fff8ea; }
+#wishes .write { display: flex; gap: 6px; margin: 2px 0 6px; }
+#wishes .write input { flex: 1; min-width: 0; height: 40px; padding: 0 12px; border: 0; border-radius: 20px; font: inherit; font-size: 14px; font-weight: 700; color: #3b2f2a; background: #fffaf0; box-shadow: inset 0 2px 4px rgba(80, 40, 10, 0.18); }
+#wishes .write button { height: 40px; padding: 0 16px; border-radius: 20px; font-size: 14px; font-weight: 900; color: #fff; background: linear-gradient(160deg, #5a9be6, #2f6fc4); box-shadow: 0 4px 10px rgba(47, 111, 196, 0.3); }
+#wishes .write.off { display: none; }
+#wishes .note { margin: 0; font-size: 11.5px; font-weight: 700; color: #fff3dc; }
+#wishes .done { min-height: 1.3em; margin: 6px 0 0; font-size: 13px; font-weight: 900; color: #fffbe6; }
+#wishes .close, #sculpt .cancel { margin-top: 4px; height: 34px; padding: 0 18px; border-radius: 17px; font-size: 13px; font-weight: 700; color: #fff8ea; background: none; }
+/* 눈사람 그리기 */
+#sculpt .card { width: min(100%, 320px); max-height: 92vh; overflow: auto; padding: 14px 14px 8px; border-radius: 24px; text-align: center; color: var(--ink); background: #fffaf0; box-shadow: 0 18px 44px rgba(36, 64, 110, 0.28); }
+#sculpt .title { margin: 0; font-size: 16px; font-weight: 900; }
+#sculpt .note { margin: 2px 0 8px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+#sculpt .pad { display: block; width: 240px; height: 300px; margin: 0 auto; border-radius: 16px; background: #dcecfb; touch-action: none; cursor: crosshair; }
+#sculpt .inks, #sculpt .widths { display: flex; justify-content: center; gap: 8px; margin: 8px 0 0; }
+#sculpt .inks button { width: 32px; height: 32px; border-radius: 50%; background: var(--ink-c); box-shadow: 0 2px 5px rgba(36, 64, 110, 0.25); }
+#sculpt .inks button[aria-pressed="true"], #sculpt .widths button[aria-pressed="true"] { box-shadow: 0 0 0 3px #fff, 0 0 0 5.5px #2f6fc4; }
+#sculpt .widths button { width: 36px; height: 28px; border-radius: 14px; background: #fff; box-shadow: 0 2px 5px rgba(36, 64, 110, 0.18); display: grid; place-items: center; }
+#sculpt .widths i { display: block; border-radius: 50%; background: #2b2b33; }
+#sculpt .btns { display: flex; gap: 6px; margin-top: 10px; }
+#sculpt .btns button, #snowcard .btns button { flex: 1; height: 40px; border-radius: 20px; font-size: 13.5px; font-weight: 800; color: #2f5f96;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(206, 230, 252, 0.9)); box-shadow: inset 0 -8px 12px rgba(140, 190, 238, 0.35), 0 4px 10px rgba(36, 84, 150, 0.14); }
+#sculpt .make { color: #fff !important; background: linear-gradient(160deg, #5a9be6, #2f6fc4) !important; }
+#sculpt .cancel { color: var(--ink-soft); }
+/* 눈사람 곁의 쪽지 */
+#snowcard { position: fixed; left: calc(12px + var(--safe-l)); right: calc(70px + var(--safe-r)); bottom: calc(18px + var(--safe-b)); z-index: 3; max-width: 360px; margin: 0 auto; padding: 14px; border-radius: 22px; text-align: center; color: var(--ink);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(228, 241, 255, 0.82) 52%, rgba(204, 228, 250, 0.88)); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6); box-shadow: 0 12px 30px rgba(36, 64, 110, 0.22); }
+#snowcard .what { margin: 0 0 10px; font-size: 14.5px; font-weight: 800; }
+#snowcard .btns button[hidden] { display: none; }
+#snowcard .report { color: #b0412f !important; }
+/* 시각 아래의 전광판 */
+#hud .ticker { display: block; min-width: 0; max-width: min(56vw, 230px); overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+#hud .ticker .track { display: inline-block; }
+#hud .ticker .track.in { animation: tick-in .45s ease-out; }
+#hud .ticker .track.scroll { animation: tick-in .45s ease-out, tick-run var(--run) linear 1.6s forwards; }
+#hud .ticker #storm, #hud .ticker #tip { white-space: nowrap; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+#hud .ticker #tip { color: #4f6fa8; }
+#hud .ticker [hidden] { display: none; }
+@keyframes tick-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes tick-run { from { transform: translateX(0); } to { transform: translateX(var(--over)); } }

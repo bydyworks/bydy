@@ -17,7 +17,7 @@ async function test(name, fn) { try { await fn(); ok++; console.log('  PASS  ' +
 try {
   for (let i = 0; i < 120 && dev; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}/`)).ok) break; } catch { /* 아직 */ } await sleep(500); }
   console.log('  (서버가 떴다)');
-  const enter = async (q) => (await open(browser, site.url, { query: `t=14:00&speed=0&server=${encodeURIComponent(SERVER)}&${q}`, errors })).page;
+  const enter = async (q) => (await open(browser, site.url, { query: `t=14:00&speed=0&xmas=0&server=${encodeURIComponent(SERVER)}&${q}`, errors })).page;
   const a = await enter('look=scarf&color=0'), b = await enter('look=blanket&color=5');
   const st = (p) => p.evaluate(() => { const s = window.__snow, n = s.net; return { connected: n.connected, count: n.count, peers: [...n.peers.values()].map((x) => ({ visible: x.root.visible, x: x.x, z: x.z, name: x.name })), text: document.querySelector('#peers').textContent, row: !document.querySelector('#peer-row').hidden }; });
 
@@ -108,6 +108,69 @@ try {
     assert(/승리|비겼어요/.test(note), '결과 글: ' + note);
     for (const p of [a, b]) await p.click('#dice .quit');
     for (const p of [a, b]) await p.evaluate(() => { const s = window.__snow; if (s.seat) { s.act(); s.sim(0.8); } });
+  });
+  await test('가까이 가면 상대의 이름이 잠깐 뜨고, 👋 인사하면 상대 화면에서도 날개를 흔든다. 조금 떨어져서 ❄️ 눈덩이를 던지면 맞은 펭귄은 머리에 눈을 뒤집어쓴다', async () => {
+    for (const p of [a, b]) await p.evaluate(() => { const s = window.__snow; if (s.seat) { s.act(); s.sim(0.8); } if (s.inside !== null) s.goOut(); });
+    await until(async () => (await a.evaluate(() => window.__snow.inside)) === null && (await b.evaluate(() => window.__snow.inside)) === null, { what: '둘 다 밖' });
+    await b.evaluate(() => { const s = window.__snow; s.teleport(0, 30); s.me.yaw = s.me.camYaw = 0; s.me.snow = 0; s.sim(0.2); });
+    await a.evaluate(() => { const s = window.__snow; s.teleport(0, 40); s.me.yaw = s.me.camYaw = Math.PI; s.sim(0.2); });
+    await sleep(1500);
+    // 다가가면 이름
+    await a.evaluate(() => { const s = window.__snow; s.teleport(0, 32.2); s.sim(0.2); });
+    await until(async () => a.evaluate(() => { const el = document.querySelector('.peer-name'); return !!el && !el.hidden && el.textContent.length > 0; }), { what: '다른 펭귄의 이름', timeout: 10000 });
+    const nm = await a.evaluate(() => document.querySelector('.peer-name').textContent), bname = await b.evaluate(() => window.__snow.name);
+    assert(nm === bname, '이름이 다르다: ' + nm + ' / ' + bname);
+    // 인사
+    await until(async () => (await a.getAttribute('#act', 'aria-label')) === '인사하기', { what: '인사 단추' });
+    await a.click('#act');
+    await until(async () => b.evaluate(() => { const p = [...window.__snow.net.peers.values()][0]; return p.act === 7 && p.k > 0.5; }), { what: '다른 화면에서 인사하는 모습', timeout: 10000 });
+    await until(async () => b.evaluate(() => { const el = document.querySelector('.peer-name'); return !!el && !el.hidden && el.textContent.startsWith('👋'); }), { what: '👋 표시', timeout: 6000 });
+    await a.evaluate(() => window.__snow.sim(2));
+    // 눈덩이: 7 걸음 떨어져서
+    await a.evaluate(() => { const s = window.__snow; s.teleport(0, 37); s.me.yaw = Math.PI; s.sim(0.3); });
+    await sleep(1200);
+    await until(async () => (await a.getAttribute('#act', 'aria-label')) === '눈덩이 던지기', { what: '눈덩이 단추', timeout: 8000 });
+    await a.click('#act');
+    await until(async () => b.evaluate(() => window.__snow.social.hits === 1), { what: '맞은 펭귄', timeout: 10000 });
+    const hit = await b.evaluate(() => ({ snow: window.__snow.me.snow, toast: document.querySelector('#toast').textContent }));
+    assert(hit.snow >= 0.4 && hit.toast.includes('눈덩이'), '맞은 펭귄: ' + JSON.stringify(hit));
+  });
+  await test('소원판: 붙인 소원은 다른 화면에도 붙는다. 한 번만 붙일 수 있고, 거친 말은 붙지 않는다', async () => {
+    await a.evaluate(() => { const s = window.__snow; s.wishes.open(); });
+    await a.fill('#wishes .write input', '눈이 펑펑 오게 해 주세요');
+    await a.click('#wishes .write button');
+    await until(async () => a.evaluate(() => window.__snow.wishes.wrote), { what: '붙임', timeout: 10000 });
+    await until(async () => b.evaluate(() => window.__snow.wishes.list.some((w) => w.text === '눈이 펑펑 오게 해 주세요')), { what: '다른 화면의 소원', timeout: 10000 });
+    assert(await a.evaluate(() => document.querySelector('#wishes .write').classList.contains('off') && document.querySelector('#wishes .notes p.mine') !== null), '한 번 붙인 뒤에는 쓰는 칸이 닫히고 내 소원에 표시가 있어야 한다');
+    await a.click('#wishes .close');
+    await b.evaluate(() => window.__snow.wishes.open());
+    await b.fill('#wishes .write input', '시1발 진짜');
+    await b.click('#wishes .write button');
+    await until(async () => (await b.textContent('#wishes .done')).includes('고운 말'), { what: '걸러짐', timeout: 10000 });
+    assert(!(await b.evaluate(() => window.__snow.wishes.wrote)) && !(await a.evaluate(() => window.__snow.wishes.list.some((w) => w.text.includes('발')))), '거친 말이 붙었다');
+    await b.click('#wishes .close');
+  });
+  await test('눈사람: 내가 세운 눈사람은 다른 화면에도 서고, 허물면 사라진다. 이상한 그림은 신고하면 내 화면에서 바로 치워진다', async () => {
+    await a.evaluate(() => { const s = window.__snow; s.teleport(-12, 14); s.me.yaw = Math.PI / 2; s.sim(0.2); });
+    await sleep(1200);                                             // (옮긴 자리가 서버에 닿게)
+    await a.evaluate(() => { const s = window.__snow; s.snowman.start(); s.snowman.open(); s.snowman.strokes = [[0, 2, [[100, 80]]], [0, 2, [[140, 80]]], [1, 2, [[118, 95], [150, 100]]]]; });
+    await a.click('#sculpt .make');
+    await until(async () => b.evaluate(() => window.__snow.snowman.list.length === 1 && !window.__snow.snowman.list[0].mine), { what: '다른 화면의 눈사람', timeout: 10000 });
+    await until(async () => a.evaluate(() => window.__snow.snowman.list.length === 1 && window.__snow.snowman.list[0].id !== 'local'), { what: '내 눈사람의 번호', timeout: 10000 });
+    // b 가 다가가 신고하면 b 화면에서만 치워진다 (한 사람의 신고로는 다른 화면에 그대로)
+    await b.evaluate(() => { const s = window.__snow, o = s.snowman.list[0]; s.teleport(o.x + 1.3, o.z); s.sim(0.2); });
+    await until(async () => (await b.getAttribute('#act', 'aria-label')) === '눈사람 보기', { what: '눈사람 보기 단추' });
+    await b.click('#act');
+    assert(await b.evaluate(() => !document.querySelector('#snowcard .report').hidden && document.querySelector('#snowcard .remove').hidden), '남의 눈사람에는 신고만 있어야 한다');
+    await b.click('#snowcard .report');
+    assert((await b.evaluate(() => window.__snow.snowman.list.length)) === 0, '신고했는데 남아 있다');
+    await sleep(800);
+    assert((await a.evaluate(() => window.__snow.snowman.list.length)) === 1, '한 사람의 신고로 다른 화면에서도 사라졌다');
+    // a 가 허물면 사라진다
+    await a.evaluate(() => { const s = window.__snow, o = s.snowman.list[0]; s.teleport(o.x - 1.3, o.z); s.sim(0.2); });
+    await until(async () => (await a.getAttribute('#act', 'aria-label')) === '눈사람 보기', { what: '내 눈사람 보기 단추' });
+    await a.click('#act'); await a.click('#snowcard .remove');
+    assert((await a.evaluate(() => window.__snow.snowman.list.length)) === 0, '허물었는데 남아 있다');
   });
   await test('한 펭귄이 나가면 다른 화면에서 사라지고 수가 줄어든다', async () => {
     await a.close();

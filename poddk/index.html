@@ -12,9 +12,9 @@
 <meta name="theme-color" content="#e8f1fb">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=6172954b">
-<link rel="stylesheet" href="css/app.css?v=6172954b">
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=6172954b","./js/capture.js":"./js/capture.js?v=6172954b","./js/carols.js":"./js/carols.js?v=6172954b","./js/clock.js":"./js/clock.js?v=6172954b","./js/controls.js":"./js/controls.js?v=6172954b","./js/crumble.js":"./js/crumble.js?v=6172954b","./js/den.js":"./js/den.js?v=6172954b","./js/field.js":"./js/field.js?v=6172954b","./js/fishing.js":"./js/fishing.js?v=6172954b","./js/fox.js":"./js/fox.js?v=6172954b","./js/igloo.js":"./js/igloo.js?v=6172954b","./js/main.js":"./js/main.js?v=6172954b","./js/map.js":"./js/map.js?v=6172954b","./js/names.js":"./js/names.js?v=6172954b","./js/net.js":"./js/net.js?v=6172954b","./js/outfit.js":"./js/outfit.js?v=6172954b","./js/penguin.js":"./js/penguin.js?v=6172954b","./js/postbox.js":"./js/postbox.js?v=6172954b","./js/santa.js":"./js/santa.js?v=6172954b","./js/showcase.js":"./js/showcase.js?v=6172954b","./js/sky.js":"./js/sky.js?v=6172954b","./js/tracks.js":"./js/tracks.js?v=6172954b","./js/weather.js":"./js/weather.js?v=6172954b","./js/xmas.js":"./js/xmas.js?v=6172954b"}}</script>
+<link rel="stylesheet" href="css/fonts.css?v=82ff041d">
+<link rel="stylesheet" href="css/app.css?v=82ff041d">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=82ff041d","./js/capture.js":"./js/capture.js?v=82ff041d","./js/carols.js":"./js/carols.js?v=82ff041d","./js/clock.js":"./js/clock.js?v=82ff041d","./js/controls.js":"./js/controls.js?v=82ff041d","./js/crumble.js":"./js/crumble.js?v=82ff041d","./js/den.js":"./js/den.js?v=82ff041d","./js/field.js":"./js/field.js?v=82ff041d","./js/fishing.js":"./js/fishing.js?v=82ff041d","./js/fox.js":"./js/fox.js?v=82ff041d","./js/igloo.js":"./js/igloo.js?v=82ff041d","./js/main.js":"./js/main.js?v=82ff041d","./js/map.js":"./js/map.js?v=82ff041d","./js/names.js":"./js/names.js?v=82ff041d","./js/net.js":"./js/net.js?v=82ff041d","./js/outfit.js":"./js/outfit.js?v=82ff041d","./js/penguin.js":"./js/penguin.js?v=82ff041d","./js/postbox.js":"./js/postbox.js?v=82ff041d","./js/santa.js":"./js/santa.js?v=82ff041d","./js/showcase.js":"./js/showcase.js?v=82ff041d","./js/sky.js":"./js/sky.js?v=82ff041d","./js/snowball.js":"./js/snowball.js?v=82ff041d","./js/snowman.js":"./js/snowman.js?v=82ff041d","./js/tracks.js":"./js/tracks.js?v=82ff041d","./js/weather.js":"./js/weather.js?v=82ff041d","./js/wishboard.js":"./js/wishboard.js?v=82ff041d","./js/xmas.js":"./js/xmas.js?v=82ff041d"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -37,7 +37,8 @@
       <svg class="g calm" viewBox="0 0 24 24"><path class="s" d="M12 3.8v16.4M4.9 7.9l14.2 8.2M19.1 7.9L4.9 16.1M9.6 4.9L12 7.1l2.4-2.2M9.6 19.1l2.4-2.2 2.4 2.2"/></svg>
       <svg class="g wild" viewBox="0 0 24 24"><path class="f" d="M7.4 14.4a3.5 3.5 0 0 1 .4-7 4.8 4.8 0 0 1 9.2 1.1 3 3 0 0 1-.3 5.9z"/><circle class="f" cx="8" cy="18.2" r="1.25"/><circle class="f" cx="12.2" cy="19.6" r="1.25"/><circle class="f" cx="16.2" cy="18" r="1.25"/></svg>
     </span>
-    <span id="storm">&nbsp;</span>
+    <!-- 전광판: 큰 눈 소식과 게임 도움말이 번갈아 한 줄씩. 길면 옆으로 흘러간다 -->
+    <span class="ticker" aria-live="polite"><span class="track"><span id="storm">&nbsp;</span><span id="tip" hidden></span></span></span>
   </div>
   <div class="row" id="peer-row" hidden>
     <span class="badge me" aria-hidden="true"><svg class="g" viewBox="0 0 24 24"><ellipse class="f" cx="12" cy="14.6" rx="5.6" ry="6.8"/><circle class="f" cx="12" cy="6.4" r="3.8"/><path class="f" d="M14.8 6.2l3 .9-3 .9z"/></svg></span>
@@ -49,13 +50,16 @@
   </div>
 </div>
 
-<!-- 버튼은 모두 글자 없이 그림만: 오른쪽 위 소리, 오른쪽 아래 한 줄로 위에서부터 캡쳐 → 배 썰매 → 눈 천사 → 파닥파닥. 모두 같은 밝기의 동그란 색종이 단추에 갈색 그림 -->
+<!-- 버튼은 모두 글자 없이 그림만: 오른쪽 위에 소리와 그 아래 캡쳐, 오른쪽 아래 한 줄로 위에서부터 (상황 단추) → 배 썰매 → 눈 천사 → 파닥파닥 -->
 <button id="mute" class="ui round" type="button" aria-pressed="false" aria-label="소리 끄기">
   <svg class="g on" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4.6 9.6h2.8l4-3.3c.7-.6 1.7-.1 1.7.8v9.8c0 .9-1 1.4-1.7.8l-4-3.3H4.6c-.6 0-1.1-.5-1.1-1.1v-2.6c0-.6.5-1.1 1.1-1.1z"/><path class="s" d="M16.3 9.3c1.2 1.6 1.2 3.8 0 5.4M18.9 6.9c2.4 3 2.4 7.2 0 10.2"/></svg>
   <svg class="g off" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4.6 9.6h2.8l4-3.3c.7-.6 1.7-.1 1.7.8v9.8c0 .9-1 1.4-1.7.8l-4-3.3H4.6c-.6 0-1.1-.5-1.1-1.1v-2.6c0-.6.5-1.1 1.1-1.1z"/><path class="s" d="M16.4 9.7l4.2 4.6M20.6 9.7l-4.2 4.6"/></svg>
 </button>
 <button id="shot" class="ui round" type="button" aria-label="지금 화면을 사진으로 저장">
   <svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M8.3 6.3l.8-1.4c.3-.5.9-.9 1.5-.9h2.8c.6 0 1.2.4 1.5.9l.8 1.4h2.2a2.7 2.7 0 0 1 2.7 2.7v7.7a2.7 2.7 0 0 1-2.7 2.7H6.1a2.7 2.7 0 0 1-2.7-2.7V9a2.7 2.7 0 0 1 2.7-2.7zM12 9.5a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/></svg>
+</button>
+<button id="closet" class="ui round" type="button" aria-label="옷장 (이번 산책에서 받은 아이템)" hidden>
+  <svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M12 7.2a1.9 1.9 0 1 1 1.9-1.9c0 1.1-1.9 1.3-1.9 2.6v1.3l8.2 5.3c.9.6.5 2-.6 2H4.4c-1.1 0-1.5-1.4-.6-2L12 9.2"/></svg>
 </button>
 <button id="slide" class="ui round" type="button" aria-label="배로 미끄러지기">
   <!-- 배를 깔고 엎드려 미끄러지는 펭귄: 앞으로 내민 머리, 납작한 몸, 뒤로 뻗은 발, 뒤에 남는 바람 줄 -->
@@ -66,6 +70,21 @@
     <path class="f" d="M5.6 13.8c-1.8-1.5-3.3-1.8-4.6-1.3 1 .9 1.7 1.9 2 3.1z"/>
     <path class="s" d="M2 19.4h20.5"/>
   </svg>
+</button>
+<!-- 상황 단추: 낚시 구멍·이글루 문·방석·우체통 곁처럼 무엇인가 할 수 있을 때만 나타난다 (오른쪽 단추 줄의 맨 위) -->
+<button id="act" class="ui round idle" type="button" aria-label="할 수 있는 것이 없어요">
+
+  <!-- 낚시 구멍 곁에서는 물고기 그림으로, 낚시하는 동안에는 그만두기(✕) 그림으로 바뀐다 -->
+  <!-- 이글루 문 앞: 들어가기 / 방 안 문 앞: 나가기 / 방석 곁: 앉기 / 앉아 있을 때: 일어나기 / 트리 옆 우체통 곁: 엽서 보내기 -->
+  <svg class="g enter-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.2 19.6a8.8 8.8 0 0 1 17.6 0z"/><path d="M9.2 19.6a2.8 2.8 0 0 1 5.6 0z" fill="#fff" opacity=".85"/></svg>
+  <svg class="g exit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M5 12h12M12.5 6.8L17.7 12l-5.2 5.2M20.4 4.6v14.8"/></svg>
+  <svg class="g sit-icon" viewBox="0 0 24 24" aria-hidden="true"><ellipse class="f" cx="12" cy="19.4" rx="9.6" ry="2.9" opacity=".55"/><path class="f" d="M12 4.2c2.2 0 3.7 1.7 3.7 3.8 0 .6-.1 1.1-.3 1.6 1.6 1.2 2.6 3.2 2.6 5.4 0 2.4-2.6 3.6-6 3.6s-6-1.2-6-3.6c0-2.2 1-4.2 2.6-5.4-.2-.5-.3-1-.3-1.6 0-2.1 1.5-3.8 3.7-3.8z"/><path d="M12 9.1l1.8.8-1.8.8z" fill="#f2b25a"/><circle cx="10.6" cy="7.6" r=".7" fill="#fff"/><circle cx="13.4" cy="7.6" r=".7" fill="#fff"/><path d="M7.2 13.2c-1.5.7-2.3 1.9-2.4 3.2M16.8 13.2c1.5.7 2.3 1.9 2.4 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+  <svg class="g stand-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M12 19.5V6.5M6.8 11.7L12 6.5l5.2 5.2"/></svg>
+  <svg class="g quit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M7.6 7.6l8.8 8.8M16.4 7.6l-8.8 8.8"/></svg>
+  <span class="emo roll-icon" aria-hidden="true">⛄</span><span class="emo wish-icon" aria-hidden="true">🎄</span><span class="emo look-icon" aria-hidden="true">🔍</span>
+  <span class="emo wave-icon" aria-hidden="true">👋</span><span class="emo throw-icon" aria-hidden="true">❄️</span>
+  <svg class="g mail-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M4.6 5.6h14.8c1 0 1.8.8 1.8 1.8v9.2c0 1-.8 1.8-1.8 1.8H4.6c-1 0-1.8-.8-1.8-1.8V7.4c0-1 .8-1.8 1.8-1.8zm.4 2.3v.5l7 4.6 7-4.6v-.5l-7 4.3z"/></svg>
+  <svg class="g fish-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M3 12c2-3.3 5.3-5.4 8.9-5.4 2.6 0 5 1.2 6.8 3.1l1.5-1.6c.6-.6 1.6-.2 1.6.6v6.6c0 .8-1 1.2-1.6.6l-1.5-1.6c-1.8 1.9-4.2 3.1-6.8 3.1-3.6 0-6.9-2.1-8.9-5.4zM8.4 10a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>
 </button>
 <button id="angel" class="ui round" type="button" aria-label="눈 천사 만들기">
   <!-- 눈 위에 실제로 남는 자국과 같은 모양 (js/tracks.js 의 angelGeometry: 머리, 몸통, 날개가 쓴 부채꼴 둘, 발이 쓴 부채꼴 둘) -->
@@ -78,15 +97,6 @@
     <ellipse cx="0" cy="-0.05" rx="0.54" ry="0.6"/>
     <circle cx="0" cy="-0.66" r="0.36"/>
   </svg>
-  <!-- 낚시 구멍 곁에서는 물고기 그림으로, 낚시하는 동안에는 그만두기(✕) 그림으로 바뀐다 -->
-  <!-- 이글루 문 앞: 들어가기 / 방 안 문 앞: 나가기 / 방석 곁: 앉기 / 앉아 있을 때: 일어나기 / 트리 옆 우체통 곁: 엽서 보내기 -->
-  <svg class="g enter-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.2 19.6a8.8 8.8 0 0 1 17.6 0z"/><path d="M9.2 19.6a2.8 2.8 0 0 1 5.6 0z" fill="#fff" opacity=".85"/></svg>
-  <svg class="g exit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M5 12h12M12.5 6.8L17.7 12l-5.2 5.2M20.4 4.6v14.8"/></svg>
-  <svg class="g sit-icon" viewBox="0 0 24 24" aria-hidden="true"><ellipse class="f" cx="12" cy="19.4" rx="9.6" ry="2.9" opacity=".55"/><path class="f" d="M12 4.2c2.2 0 3.7 1.7 3.7 3.8 0 .6-.1 1.1-.3 1.6 1.6 1.2 2.6 3.2 2.6 5.4 0 2.4-2.6 3.6-6 3.6s-6-1.2-6-3.6c0-2.2 1-4.2 2.6-5.4-.2-.5-.3-1-.3-1.6 0-2.1 1.5-3.8 3.7-3.8z"/><path d="M12 9.1l1.8.8-1.8.8z" fill="#f2b25a"/><circle cx="10.6" cy="7.6" r=".7" fill="#fff"/><circle cx="13.4" cy="7.6" r=".7" fill="#fff"/><path d="M7.2 13.2c-1.5.7-2.3 1.9-2.4 3.2M16.8 13.2c1.5.7 2.3 1.9 2.4 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-  <svg class="g stand-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M12 19.5V6.5M6.8 11.7L12 6.5l5.2 5.2"/></svg>
-  <svg class="g quit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M7.6 7.6l8.8 8.8M16.4 7.6l-8.8 8.8"/></svg>
-  <svg class="g mail-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M4.6 5.6h14.8c1 0 1.8.8 1.8 1.8v9.2c0 1-.8 1.8-1.8 1.8H4.6c-1 0-1.8-.8-1.8-1.8V7.4c0-1 .8-1.8 1.8-1.8zm.4 2.3v.5l7 4.6 7-4.6v-.5l-7 4.3z"/></svg>
-  <svg class="g fish-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M3 12c2-3.3 5.3-5.4 8.9-5.4 2.6 0 5 1.2 6.8 3.1l1.5-1.6c.6-.6 1.6-.2 1.6.6v6.6c0 .8-1 1.2-1.6.6l-1.5-1.6c-1.8 1.9-4.2 3.1-6.8 3.1-3.6 0-6.9-2.1-8.9-5.4zM8.4 10a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>
 </button>
 <button id="flap" class="ui round" type="button" aria-label="파닥파닥">
   <!-- 날개를 활짝 편 펭귄 -->
@@ -123,6 +133,7 @@
   <div class="gift-card">
     <p class="gift-say">선물 상자를 찾았어요!</p>
     <button class="gift-box" type="button" aria-label="선물 상자 두드리기">
+      <span class="view" aria-hidden="true"></span>
       <svg viewBox="0 0 120 120" aria-hidden="true">
         <g class="half left"><rect x="16" y="50" width="44" height="58" rx="5" class="paper"/><rect x="54" y="50" width="6" height="58" class="ribbon"/><rect x="16" y="72" width="44" height="8" class="ribbon"/></g>
         <g class="half right"><rect x="60" y="50" width="44" height="58" rx="5" class="paper"/><rect x="60" y="50" width="6" height="58" class="ribbon"/><rect x="60" y="72" width="44" height="8" class="ribbon"/></g>
@@ -142,6 +153,42 @@
   <p class="status-say">방석에 앉았어요. 지금 뭐 하고 있어요?</p>
   <div class="status-list"></div>
   <button class="status-close" type="button">그냥 앉아 있을래요</button>
+</div>
+<!-- 크리스마스 소원판: 이름 없이 붙은 소원들, 그리고 내 소원 하나 -->
+<div id="wishes" hidden>
+  <div class="board" role="dialog" aria-label="크리스마스 소원판">
+    <p class="title">🎄 크리스마스 소원판</p>
+    <div class="notes"></div>
+    <p class="empty" hidden>아직 붙은 소원이 없어요. 첫 소원을 붙여 볼까요?</p>
+    <form class="write"><input type="text" maxlength="30" placeholder="소원을 짧게 써 봐요 (30자)" aria-label="소원"><button type="submit">붙이기</button></form>
+    <p class="note">이름 없이 붙어요 · 고운 말만 붙일 수 있어요 · 크리스마스 동안 한 번</p>
+    <p class="done" aria-live="polite"></p>
+    <button class="close" type="button">닫기</button>
+  </div>
+</div>
+<!-- 눈사람 만들기: 굴린 눈덩이로 눈사람을 세운다. 틀 위에 얼굴과 단추, 무늬를 그린다 -->
+<div id="sculpt" hidden>
+  <div class="card" role="dialog" aria-label="눈사람 만들기">
+    <p class="title">⛄ 눈사람 만들기</p>
+    <p class="note">눈덩이가 커졌어요! 얼굴이랑 단추를 그려 봐요</p>
+    <canvas class="pad" width="240" height="300"></canvas>
+    <div class="inks"></div>
+    <div class="widths"></div>
+    <div class="btns"><button class="undo" type="button">되돌리기</button><button class="clear" type="button">지우기</button><button class="make" type="button">세우기</button></div>
+    <button class="cancel" type="button">그만두기</button>
+  </div>
+</div>
+<!-- 눈사람 곁에서: 누가 만든 눈사람인지 (이름은 없다), 내 것은 허물기, 남의 것은 이상한 그림 신고 -->
+<div id="snowcard" hidden role="dialog" aria-label="눈사람">
+  <p class="what"></p>
+  <div class="btns"><button class="report" type="button">🚩 이상한 그림이에요</button><button class="remove" type="button">허물기</button><button class="close" type="button">닫기</button></div>
+</div>
+<!-- 옷장: 이번 산책에서 받은 아이템을 골라 입고 벗는다 (다시 들어오면 비어 있다) -->
+<div id="closet-panel" hidden role="dialog" aria-label="옷장">
+  <p class="title">🧥 옷장</p>
+  <p class="note">이번 산책에서 받은 것들이에요. 눌러서 입고 벗어요</p>
+  <div class="shelves"></div>
+  <button class="close" type="button">닫기</button>
 </div>
 <!-- 주사위 놀이: 같은 방에 앉은 펭귄이 불렀을 때 묻는 쪽지 (원하면 같이 하기, 아니면 그냥 닫는다) -->
 <div id="dice-ask" hidden role="dialog" aria-label="주사위 놀이 초대">
@@ -216,6 +263,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=6172954b"></script>
+<script type="module" src="js/main.js?v=82ff041d"></script>
 </body>
 </html>
