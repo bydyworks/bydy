@@ -248,7 +248,7 @@ export function wave(root, k, t = 0) {
 }
 
 /** 챙이 넓은 모자를 쓰고 엎드리거나 누우면 챙을 오므린다 (k: 누운 정도) */
-function tuckBrim(u, k) { const h = u.outfit && u.outfit.hat; if (h && h.userData.wide) h.scale.set(1 - 0.5 * k, 1, 1 - 0.5 * k); }
+function tuckBrim(u, k) { const h = u.outfit && u.outfit.hat; if (h && h.userData.wide) h.scale.set(1 - 0.72 * k, 1 - 0.3 * k, 1 - 0.72 * k); }
 export function belly(root, k, wiggle = 0) {
   const u = root.userData, g = u.body;
   tuckBrim(u, k);

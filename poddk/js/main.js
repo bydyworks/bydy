@@ -338,7 +338,7 @@ function stepAngel(dt, now) {
   }
 }
 controls.onAction(() => act(true));
-$('#act').addEventListener('click', act);
+$('#act').addEventListener('click', () => act(false));      // (클릭 이벤트가 key 자리로 들어가지 않게)
 $('#angel').addEventListener('click', () => { if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.slide || me.flap || me.inside !== null || me.seat || fishing.active) return; startAngel(); });
 
 // ---------- 배 썰매 ----------
@@ -974,13 +974,13 @@ function tickTip(t) {
   }
   storm.hidden = tipShown; tip.hidden = !tipShown;
   // 칸보다 길면 전광판처럼 흘러간다 (처음 잠깐 멈췄다가, 끝까지 가서 잠깐 멈춘다)
-  const box = track.parentElement, over = Math.max(0, (tipShown ? tip : storm).scrollWidth - box.clientWidth);
-  track.style.setProperty('--over', -over + 'px');
-  const run = over > 2 ? 1.2 + over / 38 : 0;
-  track.style.setProperty('--run', run + 's');
-  track.classList.remove('scroll'); void track.offsetWidth; if (over > 2) track.classList.add('scroll');
-  track.classList.remove('in'); void track.offsetWidth; track.classList.add('in');
-  tipAt = t + (tipShown ? TICK.tip : TICK.storm) + run * 1000;
+  // 칸보다 길면: 칸 오른쪽 끝에서 들어와 왼쪽 끝으로 다 빠져나가기를 되풀이한다 (초당 40px). 짧으면 가만히
+  const box = track.parentElement, w = (tipShown ? tip : storm).scrollWidth, long = w > box.clientWidth - 4;
+  track.classList.remove('scroll', 'in'); void track.offsetWidth;
+  let run = 0;
+  if (long) { const dist = w + box.clientWidth; run = dist / 40; track.style.setProperty('--over', -dist + 'px'); track.style.setProperty('--run', run + 's'); track.classList.add('scroll'); }
+  else track.classList.add('in');
+  tipAt = t + Math.max(tipShown ? TICK.tip : TICK.storm, run * 1000);
 }
 
 // ---------- 옷장: 이번 산책에서 받은 아이템을 골라 입고 벗는다 ----------
