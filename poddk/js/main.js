@@ -219,16 +219,20 @@ function showAction() {
   const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : fishing.nibbling ? 'nib' : 'wait')
     : me.inside !== null ? (me.seat ? (me.seat.phase === 'sat' ? 'standup' : 'none') : dens.seatNear(me.inside, me.x, me.z) >= 0 ? 'sitdown' : dens.nearDoor(me.inside, me.x, me.z) ? 'exit' : 'none')
     : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canMail() ? 'mail' : 'angel';
+  // 눈 천사 단추: 눈 천사를 할 수 없을 때(이글루 안, 낚시·썰매·파닥 중, 방석) 흐려진다
+  const angelOff = me.inside !== null || fishing.active || !!me.slide || !!me.flap || !!me.seat;
+  if ($('#angel').classList.contains('off') !== angelOff) $('#angel').classList.toggle('off', angelOff);
   if (now === actionShown) return;
   actionShown = now;
-  const el = $('#angel');
+  const el = $('#act');
+  el.classList.toggle('idle', now === 'angel' || now === 'none');      // 할 수 있는 것이 없으면 상황 단추는 숨는다
   el.classList.toggle('fish', now === 'fish' || now === 'pull');
   el.classList.toggle('bite', now === 'pull');
   el.classList.toggle('quit', now === 'quit' || now === 'wait' || now === 'nib');
   el.classList.toggle('hold', now === 'wait');            // 낚아 올리거나 놓아주는 동안: 누를 수 없다
   el.classList.toggle('rest', now === 'nib');             // 가짜 입질이 지나가는 잠깐: 흐려져 쉰다 (눌러도 그만두지 않는다)
-  for (const c of ['enter', 'exit', 'sitdown', 'standup', 'none', 'mail']) el.classList.toggle(c, now === c);
-  el.setAttribute('aria-label', { angel: '눈 천사 만들기', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기' }[now]);
+  for (const c of ['enter', 'exit', 'sitdown', 'standup', 'mail']) el.classList.toggle(c, now === c);
+  el.setAttribute('aria-label', { angel: '할 수 있는 것이 없어요', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기' }[now]);
 }
 
 /** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 낚시 중에는 낚아 올리기나 그만두기, 그 밖에서는 눈 천사 */
@@ -320,7 +324,8 @@ function stepAngel(dt, now) {
   }
 }
 controls.onAction(act);
-$('#angel').addEventListener('click', act);
+$('#act').addEventListener('click', act);
+$('#angel').addEventListener('click', () => { if (!started || giftOpen || postOpen || busyDoor || me.slide || me.flap || me.inside !== null || me.seat || fishing.active) return; startAngel(); });
 
 // ---------- 배 썰매 ----------
 // 버튼을 누르면 배를 깔고 엎드려, 바라보던 쪽으로 쭉 미끄러지다가 천천히 멈추고 일어난다.
@@ -989,12 +994,12 @@ $('#mute').addEventListener('click', () => {
 });
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
-for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+for (const el of document.querySelectorAll('#mute, #shot, #act, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
 // (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
-for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
+for (const el of document.querySelectorAll('#mute, #shot, #act, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
 
 // 누른 단추는 살짝 커졌다가 제자리로 돌아온다 (0.2초쯤)
-for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #flap, #enter')) {
+for (const el of document.querySelectorAll('#mute, #shot, #act, #slide, #angel, #flap, #enter')) {
   el.addEventListener('click', () => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); });
   el.addEventListener('animationend', (e) => { if (e.animationName === 'pop') el.classList.remove('pop'); });
 }

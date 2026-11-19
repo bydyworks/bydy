@@ -84,7 +84,7 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
   border-radius: 50%; box-shadow: 0 0 0 3px var(--cream), 0 5px 12px rgba(80, 58, 36, 0.16);
 }
 .round:active { transform: scale(0.92); transition-duration: .6s, .08s, .2s; }
-#shot, #slide, #angel, #flap { right: var(--col-r); width: var(--btn); }
+#act, #slide, #angel, #flap { right: var(--col-r); width: var(--btn); }
 
 #mute { --c: var(--mint); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t)); width: 40px; height: 40px; }
 #mute .g { width: 22px; height: 22px; }
@@ -92,7 +92,8 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 #mute[aria-pressed="true"] .off { display: block; }
 #mute[aria-pressed="true"] { --c: var(--gray); }
 
-#shot { --c: var(--coral); bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); height: var(--btn); }
+#shot { --c: var(--coral); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 40px + 10px); width: 40px; height: 40px; }      /* 소리 단추 바로 아래 */
+#act { bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); height: var(--btn); }      /* 상황 단추: 오른쪽 단추 줄의 맨 위 */
 /* 배 썰매: 사진과 눈 천사 사이 */
 #slide { --c: var(--sky); bottom: calc(var(--col-b) + 2 * var(--btn) + 2 * var(--gap)); height: var(--btn); }
 #slide .slide-icon { width: 34px; height: 26px; }
@@ -110,18 +111,17 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 #angel .angel-icon { width: 33px; height: 29px; fill: #fff; }      /* 눈 위에 남는 자국과 같은 모양. 눈 자국이므로 이 그림만 흰색이다 */
 #angel.busy { opacity: 0.5 !important; pointer-events: none; }
 /* 낚시 구멍 곁에서는 물고기 그림(낚시하기), 낚시하는 동안에는 ✕(그만두기). 입질이 오면 다시 물고기 그림이 되어 노랗게 통통 뛴다 */
-#angel .fish-icon, #angel .quit-icon { display: none; width: 30px; height: 30px; }
-#angel .quit-icon { width: 26px; height: 26px; }
-#angel .quit-icon .s { stroke-width: 3.2; }
-#angel.fish .angel-icon, #angel.quit .angel-icon { display: none; }
-#angel.fish { --c: var(--aqua); }
-#angel.fish .fish-icon { display: block; }
-#angel.quit { --c: var(--gray); }
-#angel.quit .quit-icon { display: block; }
-#angel.hold { opacity: 0.5 !important; pointer-events: none; }
-#angel.rest { opacity: 0.5 !important; }       /* 가짜 입질이 지나가는 잠깐: 흐려져 쉰다. 눌리기는 하지만 그만두지는 않는다 */
-#angel.fish, #angel.quit { transition-duration: .16s, .28s, .2s; }      /* 낚시하는 동안의 단추는 모습이 바로바로 바뀐다 (찌의 움직임과 어긋나지 않게) */
-#angel.bite { --c: var(--sun); animation: bite .46s ease-in-out infinite; }
+#act .fish-icon, #act .quit-icon { display: none; width: 30px; height: 30px; }
+#act .quit-icon { width: 26px; height: 26px; }
+#act .quit-icon .s { stroke-width: 3.2; }
+#act.fish { --c: var(--aqua); }
+#act.fish .fish-icon { display: block; }
+#act.quit { --c: var(--gray); }
+#act.quit .quit-icon { display: block; }
+#act.hold { opacity: 0.5 !important; pointer-events: none; }
+#act.rest { opacity: 0.5 !important; }       /* 가짜 입질이 지나가는 잠깐: 흐려져 쉰다. 눌리기는 하지만 그만두지는 않는다 */
+#act.fish, #act.quit { transition-duration: .16s, .28s, .2s; }      /* 낚시하는 동안의 단추는 모습이 바로바로 바뀐다 (찌의 움직임과 어긋나지 않게) */
+#act.bite { --c: var(--sun); animation: bite .46s ease-in-out infinite; }
 @keyframes bite { 0%, 100% { transform: scale(1) rotate(-5deg); } 50% { transform: scale(1.16) rotate(5deg); } }
 
 /* 확대·축소: 크림색 알약 쪽지 하나에 더하기와 빼기, 사이에 점선 */
@@ -195,7 +195,7 @@ body.in #start { opacity: 0; pointer-events: none; }
   #shot .g { width: 24px; height: 24px; }
   #slide .slide-icon { width: 30px; height: 23px; }
   #flap .flap-icon { width: 30px; height: 26px; }
-  #angel .fish-icon { width: 26px; height: 26px; }
+  #act .fish-icon { width: 26px; height: 26px; }
   #toast { top: calc(12px + var(--safe-t)); left: calc(50% + 80px); max-width: min(46vw, 400px); }      /* 왼쪽 위의 시각 표시와 오른쪽 위의 소리 버튼 사이에 */
   #coach .walk { bottom: calc(10% + var(--safe-b)); }
   #coach .pad { width: 70px; height: 70px; }
@@ -260,8 +260,8 @@ html, body { color: var(--ink); }
 .round:active { box-shadow: inset 0 2px 1px rgba(255, 255, 255, 0.98), inset 0 -8px 12px rgba(140, 190, 238, 0.4), 0 3px 8px rgba(36, 64, 110, 0.18); }
 .round .angel-icon { fill: #2f5f96 !important; }
 #mute[aria-pressed="true"] { color: rgba(47, 95, 150, 0.45); }
-#angel.quit { color: #5c7693; }
-#angel.bite { color: #9a6400; animation: biteFrost .42s ease-in-out infinite; }
+#act.quit { color: #5c7693; }
+#act.bite { color: #9a6400; animation: biteFrost .42s ease-in-out infinite; }
 @keyframes biteFrost { 0%, 100% { transform: scale(1); box-shadow: inset 0 2px 1px rgba(255,255,255,.98), inset 0 -8px 12px rgba(247,201,92,.55), 0 7px 18px rgba(36,64,110,.2), 0 0 0 0 rgba(247,201,92,.6); } 50% { transform: scale(1.13); box-shadow: inset 0 2px 1px rgba(255,255,255,.98), inset 0 -8px 12px rgba(247,201,92,.55), 0 7px 18px rgba(36,64,110,.2), 0 0 0 11px rgba(247,201,92,0); } }
 .badge { background: linear-gradient(150deg, #fff, #d9ebfb) !important; color: #2f5f96; }
 body[data-sky="night"] .badge.time { color: #5a63c4; }
@@ -341,11 +341,10 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 @media (max-height: 430px) { .start-card .me-name { margin: -4px 0 8px; font-size: 13px; } }
 
 /* ---------- 이글루 안 ---------- */
-#angel .enter-icon, #angel .exit-icon, #angel .sit-icon, #angel .stand-icon { display: none; width: 28px; height: 28px; }
-#angel.enter .angel-icon, #angel.exit .angel-icon, #angel.sitdown .angel-icon, #angel.standup .angel-icon, #angel.none .angel-icon { display: none; }
-#angel.enter .enter-icon, #angel.exit .exit-icon, #angel.sitdown .sit-icon, #angel.standup .stand-icon { display: block; }
-#angel.none { opacity: 0.35 !important; pointer-events: none; }
-#angel .exit-icon .s, #angel .stand-icon .s { stroke-width: 3; }
+#act .enter-icon, #act .exit-icon, #act .sit-icon, #act .stand-icon { display: none; width: 28px; height: 28px; }
+#act.enter .enter-icon, #act.exit .exit-icon, #act.sitdown .sit-icon, #act.standup .stand-icon { display: block; }
+#act.none { opacity: 0.35 !important; pointer-events: none; }
+#act .exit-icon .s, #act .stand-icon .s { stroke-width: 3; }
 #fade { position: fixed; inset: 0; z-index: 3; background: #0d1226; opacity: 0; pointer-events: none; transition: opacity .32s; }
 #fade.on { opacity: 1; }
 #status { position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); z-index: 3; width: min(92vw, 380px); transform: translateX(-50%); padding: 14px 14px 12px; border-radius: 24px; text-align: center; color: #27405f;
@@ -367,9 +366,9 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #slide .slide-icon { width: 26px; height: 20px; }
 #angel .angel-icon { width: 25px; height: 22px; }
 #flap .flap-icon { width: 26px; height: 23px; }
-#angel .fish-icon { width: 23px; height: 23px; }
-#angel .quit-icon { width: 20px; height: 20px; }
-#angel .enter-icon, #angel .exit-icon, #angel .sit-icon, #angel .stand-icon { width: 22px; height: 22px; }
+#act .fish-icon { width: 23px; height: 23px; }
+#act .quit-icon { width: 20px; height: 20px; }
+#act .enter-icon, #act .exit-icon, #act .sit-icon, #act .stand-icon { width: 22px; height: 22px; }
 @media (max-height: 430px) { :root { --btn: 40px; --gap: 9px; } }
 
 /* 함께 걷는 펭귄 수, 다른 펭귄의 말풍선 */
@@ -408,9 +407,8 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .gift-item.flat .view { display: none; }
 .gift-item.flat .emoji { display: block; }
 /* 우체통 곁: 엽서 단추 */
-#angel .mail-icon { display: none; width: 22px; height: 22px; }
-#angel.mail .angel-icon { display: none; }
-#angel.mail .mail-icon { display: block; }
+#act .mail-icon { display: none; width: 22px; height: 22px; }
+#act.mail .mail-icon { display: block; }
 /* 친구에게 보내는 엽서 */
 #postcard { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 #postcard[hidden] { display: none; }
@@ -501,3 +499,7 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 /* 드물게 낚이는 것 (황금 잉어, 보물 상자): 카드가 금빛으로 */
 #catch.rare { background: linear-gradient(150deg, #fff8dc, #ffe9a6 55%, #ffd76a); box-shadow: inset 0 -9px 14px rgba(230, 170, 40, 0.3), 0 14px 32px rgba(180, 120, 20, 0.3); }
 #catch.rare .say { color: #8a5a12; }
+/* 상황 단추는 할 수 있는 것이 있을 때만 뿅 나타난다. 눈 천사 단추는 눈 천사를 할 수 없을 때 흐려진다 */
+#act { transition: opacity .2s, transform .25s cubic-bezier(.3, 1.6, .6, 1), visibility 0s; }
+#act.idle { opacity: 0 !important; transform: scale(0.6); visibility: hidden; pointer-events: none; transition: opacity .15s, transform .15s, visibility 0s .15s; }
+#angel.off { opacity: 0.5 !important; pointer-events: none; }
