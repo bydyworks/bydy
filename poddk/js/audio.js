@@ -133,7 +133,8 @@ export function createAudio(baseUrl = 'audio/') {
     },
     /**
      * 낚시터의 물소리 (녹음이 아니라 코드로 만든 소리).
-     * 'plop': 찌가 쑥 들어가거나 물고기를 놓아줄 때의 퐁, 'splash': 낚아 올릴 때의 첨벙
+     * 'tick': 물고기가 찌를 건드려 볼 때의 가벼운 톡, 'bite': 진짜 입질 — 찌가 쑥 들어가는 깊은 퐁,
+     * 'plop': 물고기를 놓아줄 때의 퐁, 'splash': 낚아 올릴 때의 첨벙
      */
     water(kind) {
       stats.water++;
@@ -151,6 +152,8 @@ export function createAudio(baseUrl = 'audio/') {
         osc.start(t + at); osc.stop(t + at + len + 0.1);
         osc.onended = () => { osc.disconnect(); gain.disconnect(); };
       };
+      if (kind === 'tick') { tone(980, 620, 0, 0.035, 0.06); return; }
+      if (kind === 'bite') { tone(400, 105, 0, 0.16, 0.26); tone(660, 300, 0.09, 0.08, 0.08); return; }
       if (kind === 'plop') { tone(540, 170, 0, 0.11, 0.2); tone(820, 430, 0.075, 0.07, 0.07); return; }
       // 첨벙: 낮은 퐁 위에 물 튀는 소리(걸러 낸 잡음)를 얹는다
       tone(260, 95, 0, 0.14, 0.2); tone(700, 300, 0.11, 0.09, 0.06);
