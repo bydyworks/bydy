@@ -173,8 +173,8 @@ export function createAudio(baseUrl = 'audio/') {
      * 'pop': 눈사람으로 바뀌는 순간의 "뿅" — 통통 튀어 오르는 짧은 음 둘과 반짝이는 소리
      * 'shake': 쌓인 눈이 털릴 때의 "후두둑", 'burst': 눈사람이 부서져 흩어질 때의 더 큰 "와르르"
      */
-    snowFx(kind) {
-      stats.snowFx.push(kind);
+    snowFx(kind, level = 1) {
+      if (kind !== 'crackle') stats.snowFx.push(kind);
       if (!ctx || muted || ctx.state !== 'running') return;
       const t = ctx.currentTime;
       const tone = (type, from, to, at, len, peak) => {
@@ -214,6 +214,29 @@ export function createAudio(baseUrl = 'audio/') {
           beat(i * 0.2 + 0.085, 0.35, 420);                               //  흣
           tone('sine', 140, 85, i * 0.2, 0.05, 0.12);                     // 날개가 몸에 닿는 낮은 툭
         }
+        return;
+      }
+      if (kind === 'hohoho') {                              // 산타의 "허허허": 낮은 목소리 세 번 (톱니 소리를 목소리처럼 걸러서)
+        for (let i = 0; i < 3; i++) {
+          const at = i * 0.34, osc = ctx.createOscillator(), f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(), gain = ctx.createGain();
+          osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150 - i * 8, t + at); osc.frequency.exponentialRampToValueAtTime(108 - i * 6, t + at + 0.26);
+          f1.type = 'bandpass'; f1.frequency.value = 620; f1.Q.value = 3; f2.type = 'lowpass'; f2.frequency.value = 1400;
+          gain.gain.setValueAtTime(0, t + at); gain.gain.linearRampToValueAtTime(0.5, t + at + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.28);
+          osc.connect(f1).connect(f2).connect(gain).connect(master);
+          osc.start(t + at); osc.stop(t + at + 0.32);
+          osc.onended = () => { osc.disconnect(); f1.disconnect(); f2.disconnect(); gain.disconnect(); };
+          puff(at, 0.12, 900, 0.1);                           // 숨소리 "ㅎ"
+        }
+        return;
+      }
+      if (kind === 'crackle') { puff(0, 0.025 + Math.random() * 0.03, 1800 + Math.random() * 2400, (0.05 + Math.random() * 0.12) * level); return; }      // 모닥불이 타닥
+      if (kind === 'paper') { puff(0, 0.09, 3200, 0.22); puff(0.05, 0.07, 2200, 0.14); return; }      // 포장지를 톡 두드리는 바스락
+      if (kind === 'tear') {                                // 포장지가 쫙 찢어지는 소리
+        for (let i = 0; i < 6; i++) puff(i * 0.035, 0.1, 2600 + i * 300, 0.26 - i * 0.025);
+        return;
+      }
+      if (kind === 'ding') {                                // 선물이 나오는 "띠링": 밝은 음 셋
+        [784, 988, 1319].forEach((f, i) => { tone('triangle', f, f * 1.003, i * 0.09, 0.45, 0.09); tone('sine', f * 2, f * 2, i * 0.09, 0.25, 0.03); });
         return;
       }
       if (kind === 'pop') {

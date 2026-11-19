@@ -1060,10 +1060,10 @@ try {
       await walk(p, 0, 0, 0.6);
       assert(!(await snow(p, () => window.__snow.fishing.active)), '그만두기를 눌렀는데 아직 낚시 중이다');
     }
-    // 이글루 문 앞에서는 낚시가 아니라 눈 천사
-    await snow(p, () => { const s = window.__snow, g = s.place.igloos[0], r = Math.hypot(g.x, g.z); s.teleport(g.x - g.x / r * 6, g.z - g.z / r * 6); s.act(); });
+    // 이글루 옆(문 앞이 아닌 곳)에서는 낚시가 아니라 눈 천사
+    await snow(p, () => { const s = window.__snow, g = s.place.igloos[0], r = Math.hypot(g.x, g.z); s.teleport(g.x + g.z / r * 7, g.z - g.x / r * 7); s.act(); });
     await walk(p, 0, 0, 0.2);
-    assert((await state(p)).angel && !(await snow(p, () => window.__snow.fishing.active)), '이글루 앞에서는 눈 천사를 해야 한다');
+    assert((await state(p)).angel && !(await snow(p, () => window.__snow.fishing.active)), '이글루 옆에서는 눈 천사를 해야 한다');
   });
 
   await test('낚시 구멍 곁에 서면 눈 천사 버튼이 낚시 버튼으로 바뀌고, 누르면 앉아서 낚싯대를 드리운다. 같은 자리의 ✕ 버튼을 눌러야 그만둔다', async () => {
@@ -1354,6 +1354,136 @@ try {
     assert(r.near >= 3.2, '여우가 이글루 속을 지나간다 (가운데에서 ' + r.near.toFixed(2) + ')');
     assert(r.jump < 1.5, '이글루를 돌아가다가 건너뛴다 (0.5초에 ' + r.jump.toFixed(2) + ')');
     assert(!r.onPond || (r.icy === 0 && r.around > 50), '얼음 위에 여우 발자국이 남았다: ' + JSON.stringify(r));
+  });
+
+  console.log('\n■ 크리스마스');
+  await test('눈밭 곳곳에 선물 상자 열 개가 놓여 있고, 닿으면 선물이 나온다. 톡톡톡 세 번 두드리면 포장이 뜯어지고 선물이 나온다', async () => {
+    const p = await page('t=14:20&speed=0');
+    const g = await snow(p, async () => {
+      const { onIce, IGLOOS } = await import('./js/igloo.js');
+      const s = window.__snow, list = s.xmas.gifts.map((x) => ({ x: x.x, z: x.z }));
+      return { on: s.xmas.on, n: list.length, ice: list.filter((q) => onIce(q.x, q.z)).length, nearIgloo: list.filter((q) => IGLOOS.some((i) => Math.hypot(q.x - i.x, q.z - i.z) < 5)).length, nearTree: list.filter((q) => Math.hypot(q.x, q.z) < 6).length,
+        spread: Math.min(...list.flatMap((a, i) => list.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))) };
+    });
+    assert(g.on && g.n === 10 && g.ice === 0 && g.nearIgloo === 0 && g.nearTree === 0 && g.spread >= 11.9, '선물 상자: ' + JSON.stringify(g));
+    // 상자 쪽으로 걸어가 닿으면 선물 창이 뜨고, 그동안은 걷지 않는다
+    await byHand(p);
+    await snow(p, () => { const s = window.__snow, x = s.xmas.gifts[0]; s.teleport(x.x, x.z + 3); s.me.yaw = s.me.camYaw = Math.PI; s.controls.debugMove(0, 1); for (let i = 0; i < 300 && !s.gift; i++) s.sim(1 / 60); s.controls.debugMove(0, 0); });
+    const box = () => p.evaluate(() => { const el = document.querySelector('#gift'); return { shown: !el.hidden, cls: el.className, item: el.querySelector('.name').textContent, close: getComputedStyle(el.querySelector('.gift-close')).visibility }; });
+    let b = await box();
+    assert(b.shown && b.cls === '' && b.close === 'hidden', '선물 창이 뜨지 않았다: ' + JSON.stringify(b));
+    const at = await state(p);
+    await walk(p, 0, 1, 1);
+    assert(Math.hypot((await state(p)).x - at.x, (await state(p)).z - at.z) < 1e-6, '선물 창이 떠 있는데 걸었다');
+    await p.click('#gift .gift-box'); await p.click('#gift .gift-box');
+    b = await box();
+    assert(b.cls === 'tap2' && b.close === 'hidden', '두 번 두드렸는데 벌써 열렸다: ' + JSON.stringify(b));
+    await p.click('#gift .gift-box');
+    b = await box();
+    const names = await snow(p, async () => (await import('./js/xmas.js')).PRESENTS.map((x) => x[1]));
+    assert(b.cls === 'opened' && names.includes(b.item) && b.close === 'visible', '세 번째에 선물이 나와야 한다: ' + JSON.stringify(b));
+    const fx = await snow(p, () => window.__snow.audio.snowFx.slice());
+    assert(fx.filter((k) => k === 'paper').length === 2 && fx.includes('tear') && fx.includes('ding'), '두드리는 소리, 찢는 소리, 띠링: ' + JSON.stringify(fx));
+    await p.click('#gift .gift-close');
+    b = await box();
+    const after = await snow(p, () => { const x = window.__snow.xmas.gifts[0]; return { open: x.open, shown: x.mesh.visible, gift: !!window.__snow.gift }; });
+    assert(!b.shown && after.open && !after.shown && !after.gift, '닫은 뒤 상자가 사라져야 한다: ' + JSON.stringify(after));
+    await walk(p, 0, 1, 1);
+    assert(Math.hypot((await state(p)).x - at.x, (await state(p)).z - at.z) > 0.5, '선물 창을 닫은 뒤에 걸을 수 없다');
+    // 얼마 뒤 다른 곳에 새 상자가 놓인다 (늘 열 개)
+    await snow(p, () => { window.__snow.xmas.gifts[0].back = 0; });
+    await until(async () => snow(p, () => !window.__snow.xmas.gifts[0].open && window.__snow.xmas.gifts[0].mesh.visible), { what: '새 상자' });
+    assert(await snow(p, (a) => Math.hypot(window.__snow.xmas.gifts[0].x - a.x, window.__snow.xmas.gifts[0].z - a.z) > 3, at), '새 상자가 같은 자리에 놓였다');
+  });
+
+  await test('매시 정각부터 5분 동안 산타가 트리 옆에 나와 "허허허" 웃고, 머리 위에 "메리 크리스마스~" 말풍선이 뜬다', async () => {
+    const p = await page('t=15:01&speed=0');
+    const here = () => p.evaluate(() => ({ santa: window.__snow.xmas.santaHere, say: document.querySelector('#santa-say').classList.contains('show'), text: document.querySelector('#santa-say').textContent, fx: window.__snow.audio.snowFx.filter((k) => k === 'hohoho').length }));
+    await until(async () => (await here()).santa, { what: '정각의 산타' });
+    await until(async () => (await here()).say, { what: '말풍선' });
+    await until(async () => (await here()).fx === 1, { what: '허허허' });
+    let h = await here();
+    assert(h.text === '메리 크리스마스~' && h.fx === 1, '말풍선과 웃음: ' + JSON.stringify(h));
+    for (const [t, want] of [['15:04', true], ['15:06', false], ['15:30', false], ['16:00', true], ['23:59', false]]) {
+      await snow(p, (x) => window.__snow.clock.setTime(x), t);
+      await until(async () => (await here()).santa === want, { what: t + (want ? ' 에 산타가 있어야' : ' 에는 산타가 없어야') });
+    }
+    // 멀리 있으면 말풍선은 뜨지 않는다
+    await snow(p, () => { const s = window.__snow; s.clock.setTime('16:01'); s.teleport(0, 60); });
+    await sleep(700);
+    assert(!(await here()).say, '멀리 있는데 말풍선이 떴다');
+  });
+
+  await test('?xmas=0 이면 선물도 산타도 없다', async () => {
+    const p = await page('t=15:01&speed=0&xmas=0');
+    await sleep(600);
+    const x = await snow(p, () => ({ on: window.__snow.xmas.on, shown: window.__snow.xmas.group.visible, santa: window.__snow.xmas.santaHere, touch: window.__snow.xmas.touch(window.__snow.xmas.gifts[0].x, window.__snow.xmas.gifts[0].z) }));
+    assert(!x.on && !x.shown && !x.santa && x.touch === null, JSON.stringify(x));
+  });
+
+  console.log('\n■ 이름과 이글루 안');
+  await test('들어오면 귀여운 이름이 붙는다. 이 기기에서는 계속 같은 이름이고, 처음 화면에서 바꿀 수 있다', async () => {
+    const o = await open(browser, site.url, { query: 'persist=1&look=scarf', errors, enter: false });
+    opened.push(o.ctx);
+    const p = o.page;
+    const names = () => p.evaluate(() => ({ card: document.querySelector('#my-name').textContent, hud: document.querySelector('#hud-name').textContent, me: window.__snow.name }));
+    let n = await names();
+    assert(/^\S+( \S+)* \S+$/.test(n.card) && n.card === n.hud && n.card === n.me, '이름: ' + JSON.stringify(n));
+    await p.reload(); await p.waitForFunction(() => window.__snow && window.__snow.ready);
+    assert((await names()).card === n.card, '다시 왔는데 이름이 바뀌었다');
+    await p.click('#rename');
+    const m = await names();
+    assert(m.card !== n.card && m.card === m.hud, '이름 바꾸기: ' + JSON.stringify([n, m]));
+    await p.reload(); await p.waitForFunction(() => window.__snow && window.__snow.ready);
+    assert((await names()).card === m.card, '바꾼 이름이 남지 않았다');
+  });
+
+  await test('이글루 문 앞에서 들어가면 모닥불 둘레에 방석 여섯이 있는 방이다. 앉으면 지금 하는 일을 고를 수 있고, 문 앞에서 나온다', async () => {
+    const p = await page('t=21:30&speed=0');
+    await byHand(p);
+    const label = () => p.evaluate(() => document.querySelector('#angel').getAttribute('aria-label'));
+    // 문 앞
+    await snow(p, () => { const s = window.__snow, e = s.entrances[1]; s.teleport(e.x, e.z); s.sim(0.1); });
+    await until(async () => (await label()) === '이글루에 들어가기', { what: '들어가기 단추' });
+    await snow(p, () => window.__snow.act());
+    await until(async () => (await snow(p, () => window.__snow.inside)) === 1, { what: '이글루 안' });
+    await until(async () => snow(p, () => window.__snow.dens.dens[1].group.visible && !window.__snow.weather.points.visible), { what: '방이 보이고 눈이 그침' });
+    const room = await snow(p, () => { const s = window.__snow, d = s.dens.dens[1]; return { seats: d.seats.length, snowing: s.weather ? s.weather.points.visible : null, dist: Math.hypot(s.me.x - d.center.x, s.me.z - d.center.z), visible: d.group.visible, others: s.dens.dens.filter((x, i) => i !== 1 && x.group.visible).length }; });
+    assert(room.seats === 6 && room.visible && room.others === 0 && room.dist < 6.2, '방: ' + JSON.stringify(room));
+    // 방 안에서는 발자국이 남지 않고 벽과 불을 지나가지 못한다
+    const walked = await snow(p, () => { const s = window.__snow, d = s.dens.dens[1], n = s.tracks.printCount; s.controls.debugMove(0, 1); s.sim(12); s.controls.debugMove(0, 0); const r = Math.hypot(s.me.x - d.center.x, s.me.z - d.center.z); return { prints: s.tracks.printCount - n, r }; });
+    assert(walked.prints === 0 && walked.r <= 6.21 && walked.r >= 1.34, '방 안에서 걷기: ' + JSON.stringify(walked));
+    // 방석 곁에서 앉으면 상태를 고르는 창이 뜬다
+    await snow(p, () => { const s = window.__snow, seat = s.dens.dens[1].seats[2]; s.teleport(seat.x + 0.4, seat.z + 0.3); s.sim(0.1); });
+    await until(async () => (await label()) === '방석에 앉기', { what: '앉기 단추' });
+    await snow(p, () => { const s = window.__snow; s.act(); s.sim(0.8); });
+    const sat = await snow(p, () => { const s = window.__snow, seat = s.dens.dens[1].seats[2]; return { phase: s.seat && s.seat.phase, at: Math.hypot(s.me.x - seat.x, s.me.z - seat.z), sitY: s.penguin.userData.body.position.y, picker: !document.querySelector('#status').hidden, options: document.querySelectorAll('#status .status-list button').length }; });
+    assert(sat.phase === 'sat' && sat.at < 0.01 && sat.sitY < -0.05 && sat.picker && sat.options >= 12, '앉기: ' + JSON.stringify(sat));
+    await p.click('#status .status-list button:nth-child(1)');
+    await until(async () => p.evaluate(() => !document.querySelector('#me-say').hidden), { what: '머리 위 말풍선' });
+    const say = await p.evaluate(() => ({ text: document.querySelector('#me-say').textContent, name: window.__snow.name, picker: !document.querySelector('#status').hidden }));
+    assert(say.text.startsWith('📖 책 읽는 중') && say.text.endsWith(say.name) && !say.picker, '말풍선: ' + JSON.stringify(say));
+    // 앉아 있는 동안 조이스틱을 밀어도 일어나지 않는다
+    const before = await state(p);
+    await walk(p, 0, 1, 1);
+    assert(Math.hypot((await state(p)).x - before.x, (await state(p)).z - before.z) < 1e-6, '앉아 있는데 걸었다');
+    // 일어나면 말풍선이 사라진다
+    await until(async () => (await label()) === '일어나기', { what: '일어나기 단추' });
+    await snow(p, () => { const s = window.__snow; s.act(); s.sim(0.8); });
+    assert(await p.evaluate(() => document.querySelector('#me-say').hidden && !window.__snow.seat), '일어났는데 말풍선이 남았다');
+    // 문 앞에서 나가면 그 이글루 문 앞으로 나온다
+    await snow(p, () => { const s = window.__snow, d = s.dens.dens[1].door; s.teleport(d.x, d.z - 0.3); s.sim(0.1); });
+    await until(async () => (await label()) === '이글루에서 나가기', { what: '나가기 단추' });
+    await snow(p, () => window.__snow.act());
+    await until(async () => (await snow(p, () => window.__snow.inside)) === null, { what: '밖으로' });
+    const out = await snow(p, () => { const s = window.__snow, e = s.entrances[1]; return { d: Math.hypot(s.me.x - e.x, s.me.z - e.z), snow: s.weather ? s.weather.points.visible : null }; });
+    assert(out.d < 0.01, '나온 자리가 이글루 문 앞이 아니다: ' + JSON.stringify(out));
+  });
+
+  await test('이글루 셋의 방은 저마다 조금씩 다르다', async () => {
+    const p = await page();
+    const d = await snow(p, () => window.__snow.dens.dens.map((x) => ({ name: x.name, rug: x.group.children.find((o) => o.geometry && o.geometry.type === 'RingGeometry').material.color.getHexString(), deco: x.group.children[x.group.children.length - 1].children.length })));
+    assert(new Set(d.map((x) => x.name)).size === 3 && new Set(d.map((x) => x.rug)).size === 3 && d.every((x) => x.deco > 0), JSON.stringify(d));
   });
 
   console.log('\n■ 트리의 캐롤');

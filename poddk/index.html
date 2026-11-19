@@ -24,6 +24,10 @@
 
 <!-- 위쪽 왼쪽: 시각, 눈 소식, 들리는 캐롤. 줄마다 왼쪽에 작은 그림이 붙는다 (시각은 낮·해 질 녘·밤에 따라, 눈은 평소·큰 눈에 따라 바뀐다). 걷는 동안에는 물러났다가 멈춰 서면 다시 나온다 -->
 <div id="hud">
+  <div class="row name-row">
+    <span class="badge me" aria-hidden="true"><svg class="g" viewBox="0 0 24 24"><ellipse class="f" cx="12" cy="14.6" rx="5.6" ry="6.8"/><circle class="f" cx="12" cy="6.4" r="3.8"/><path class="f" d="M14.8 6.2l3 .9-3 .9z"/></svg></span>
+    <span id="hud-name"></span>
+  </div>
   <div class="row">
     <span class="badge time" aria-hidden="true">
       <svg class="g day" viewBox="0 0 24 24"><circle class="f" cx="12" cy="12" r="4.4"/><path class="s" d="M12 3.4v1.9M12 18.7v1.9M3.4 12h1.9M18.7 12h1.9M5.9 5.9l1.4 1.4M16.7 16.7l1.4 1.4M18.1 5.9l-1.4 1.4M7.3 16.7l-1.4 1.4"/></svg>
@@ -75,6 +79,11 @@
     <circle cx="0" cy="-0.66" r="0.36"/>
   </svg>
   <!-- 낚시 구멍 곁에서는 물고기 그림으로, 낚시하는 동안에는 그만두기(✕) 그림으로 바뀐다 -->
+  <!-- 이글루 문 앞: 들어가기 / 방 안 문 앞: 나가기 / 방석 곁: 앉기 / 앉아 있을 때: 일어나기 -->
+  <svg class="g enter-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.2 19.6a8.8 8.8 0 0 1 17.6 0z"/><path d="M9.2 19.6a2.8 2.8 0 0 1 5.6 0z" fill="#fff" opacity=".85"/></svg>
+  <svg class="g exit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M5 12h12M12.5 6.8L17.7 12l-5.2 5.2M20.4 4.6v14.8"/></svg>
+  <svg class="g sit-icon" viewBox="0 0 24 24" aria-hidden="true"><ellipse class="f" cx="12" cy="16.6" rx="8.6" ry="3.6"/><circle class="f" cx="12" cy="8.2" r="3.4"/></svg>
+  <svg class="g stand-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M12 19.5V6.5M6.8 11.7L12 6.5l5.2 5.2"/></svg>
   <svg class="g quit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M7.6 7.6l8.8 8.8M16.4 7.6l-8.8 8.8"/></svg>
   <svg class="g fish-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M3 12c2-3.3 5.3-5.4 8.9-5.4 2.6 0 5 1.2 6.8 3.1l1.5-1.6c.6-.6 1.6-.2 1.6.6v6.6c0 .8-1 1.2-1.6.6l-1.5-1.6c-1.8 1.9-4.2 3.1-6.8 3.1-3.6 0-6.9-2.1-8.9-5.4zM8.4 10a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>
 </button>
@@ -90,6 +99,37 @@
 </button>
 <div id="flash" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<!-- 크리스마스 선물: 눈밭에서 상자에 닿으면 뜬다. 톡톡톡 세 번 두드리면 포장이 뜯어지고 선물이 나온다 -->
+<div id="gift" hidden>
+  <div class="gift-card">
+    <p class="gift-say">선물 상자를 찾았어요!</p>
+    <button class="gift-box" type="button" aria-label="선물 상자 두드리기">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <g class="half left"><rect x="16" y="50" width="44" height="58" rx="5" class="paper"/><rect x="54" y="50" width="6" height="58" class="ribbon"/><rect x="16" y="72" width="44" height="8" class="ribbon"/></g>
+        <g class="half right"><rect x="60" y="50" width="44" height="58" rx="5" class="paper"/><rect x="60" y="50" width="6" height="58" class="ribbon"/><rect x="60" y="72" width="44" height="8" class="ribbon"/></g>
+        <g class="lid"><rect x="10" y="36" width="100" height="18" rx="5" class="paper"/><rect x="54" y="36" width="12" height="18" class="ribbon"/>
+          <ellipse cx="46" cy="28" rx="15" ry="9" class="ribbon" transform="rotate(-18 46 28)"/><ellipse cx="74" cy="28" rx="15" ry="9" class="ribbon" transform="rotate(18 74 28)"/><circle cx="60" cy="33" r="6" class="ribbon knot"/></g>
+      </svg>
+    </button>
+    <div class="gift-item" aria-live="polite"><span class="emoji"></span><b class="name"></b><span class="from">산타가 두고 간 선물이에요</span></div>
+    <div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <p class="gift-hint">톡톡톡 세 번 두드려 봐요</p>
+    <button class="gift-close" type="button">고마워요</button>
+  </div>
+</div>
+<!-- 이글루 안에서 앉았을 때: 지금 하는 일을 고른다 -->
+<div id="status" hidden>
+  <p class="status-say">방석에 앉았어요. 지금 뭐 하고 있어요?</p>
+  <div class="status-list"></div>
+  <button class="status-close" type="button">그냥 앉아 있을래요</button>
+</div>
+<!-- 앉아 있는 펭귄 머리 위의 말풍선: 고른 상태 (누르면 다시 고른다) -->
+<button id="me-say" type="button" hidden aria-label="지금 하는 일 바꾸기"></button>
+<!-- 이글루를 드나들 때 잠깐 어두워진다 -->
+<div id="fade" aria-hidden="true"></div>
+<!-- 트리 옆 산타의 말풍선 -->
+<div id="santa-say" aria-hidden="true">메리 크리스마스~</div>
+
 <!-- 공유 창도 내려받기도 없는 휴대폰 브라우저에서 찍은 사진을 보여 주는 자리 (길게 눌러 저장한다) -->
 <div id="photo" hidden>
   <figure><img alt="방금 찍은 사진"><figcaption>사진을 길게 눌러 저장하세요</figcaption></figure>
@@ -106,6 +146,7 @@
   <div class="start-card">
     <h1>뽀드득</h1>
     <p class="say" id="say"></p>
+    <p class="me-name">오늘의 나는 <b id="my-name"></b> <button id="rename" type="button" aria-label="다른 이름으로 바꾸기"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M19 8.5A7.4 7.4 0 0 0 5.6 7.3M5 15.5a7.4 7.4 0 0 0 13.4 1.2M5.4 3.6v3.9h3.9M18.6 20.4v-3.9h-3.9"/></svg></button></p>
     <script>
       // 제목 아래의 한마디(펭귄의 혼잣말): 올 때마다 넷 가운데 하나가 나온다. 주소에 ?say=1..4 를 붙이면 그 문장이 나온다.
       // (화면이 처음 그려지기 전에 정해야 글이 바뀌어 보이지 않으므로, 게임 코드보다 먼저 여기서 고른다)
