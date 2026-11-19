@@ -92,10 +92,10 @@ try {
       await until(async () => p.evaluate(() => !document.querySelector('#status').hidden), { what: '상태 고르기' });
     }
     await b.click('#status .status-close');
-    await sleep(800);                                              // (앉은 모습이 서버에 닿게)
+    await sleep(2500);                                             // (앉은 모습이 서버에 닿게)
     assert(await a.evaluate(() => !document.querySelector('#status .dice-invite').hidden), '주사위 놀이 단추가 없다');
     await a.click('#status .dice-invite');
-    await until(async () => b.evaluate(() => !document.querySelector('#dice-ask').hidden), { what: '다른 펭귄에게 온 쪽지', timeout: 10000 });
+    await until(async () => b.evaluate(() => !document.querySelector('#dice-ask').hidden), { what: '다른 펭귄에게 온 쪽지', timeout: 10000 }).catch(async (e) => { throw new Error(e.message + ' a: ' + JSON.stringify(await a.evaluate(() => ({ toast: document.querySelector('#toast').textContent, dice: window.__snow.dice, seat: window.__snow.seat && window.__snow.seat.phase }))) + ' b: ' + JSON.stringify(await b.evaluate(() => ({ seat: window.__snow.seat && window.__snow.seat.phase, inside: window.__snow.inside })))); });
     const who = await b.evaluate(() => document.querySelector('#dice-ask .who').textContent);
     assert(who.startsWith(await a.evaluate(() => window.__snow.name)), '쪽지에 부른 펭귄 이름이 없다: ' + who);
     await b.click('#dice-ask .yes');

@@ -706,8 +706,8 @@ try {
     await walk(p, 0, 1, 2.5);
     assert((await snowLook(p)).bits === 0, '눈덩이가 눈밭에 스며들지 않고 남아 있다');
     // 몸을 움츠린 순간(아직 펭귄일 때) 걸으면: 눈사람이 되지 않고, 눈가루도 눈덩이도 없다
-    await stand(p, (v) => v.full >= 9.9, { step: 0.5 });
-    await stand(p, (v) => v.pop > 0.08, { step: FRAME });
+    await stand(p, (v) => v.full >= 8.5, { step: 0.5 });
+    await stand(p, (v) => v.pop > 0.08, { step: FRAME });      // (뿅 직전부터는 한 프레임씩: 0.5초씩 기다리면 그새 눈사람이 되어 버릴 수 있다)
     const fx1 = (await state(p)).audio.snowFx.length;
     await walk(p, 0, 1, 0.2);
     s = await snowLook(p);
