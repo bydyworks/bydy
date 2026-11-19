@@ -14,6 +14,9 @@ import { createFishing } from './fishing.js';
 import { createXmas } from './xmas.js';
 import { myName, rename } from './names.js';
 import { createDens, STATUSES } from './den.js';
+import { createNet, ACT } from './net.js';
+// 함께 걷는 눈밭의 서버 (server/ 를 Cloudflare 에 올린 주소). 비어 있으면 혼자 걷는 눈밭이다. 주소에 ?server=… 를 붙여 바꿀 수 있고, ?server=off 면 끈다
+const SERVER_URL = '';
 import { createTracks, SLIDE_PIECE } from './tracks.js';
 import { createWeather } from './weather.js';
 import { createControls } from './controls.js';
@@ -263,7 +266,7 @@ function stepAngel(dt, now) {
     k = u * u * (3 - 2 * u);
     const m = Math.min(1, u / 0.55), e = m * m * (3 - 2 * m);          // 누울 자리가 조금 비켜난 곳이면, 눕는 사이에 그리로 미끄러지듯 옮겨 간다 (자국이 찍히기 전에 다 옮긴다)
     me.x = a.from.x + (a.to.x - a.from.x) * e; me.z = a.from.z + (a.to.z - a.from.z) * e;
-    if (!a.fell && u > 0.6) { a.fell = true; audio.fx('bodyfall', 0.7); a.item = tracks.addAngel(me.x, me.z, me.yaw, now); }
+    if (!a.fell && u > 0.6) { a.fell = true; audio.fx('bodyfall', 0.7); a.item = tracks.addAngel(me.x, me.z, me.yaw, now); net.mark(1, me.x, me.z, me.yaw); }
   } else if (a.t < ANGEL.down + ANGEL.flap) {
     k = 1;
     const u = (a.t - ANGEL.down) / ANGEL.flap;
@@ -340,7 +343,7 @@ function stepSlide(dt, now) {
     while (s.mark >= SLIDE_PIECE) {
       s.mark -= SLIDE_PIECE;
       const bx = me.x - dx * (0.25 + s.mark), bz = me.z - dz * (0.25 + s.mark);
-      if (!onIce(bx, bz)) tracks.addSlide(bx, bz, me.yaw, now);
+      if (!onIce(bx, bz)) { tracks.addSlide(bx, bz, me.yaw, now); net.mark(2, bx, bz, me.yaw); }
     }
     // 눈 위에서는 앞쪽으로 눈가루가 살짝 튄다
     s.spray -= dt;
@@ -472,6 +475,18 @@ let name = myName(!TEST_MODE);
 function showName() { $('#my-name').textContent = name; }
 showName();
 $('#rename').addEventListener('click', () => { name = rename(!TEST_MODE); showName(); });
+
+// ---------- 함께 걷는 눈밭 ----------
+const net = createNet({
+  url: q.get('server') === 'off' ? '' : (q.get('server') || SERVER_URL), scene, camera, tracks, look, name: () => name,
+  onCount: (n) => { $('#peers').textContent = `함께 걷는 펭귄 ${n}마리`; $('#peer-row').hidden = n === 0; },
+});
+/** 내 모습을 서버에 보낼 꼴로 */
+function myState() {
+  const a = me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
+  const st = me.seat && me.seat.phase === 'sat' && me.status ? STATUSES.findIndex((x) => x[1] === me.status[1]) : -1;
+  return { x: me.x, z: me.z, yaw: me.yaw, w: Math.min(1, Math.max(0, me.walk)), a, i: me.inside === null ? -1 : me.inside, k: me.seat ? me.seat.k : -1, st };
+}
 
 // ---------- 크리스마스 선물 ----------
 let giftOpen = null;             // 열고 있는 선물 { g, taps }
@@ -615,7 +630,7 @@ function walk(dt, now) {
       const px = me.x + me.side * STANCE * Math.cos(me.yaw), pz = me.z - me.side * STANCE * Math.sin(me.yaw);
       const ice = onIce(px, pz), indoors = me.inside !== null;      // 얼음 위와 이글루 안: 발자국이 남지 않고, 발소리는 다져진 눈처럼 낮게 난다
       const packed = ice || indoors || tracks.isPacked(px, pz, now);
-      if (!ice && !indoors) tracks.addPrint(px, pz, me.yaw, me.side, now);
+      if (!ice && !indoors) { tracks.addPrint(px, pz, me.yaw, me.side, now); net.mark(0, px, pz, me.yaw, me.side); }
       // 한 걸음 소리의 길이는 걸음 사이의 두 배쯤: 빨리 걸으면 짧게 끊어 뭉개지지 않게 하고, 천천히 걸으면 다 들려준다
       audio.step(packed, Math.min(0.95, Math.max(0.6, 1.92 * STEP / speed)));
     }
@@ -724,6 +739,7 @@ function tick(t) {
   xmas.update(now, dt, seconds, me, () => audio.snowFx('hohoho'));
   placeSantaSay();
   if (me.seat) showSay();
+  if (started) { net.me(myState()); net.update(dt, me.inside === null ? -1 : me.inside); }
   santa.update(now, camera, palette.elev);
   if (frame % 2 === 0) tracks.update(now);
   audio.setWeather(me.inside !== null ? 0 : snowfall);
@@ -757,6 +773,7 @@ $('#enter').addEventListener('click', () => {
   started = true;
   $('#enter').blur();                 // 누른 버튼에 초점이 남아 있으면 스페이스(눈 천사)가 이 버튼의 몫이 된다
   audio.start();
+  net.start();
   controls.setEnabled(true);
   document.body.classList.add('in');
   coach.show();
@@ -828,7 +845,7 @@ window.__snow = {
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },
   get treeLight() { return field.tree.lamp.intensity; },
-  angel: startAngel, slide: startSlide, flap: startFlap, act, fishing, xmas, dens, entrances: ENTRANCES, goIn, goOut, get inside() { return me.inside; }, get seat() { return me.seat; }, get status() { return me.status; }, get name() { return name; }, get gift() { return giftOpen; }, tapGift, closeGift,
+  net, angel: startAngel, slide: startSlide, flap: startFlap, act, fishing, xmas, dens, entrances: ENTRANCES, goIn, goOut, get inside() { return me.inside; }, get seat() { return me.seat; }, get status() { return me.status; }, get name() { return name; }, get gift() { return giftOpen; }, tapGift, closeGift,
   photo: takePhoto, get lastShot() { return lastShot; },
   teleport(x, z) { const c = me.inside !== null ? dens.confine(me.inside, x, z) : field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */
