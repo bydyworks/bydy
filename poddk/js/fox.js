@@ -228,13 +228,20 @@ function pose(root, s, headYaw, time) {
 export function createFox(scene, tracks, { skipPaw = () => false } = {}) {
   const root = build();
   scene.add(root);
-  let headYaw = 0, time = 0, pawsUntil = null, state = foxAt(0), held = null;
+  let headYaw = 0, time = 0, pawsUntil = null, state = foxAt(0), held = null, startled = 0, startles = 0;
 
   return {
     root,
     /** 지금의 상태 (점검용) */
     get state() { return state; },
     get headYaw() { return headYaw; },
+    get startles() { return startles; }, get startled() { return startled > 0; },
+    /** 펭귄이 가까이에서 파닥이면 깜짝 놀라 폴짝 뛰고 고개를 홱 돌려 쳐다본다. me: 펭귄의 자리. 가까이 있었으면 true */
+    startle(me) {
+      if (Math.hypot(me.x - state.x, me.z - state.z) > NOTICE) return false;
+      startled = 1.8; startles++;
+      return true;
+    },
     at: foxAt,
     /** 점검·시안용: 여우를 한 자리에 세워 둔다 ({ x, z, yaw, move, sit, phase, look } 또는 null 로 풀기) */
     hold(s) { held = s ? { x: 0, z: 0, yaw: 0, move: 0, sit: 0, phase: 0, look: 0, speed: 0, resting: true, ...s } : null; },
@@ -250,9 +257,11 @@ export function createFox(scene, tracks, { skipPaw = () => false } = {}) {
       const dx = me.x - state.x, dz = me.z - state.z, dist = Math.hypot(dx, dz);
       const notice = dist > 0.4 ? 1 - smooth((dist - NOTICE * 0.55) / (NOTICE * 0.45)) : 0;
       const toward = clamp(angleDiff(Math.atan2(dx, dz), state.yaw), -1.35, 1.35);
-      const want = state.look * (1 - notice) + toward * notice * (state.resting ? 1 : 0.6);
-      headYaw += (want - headYaw) * (dt > 0 ? 1 - Math.exp(-dt * 5) : 1);
+      startled = Math.max(0, startled - dt);
+      const want = startled > 0 ? toward : state.look * (1 - notice) + toward * notice * (state.resting ? 1 : 0.6);      // 놀란 동안에는 펭귄만 본다
+      headYaw += (want - headYaw) * (dt > 0 ? 1 - Math.exp(-dt * (startled > 0 ? 14 : 5)) : 1);
       pose(root, state, headYaw, time);
+      if (startled > 1.35) { const u = (1.8 - startled) / 0.45; root.position.y = Math.sin(Math.PI * u) * 0.22; }      // 폴짝
       // 지나온 길의 발자국: 처음 들어왔거나 시계가 건너뛰었으면 지난 12분치를 한꺼번에 찍고, 그 뒤로는 새로 생긴 것만 보탠다
       if (held) return;
       let from = pawsUntil;

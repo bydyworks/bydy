@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { createClock, snowfallAt, stormPhase, clockText, stormText } from './clock.js';
 import { createSky } from './sky.js';
 import { createField, FIELD_RADIUS } from './field.js';
-import { build as buildPenguin, pose, setSnow, lie, belly, randomLook, COLORS, STEP, STANCE, POP_SWAP } from './penguin.js';
+import { build as buildPenguin, pose, setSnow, lie, belly, flap, randomLook, COLORS, STEP, STANCE, POP_SWAP } from './penguin.js';
 import { createCrumble } from './crumble.js';
 import { createFox } from './fox.js';
 import { createSanta } from './santa.js';
@@ -81,6 +81,7 @@ const me = {
   idle: 0,
   snow: 0, full: 0, pop: 0,               // 쌓인 눈: 머리·어깨(0..1) → 다 쌓인 채 서 있은 시간(초) → 눈사람이 되는 효과(0..1, 1 이면 눈사람)
   angel: null,                            // 눈 천사를 만드는 중이면 { t, item, beats }
+  flap: null,                             // 파닥이는 중이면 { t }
   slide: null,                            // 배로 미끄러지는 중이면 { t, v(빠르기), phase: 'down' | 'glide' | 'up', dist }
   edgeAt: -Infinity,
 };
@@ -143,7 +144,7 @@ const fishing = createFishing(scene, {
   free: (x, z) => { const c = field.confine(x, z); return Math.hypot(c.x - x, c.z - z) < 1e-6; },
 });
 /** 지금 낚시를 시작할 수 있는가: 낚시 구멍 곁에 서 있고, 다른 것을 하고 있지 않다 */
-const canFish = () => started && !me.angel && !me.slide && !fishing.active && holeNear(me.x, me.z) !== null;
+const canFish = () => started && !me.angel && !me.slide && !me.flap && !fishing.active && holeNear(me.x, me.z) !== null;
 const FISH_VIEW = { turn: 1.05, pitch: 0.22, look: 0.9 };      // 낚시하는 동안의 카메라: 등 뒤에서 이만큼(라디안) 옆으로 비켜서고, 조금 더 내려다보며, 펭귄보다 구멍 쪽을 본다
 let fishTurn = 0;                // 낚시를 시작하며 카메라가 마저 돌아야 할 각 (라디안)
 let fishView = 0;
@@ -165,8 +166,10 @@ function startFishing() {
  */
 let actionShown = '';
 function showAction() {
-  const slideOff = fishing.active || !!me.angel;          // 낚시나 눈 천사를 하는 동안에는 미끄러질 수 없다
+  const slideOff = fishing.active || !!me.angel || !!me.flap;          // 낚시나 눈 천사를 하는 동안에는 미끄러질 수 없다
   if ($('#slide').classList.contains('off') !== slideOff) $('#slide').classList.toggle('off', slideOff);
+  const flapOff = fishing.active || !!me.angel || !!me.slide;
+  if ($('#flap').classList.contains('off') !== flapOff) $('#flap').classList.toggle('off', flapOff);
   const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : fishing.nibbling ? 'nib' : 'wait') : canFish() ? 'fish' : 'angel';
   if (now === actionShown) return;
   actionShown = now;
@@ -181,7 +184,7 @@ function showAction() {
 
 /** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 낚시 중에는 낚아 올리기나 그만두기, 그 밖에서는 눈 천사 */
 function act() {
-  if (!started || me.slide) return;
+  if (!started || me.slide || me.flap) return;
   if (fishing.active) fishing.press();
   else if (canFish()) startFishing();
   else startAngel();
@@ -216,7 +219,7 @@ function roomToLie() {
   return { x, z };
 }
 function startAngel() {
-  if (!started || me.angel || me.slide || fishing.active) return;
+  if (!started || me.angel || me.slide || me.flap || fishing.active) return;
   const to = roomToLie();
   if (!to) { toast('얼음 위에서는 눈 천사를 못 만들어요. 눈 위에서 해 봐요'); return; }
   me.angel = { t: 0, item: null, beats: 0, fell: false, from: { x: me.x, z: me.z }, to };
@@ -273,7 +276,7 @@ const SLIDE = {
   up: 0.55,              // 일어나기 (초)
 };
 function startSlide() {
-  if (!started || me.angel || me.slide || fishing.active) return;
+  if (!started || me.angel || me.slide || me.flap || fishing.active) return;
   me.slide = { t: 0, v: 0, phase: 'down', mark: 0, spray: 0, wiggle: 0, dist: 0, top: SLIDE.push };
   me.walk = 0;
   shakeOff(true); me.snow = 0; me.idle = 0;              // 엎드리면서 쌓인 눈이 털린다
@@ -328,6 +331,33 @@ function stepSlide(dt, now) {
   }
 }
 $('#slide').addEventListener('click', startSlide);
+
+// ---------- 서서 파닥파닥 ----------
+// 제자리에서 양 날개를 빠르게 퍼덕인다. 머리와 어깨에 쌓인 눈은 털려 흩날리고(눈사람이었으면 부서지고), 가까이 있던 여우는 깜짝 놀라 쳐다본다
+const FLAP = { len: 1.4, beats: 6 };
+function startFlap() {
+  if (!started || me.angel || me.slide || me.flap || fishing.active) return;
+  me.flap = { t: 0 };
+  me.walk = 0;
+  const hadSnow = me.snow > 0.35 || me.pop >= POP_SWAP;
+  shakeOff(true);                                         // (소리는 아래에서 한꺼번에)
+  if (hadSnow) { crumble.puff(me.x, me.z, 1.2); audio.snowFx('shake'); }      // 쌓인 눈이 흩날린다
+  me.snow = 0; me.idle = 0;
+  audio.snowFx('flap');
+  fox.startle(me);
+  $('#flap').classList.add('busy');
+}
+function stepFlap(dt) {
+  const f = me.flap;
+  f.t += dt;
+  const u = Math.min(1, f.t / FLAP.len);
+  const k = Math.min(1, u / 0.12, (1 - u) / 0.15);
+  pose(penguin, me.phase, 0);
+  flap(penguin, k, u * Math.PI * 2 * FLAP.beats);
+  if (u >= 1) { flap(penguin, 0); me.flap = null; me.idle = 0; $('#flap').classList.remove('busy'); }
+}
+$('#flap').addEventListener('click', startFlap);
+window.addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat) startFlap(); });      // PC: F 키로도 파닥인다
 window.addEventListener('keydown', (e) => { if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) startSlide(); });      // PC: 시프트 키로도 미끄러진다
 
 // ---------- 처음의 길잡이 ----------
@@ -337,7 +367,7 @@ const coach = {
   show() {
     if (hints.coach) return;                               // 한 번 해 본 기기에서는 다시 나오지 않는다
     $('#coach .walk b').textContent = coarse ? '밀어서 걷기' : '방향키로 걷기';
-    $('#coach .look b').textContent = coarse ? '끌어서 둘러보기' : '마우스로 끌어 둘러보기';
+    $('#coach .look b').innerHTML = coarse ? '끌어서 둘러보기<br><small>두 손가락으로 가까이·멀리</small>' : '마우스로 끌어 둘러보기<br><small>휠로 가까이·멀리</small>';      // (확대·축소 단추가 없으므로 여기서 알려 준다)
     document.body.classList.add('coach-walk', 'coach-look');
     this.on = true; this.walked = 0; this.looked = 0; this.until = performance.now() + 16000;
   },
@@ -378,7 +408,8 @@ function walk(dt, now) {
   if (mag > 0.02 && !me.angel && !fishing.active) { strolled += dt; rested = 0; } else { rested += dt; strolled = 0; }
 
   if (me.angel) { stepAngel(dt, now); setSnow(penguin, me.snow, me.pop); return; }
-  if (me.slide) { stepSlide(dt, now); setSnow(penguin, 0, 0); return; }      // 미끄러지는 동안에는 걷지 않는다      // 누울 때 털린 눈이 모습에도 바로 드러나게
+  if (me.slide) { stepSlide(dt, now); setSnow(penguin, 0, 0); return; }      // 미끄러지는 동안에는 걷지 않는다
+  if (me.flap) { stepFlap(dt); setSnow(penguin, 0, 0); return; }        // 파닥이는 동안에도 제자리      // 누울 때 털린 눈이 모습에도 바로 드러나게
 
   if (fishing.active) {
     // 낚시하는 동안: 조이스틱을 밀어도 걷지 않는다 (그만두려면 버튼을 누른다). 눈은 서 있을 때만 쌓이므로, 앉아 있는 동안에는 쌓이지 않는다
@@ -512,8 +543,6 @@ function tick(t) {
     document.body.dataset.storm = stormPhase(now);
     document.body.dataset.sky = palette.elev > 6 ? 'day' : palette.elev > -6 ? 'dusk' : 'night';      // 시각 옆의 그림: 해, 지평선의 해, 달
     if (canFish() && firstTime('hole')) toast('얼음 구멍이에요. 낚시 한번 해 볼래요?', 3600);
-    $('#zoom-in').disabled = me.camDist <= CAM_DIST_MIN + 0.01;
-    $('#zoom-out').disabled = me.camDist >= CAM_DIST_MAX - 0.01;
   }
   showAction();
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
@@ -543,34 +572,16 @@ $('#mute').addEventListener('click', () => {
 });
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
-for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #zoom button')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
 // (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
-for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel')) el.addEventListener('mousedown', (e) => e.preventDefault());
+for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
 
 // 누른 단추는 살짝 커졌다가 제자리로 돌아온다 (0.2초쯤)
-for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #zoom button, #enter')) {
+for (const el of document.querySelectorAll('#mute, #shot, #slide, #angel, #flap, #enter')) {
   el.addEventListener('click', () => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); });
   el.addEventListener('animationend', (e) => { if (e.animationName === 'pop') el.classList.remove('pop'); });
 }
 
-// 가까이·멀리 버튼: 한 번 누르면 한 칸, 누르고 있으면 계속 움직인다
-function zoomButton(el, step, creep) {
-  let wait = 0, hold = 0;
-  const stop = () => { clearTimeout(wait); clearInterval(hold); wait = hold = 0; };
-  el.addEventListener('pointerdown', (e) => {
-    if (!started || el.disabled) return;
-    e.preventDefault();
-    stop();
-    try { el.setPointerCapture(e.pointerId); } catch { /* 일부 브라우저는 지원하지 않는다 */ }      // 누른 손가락이 단추 밖으로 조금 미끄러져도 계속 이 단추의 몫이다
-    controls.zoomBy(step);
-    wait = setTimeout(() => { hold = setInterval(() => { if (el.disabled) stop(); else controls.zoomBy(creep); }, 40); }, 320);
-  });
-  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(type, stop);
-  window.addEventListener('blur', stop);
-  el.addEventListener('keydown', (e) => { if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat && started) { e.preventDefault(); e.stopPropagation(); controls.zoomBy(step); } });
-}
-zoomButton($('#zoom-in'), 0.8, 0.955);
-zoomButton($('#zoom-out'), 1.25, 1.047);
 
 // 캡쳐 버튼: 버튼과 글자를 뺀 눈밭만 사진으로 남긴다
 const shoot = createCapture({ canvas, draw: () => renderer.render(scene, camera), touch: coarse });
@@ -621,7 +632,7 @@ window.__snow = {
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },
   get treeLight() { return field.tree.lamp.intensity; },
-  angel: startAngel, slide: startSlide, act, fishing,
+  angel: startAngel, slide: startSlide, flap: startFlap, act, fishing,
   photo: takePhoto, get lastShot() { return lastShot; },
   teleport(x, z) { const c = field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */

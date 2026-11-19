@@ -45,7 +45,7 @@
   </div>
 </div>
 
-<!-- 버튼은 모두 글자 없이 그림만: 오른쪽 위 소리, 오른쪽 아래 한 줄로 위에서부터 캡쳐 → 눈 천사 → 확대·축소. 모두 같은 밝기의 동그란 색종이 단추에 갈색 그림 -->
+<!-- 버튼은 모두 글자 없이 그림만: 오른쪽 위 소리, 오른쪽 아래 한 줄로 위에서부터 캡쳐 → 배 썰매 → 눈 천사 → 파닥파닥. 모두 같은 밝기의 동그란 색종이 단추에 갈색 그림 -->
 <button id="mute" class="ui round" type="button" aria-pressed="false" aria-label="소리 끄기">
   <svg class="g on" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4.6 9.6h2.8l4-3.3c.7-.6 1.7-.1 1.7.8v9.8c0 .9-1 1.4-1.7.8l-4-3.3H4.6c-.6 0-1.1-.5-1.1-1.1v-2.6c0-.6.5-1.1 1.1-1.1z"/><path class="s" d="M16.3 9.3c1.2 1.6 1.2 3.8 0 5.4M18.9 6.9c2.4 3 2.4 7.2 0 10.2"/></svg>
   <svg class="g off" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4.6 9.6h2.8l4-3.3c.7-.6 1.7-.1 1.7.8v9.8c0 .9-1 1.4-1.7.8l-4-3.3H4.6c-.6 0-1.1-.5-1.1-1.1v-2.6c0-.6.5-1.1 1.1-1.1z"/><path class="s" d="M16.4 9.7l4.2 4.6M20.6 9.7l-4.2 4.6"/></svg>
@@ -78,10 +78,16 @@
   <svg class="g quit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M7.6 7.6l8.8 8.8M16.4 7.6l-8.8 8.8"/></svg>
   <svg class="g fish-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M3 12c2-3.3 5.3-5.4 8.9-5.4 2.6 0 5 1.2 6.8 3.1l1.5-1.6c.6-.6 1.6-.2 1.6.6v6.6c0 .8-1 1.2-1.6.6l-1.5-1.6c-1.8 1.9-4.2 3.1-6.8 3.1-3.6 0-6.9-2.1-8.9-5.4zM8.4 10a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>
 </button>
-<div id="zoom" class="ui" role="group" aria-label="가까이·멀리 보기">
-  <button id="zoom-in" type="button" aria-label="가까이 보기"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M12 6.4v11.2M6.4 12h11.2"/></svg></button>
-  <button id="zoom-out" type="button" aria-label="멀리 보기"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M6.4 12h11.2"/></svg></button>
-</div>
+<button id="flap" class="ui round" type="button" aria-label="파닥파닥">
+  <!-- 날개를 활짝 편 펭귄 -->
+  <svg class="g flap-icon" viewBox="0 0 32 28" aria-hidden="true">
+    <ellipse class="f" cx="16" cy="16.5" rx="6.2" ry="8.6"/>
+    <circle class="f" cx="16" cy="6.2" r="4.4"/>
+    <path class="f" d="M10.6 12.2C7 9.6 3.6 8.4 1 8.8c1.6 2.6 4.3 5.4 9.2 7.4z"/>
+    <path class="f" d="M21.4 12.2c3.6-2.6 7-3.8 9.6-3.4-1.6 2.6-4.3 5.4-9.2 7.4z"/>
+    <path class="s" d="M4.6 3.4l1.2 2.2M27.4 3.4l-1.2 2.2"/>
+  </svg>
+</button>
 <div id="flash" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- 공유 창도 내려받기도 없는 휴대폰 브라우저에서 찍은 사진을 보여 주는 자리 (길게 눌러 저장한다) -->

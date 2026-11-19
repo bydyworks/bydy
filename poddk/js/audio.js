@@ -198,6 +198,10 @@ export function createAudio(baseUrl = 'audio/') {
         src.start(t + at);
         src.onended = () => { src.disconnect(); band.disconnect(); gain.disconnect(); };
       };
+      if (kind === 'flap') {                                // 파닥파닥: 날개가 공기를 치는 짧고 낮은 소리 여섯 번
+        for (let i = 0; i < 6; i++) { puff(i * 0.13, 0.07, 520 + (i % 2) * 140, 0.17 - i * 0.012); tone('sine', 170, 110, i * 0.13, 0.04, 0.05); }
+        return;
+      }
       if (kind === 'pop') {
         tone('sine', 360, 980, 0, 0.09, 0.16);                // 뿅
         tone('sine', 620, 1500, 0.08, 0.07, 0.09);            //  통
