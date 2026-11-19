@@ -4,7 +4,7 @@
 //   · 매시 정각부터 5분 동안 산타가 트리 옆에 나타나 "허허허" 웃고, 머리 위에 "메리 크리스마스~" 말풍선이 뜬다.
 // 주소에 ?xmas=0 을 붙이면 이벤트를 끄고, ?xmas=1 이면 철이 아니어도 켠다. ?santahere 를 붙이면 산타가 바로 트리 옆에 나온다.
 import * as THREE from 'three';
-import { kst } from './clock.js';
+import { kst, stormPhase } from './clock.js';
 
 /** 아이들이 크리스마스에 받고 싶어 하는 선물 (상표 없이 흔한 것들) */
 export const PRESENTS = [
@@ -150,7 +150,7 @@ export function createXmas(scene, { free, crumble }) {
   santa.rotation.y = Math.atan2(0 - SANTA_AT.x, 15 - SANTA_AT.z);      // 들어오는 쪽(트리 앞)을 바라본다
   santa.visible = false; scene.add(santa);
   const forced = q.has('santahere');
-  let wasHere = false, laughIn = 0, laughT = 9, on = false;
+  let wasHere = false, laughIn = 0, laughT = 9, on = false, wasBuried = false;
 
   return {
     group, santa,
@@ -172,7 +172,7 @@ export function createXmas(scene, { free, crumble }) {
     santaHead: new THREE.Vector3(SANTA_AT.x, 2.75, SANTA_AT.z),
     santaAt: SANTA_AT,
     /** 펭귄이 닿은, 아직 열지 않은 선물 (없으면 null) */
-    touch(x, z) { if (!on) return null; for (const g of pool) if (!g.off && !g.open && Math.hypot(g.x - x, g.z - z) < TOUCH) return g; return null; },
+    touch(x, z) { if (!on || wasBuried) return null; for (const g of pool) if (!g.off && !g.open && Math.hypot(g.x - x, g.z - z) < TOUCH) return g; return null; },
     /** 그 선물을 연 것으로 친다: 상자는 눈가루와 함께 사라지고, 얼마 뒤 다른 곳에 새로 놓인다. 무엇이 나왔는지 돌려준다 */
     open(g) {
       g.open = true; g.mesh.visible = false; g.back = RESPAWN[0] + rand() * (RESPAWN[1] - RESPAWN[0]);
@@ -186,6 +186,17 @@ export function createXmas(scene, { free, crumble }) {
     update(now, dt, time, me, laugh) {
       on = season(now);
       group.visible = on;
+      // 큰 눈이 한창일 때는 선물도 눈에 묻혀 보이지 않고, 눈이 그치면 새 자리에 다시 놓인다
+      const buried = stormPhase(now) === 'peak';
+      if (buried !== wasBuried) {
+        wasBuried = buried;
+        for (const g of pool) {
+          if (g.off) continue;
+          if (buried) g.mesh.visible = false;
+          else if (!g.open) { const p = spot(); g.x = p.x; g.z = p.z; g.mesh.position.set(p.x, 0, p.z); g.mesh.visible = true; }
+        }
+      }
+      if (buried) { for (const g of pool) if (g.open && !g.off) g.back = Math.max(g.back, 1); }
       for (const g of pool) {
         if (g.off) continue;
         if (g.open) {

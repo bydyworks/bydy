@@ -39,7 +39,7 @@ const TEST_MODE = (q.has('t') || q.has('speed')) && !q.has('persist');     // �
 const WALK_SPEED = (() => { const v = Number(q.get('walk')); return v >= 0.6 && v <= 2 ? v : 1.25; })();
 const TURN_RATE = 9;              // 몸을 돌리는 빠르기 (라디안/초)
 const CAM_DIST = 6.6, CAM_DIST_MIN = 3.2, CAM_DIST_MAX = 18, CAM_TARGET_H = 1.05;
-const DEN_CAM = { near: 3.6, far: 13, start: 8.5, pitch: 0.42, tilt: 0.38 };      // 이글루 안 카메라: 가장 가까이·멀리, 들어갔을 때의 거리, 내려다보는 각도(가까이)와 멀어질수록 더 내려다보는 만큼
+const DEN_CAM = { near: 2.4, far: 13, start: 8.5, pitch: 0.42, tilt: 0.38, low: -0.04, high: 1.25 };      // (위아래로 끌면 펭귄 눈높이까지 내려와 정면도 볼 수 있다: low..high)      // 이글루 안 카메라: 가장 가까이·멀리, 들어갔을 때의 거리, 내려다보는 각도(가까이)와 멀어질수록 더 내려다보는 만큼
 const IDLE_BEFORE_SNOW = 4;       // 가만히 선 지 이만큼 지나면 눈이 쌓이기 시작한다 (초)
 const SNOW_FILL_SEC = 12;         // 머리와 어깨에 다 쌓이는 데 걸리는 시간 (폭설 때는 더 빠르다)
 const SNOWMAN_WAIT = 10;          // 다 쌓인 채로 이만큼 더 서 있으면 눈사람이 되기 시작한다
@@ -243,7 +243,8 @@ function showAction() {
 }
 
 /** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 낚시 중에는 낚아 올리기나 그만두기, 그 밖에서는 눈 천사 */
-function act() {
+/** 상황 단추를 눌렀다 (key: 스페이스 키로 눌렀으면, 눈 굴리기 대신 눈 천사를 한다 — 스페이스는 늘 눈 천사였으므로) */
+function act(key = false) {
   if (!started || me.slide || me.flap || giftOpen || busyDoor || postOpen || modal()) return;
   if (me.inside !== null) {
     if (me.seat) { if (me.seat.phase === 'sat') standUp(); return; }
@@ -261,7 +262,7 @@ function act() {
   else if (greetTarget()) startWave();
   else if (throwTarget()) throwBall();
   else if (me.roll) stopRoll();
-  else if (canRoll()) startRoll();
+  else if (canRoll() && !key) startRoll();
   else startAngel();
 }
 
@@ -336,7 +337,7 @@ function stepAngel(dt, now) {
     $('#angel').classList.remove('busy');
   }
 }
-controls.onAction(act);
+controls.onAction(() => act(true));
 $('#act').addEventListener('click', act);
 $('#angel').addEventListener('click', () => { if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.slide || me.flap || me.inside !== null || me.seat || fishing.active) return; startAngel(); });
 
@@ -945,6 +946,43 @@ function closeGift() {
   if ($('#catch').hidden) showcase.hide();
   controls.setEnabled(true);
 }
+// ---------- 전광판: 시각 아래 줄에 큰 눈 소식과 도움말이 번갈아 (한 줄씩, 길면 옆으로 흘러간다) ----------
+const TIPS = [
+  { text: '큰 눈이 오는 동안은 발자국과 선물이 눈에 묻혀요', xmas: true },
+  { text: '큰 눈이 오면 발자국이 덮이고 새 눈밭이 돼요', xmas: false },
+  { text: '트리 옆 우체통에서 친구를 초대할 수 있어요 💌' },
+  { text: '선물을 찾으면 옷장에서 골라 입어 보세요 🧥', xmas: true },
+  { text: '이글루 방석에 앉아 주사위 놀이를 할 수 있어요 🎲' },
+  { text: '산타는 매시 정각에 트리 앞에서 잠깐 볼 수 있대요 🎅', xmas: true },
+  { text: '눈 위에서 ⛄ 단추로 눈을 굴려 눈사람을 만들어 봐요' },
+  { text: '트리 뒤 소원판에 크리스마스 소원을 붙여 봐요 🎄', xmas: true },
+  { text: '친구 곁에서 👋 인사, 조금 떨어져서 ❄️ 눈덩이!' },
+  { text: '연못의 얼음 구멍에서 낚시를 할 수 있어요 🎣' },
+  { text: '날개를 파닥이면 쌓인 눈이 털려요. 여우가 깜짝 놀라요' },
+];
+const TICK = { storm: 6000, tip: 7000 };      // 큰 눈 소식, 도움말을 보여 주는 시간 (흘러가는 동안은 그만큼 더)
+let tipAt = 0, tipShown = false, lastTip = -1;
+function tickTip(t) {
+  if (t < tipAt) return;
+  const storm = $('#storm'), tip = $('#tip'), track = $('.ticker .track');
+  const loud = document.body.dataset.storm && document.body.dataset.storm !== 'calm';      // 큰 눈이 오는 동안에는 소식만
+  tipShown = !tipShown && !loud;
+  if (tipShown) {
+    const pool = TIPS.map((x, i) => i).filter((i) => i !== lastTip && (TIPS[i].xmas === undefined || TIPS[i].xmas === xmas.on));      // (크리스마스에만 있는 것은 그때만)
+    lastTip = pool[Math.floor(Math.random() * pool.length)];
+    tip.textContent = TIPS[lastTip].text;
+  }
+  storm.hidden = tipShown; tip.hidden = !tipShown;
+  // 칸보다 길면 전광판처럼 흘러간다 (처음 잠깐 멈췄다가, 끝까지 가서 잠깐 멈춘다)
+  const box = track.parentElement, over = Math.max(0, (tipShown ? tip : storm).scrollWidth - box.clientWidth);
+  track.style.setProperty('--over', -over + 'px');
+  const run = over > 2 ? 1.2 + over / 38 : 0;
+  track.style.setProperty('--run', run + 's');
+  track.classList.remove('scroll'); void track.offsetWidth; if (over > 2) track.classList.add('scroll');
+  track.classList.remove('in'); void track.offsetWidth; track.classList.add('in');
+  tipAt = t + (tipShown ? TICK.tip : TICK.storm) + run * 1000;
+}
+
 // ---------- 옷장: 이번 산책에서 받은 아이템을 골라 입고 벗는다 ----------
 // (다시 들어오면 비어 있다. 처음 선물을 받으면 오른쪽 위에 옷장 단추가 뿅 나타난다)
 const owned = [];                // 받은 차례대로 ITEMS 의 것들
@@ -1083,7 +1121,7 @@ function walk(dt, now) {
   // 둘러보기: 오른쪽으로 끌면 오른쪽을, 위로 끌면 위를 본다
   const lk = controls.takeLook();
   me.camYaw -= lk.dx * 0.0052;
-  me.camPitch = THREE.MathUtils.clamp(me.camPitch + lk.dy * 0.0035, 0.08, 0.75);
+  me.camPitch = THREE.MathUtils.clamp(me.camPitch + lk.dy * 0.0035, me.inside !== null ? 0 : 0.08, 0.75);
   me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, me.inside !== null ? DEN_CAM.far : CAM_DIST_MAX);
   coach.note(0, Math.abs(lk.dx) + Math.abs(lk.dy));
   if (mag > 0.02 && !me.angel && !fishing.active) { strolled += dt; rested = 0; } else { rested += dt; strolled = 0; }
@@ -1179,13 +1217,14 @@ function placeCamera(dt) {
   if (me.inside !== null) {
     // 이글루 안: 바깥처럼 펭귄 뒤 조금 위에서 내려다본다. 벽은 안쪽 면만 그려지므로, 카메라가 벽 밖으로 물러나도 방이 가리지 않고
     // 지붕을 걷어 낸 것처럼 넓게 보인다. 끌어서 돌리고, 두 손가락이나 휠로 가까이·멀리 한다. 걷는 방향의 기준은 카메라가 실제로 보는 쪽이다
-    const d = THREE.MathUtils.clamp(me.camDist, DEN_CAM.near, DEN_CAM.far), pitch = DEN_CAM.pitch + (d - DEN_CAM.near) / (DEN_CAM.far - DEN_CAM.near) * DEN_CAM.tilt;
+    const d = THREE.MathUtils.clamp(me.camDist, DEN_CAM.near, DEN_CAM.far), pitch = THREE.MathUtils.clamp(DEN_CAM.pitch + (d - DEN_CAM.near) / (DEN_CAM.far - DEN_CAM.near) * DEN_CAM.tilt + (me.camPitch - 0.27) * 2.2, DEN_CAM.low, DEN_CAM.high);
     const cx = me.x - Math.sin(me.camYaw) * d * Math.cos(pitch), cz = me.z - Math.cos(me.camYaw) * d * Math.cos(pitch);
     camGoal.set(cx, 0.9 + d * Math.sin(pitch), cz);
     const k = dt > 0 ? 1 - Math.exp(-dt * 6) : 1;
     camera.position.lerp(camGoal, k);
     viewYaw = Math.atan2(me.x - camera.position.x, me.z - camera.position.z);
-    lookAt.set(me.x + Math.sin(me.camYaw) * 0.6, 0.7, me.z + Math.cos(me.camYaw) * 0.6);
+    const low = 1 - THREE.MathUtils.clamp((pitch - DEN_CAM.low) / 0.4, 0, 1);      // 낮게 내려올수록 펭귄 얼굴 높이를 본다
+    lookAt.set(me.x + Math.sin(me.camYaw) * 0.6 * (1 - low), 0.7 + low * 0.35, me.z + Math.cos(me.camYaw) * 0.6 * (1 - low));
     camera.lookAt(lookAt);
     return;
   }
@@ -1253,6 +1292,7 @@ function tick(t) {
     hudAt = t;
     $('#clock').textContent = clockText(now);
     $('#storm').textContent = stormText(now);
+    tickTip(t);
     const carol = audio.carolTitle;
     $('#carol').textContent = carol;
     $('#carol-row').hidden = !carol;
@@ -1355,7 +1395,7 @@ window.__snow = {
   closet: { get owned() { return owned.map((it) => it.name); }, open: openCloset, close: closeCloset },
   arctic, foxes, snowballs, social: stats, wave: startWave, throwBall, greetTarget, throwTarget,
   outfit: { force(i) { forcedItem = i; }, wear: (slot, n) => wear(penguin, slot, n), get worn() { return worn(penguin); } }, showCatch, hideCatch,
-  net, angel: startAngel, slide: startSlide, flap: startFlap, act, fishing, xmas, dens, entrances: ENTRANCES, goIn, goOut, get inside() { return me.inside; }, get seat() { return me.seat; }, get status() { return me.status; }, get name() { return name; }, get gift() { return giftOpen; }, tapGift, closeGift,
+  net, angel: startAngel, slide: startSlide, flap: startFlap, act: () => act(true), fishing, xmas, dens, entrances: ENTRANCES, goIn, goOut, get inside() { return me.inside; }, get seat() { return me.seat; }, get status() { return me.status; }, get name() { return name; }, get gift() { return giftOpen; }, tapGift, closeGift,
   photo: takePhoto, get lastShot() { return lastShot; },
   teleport(x, z) { const c = me.inside !== null ? dens.confine(me.inside, x, z) : field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */

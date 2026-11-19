@@ -576,3 +576,13 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #snowcard .what { margin: 0 0 10px; font-size: 14.5px; font-weight: 800; }
 #snowcard .btns button[hidden] { display: none; }
 #snowcard .report { color: #b0412f !important; }
+/* 시각 아래의 전광판 */
+#hud .ticker { display: block; min-width: 0; max-width: min(56vw, 230px); overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(90deg, #000 88%, transparent); mask-image: linear-gradient(90deg, #000 88%, transparent); }
+#hud .ticker .track { display: inline-block; }
+#hud .ticker .track.in { animation: tick-in .45s ease-out; }
+#hud .ticker .track.scroll { animation: tick-in .45s ease-out, tick-run var(--run) linear 1.6s forwards; }
+#hud .ticker #storm, #hud .ticker #tip { white-space: nowrap; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+#hud .ticker #tip { color: #4f6fa8; }
+#hud .ticker [hidden] { display: none; }
+@keyframes tick-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes tick-run { from { transform: translateX(0); } to { transform: translateX(var(--over)); } }

@@ -673,7 +673,7 @@ try {
   });
 
   await test('눈사람이 되는 순간 "뿅" 소리가, 쌓인 눈이 털리거나 눈사람이 부서질 때도 소리가 난다', async () => {
-    const p = await page();
+    const p = await page('t=14:00&speed=0&look=scarf&color=0&xmas=0');      // (정각이라 트리 곁의 산타가 허허허 웃지 않게)
     await byHand(p);
     const fx = () => snow(p, () => [...window.__snow.audio.snowFx]);
     // 머리와 어깨에만 쌓였을 때 걸음을 떼면: 후두둑
@@ -1022,7 +1022,7 @@ try {
     for (const g of sites) {
       const r = Math.hypot(g.x, g.z);
       assert(r > 24 && r + g.radius + 4 < 78, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
-      assert(Math.hypot(g.x, g.z - 15) > 35, g.kind + '가 들어오는 자리에 너무 가깝다');
+      assert(Math.hypot(g.x, g.z - 15) > 18, g.kind + '가 들어오는 자리에 너무 가깝다');      // (오밀조밀해졌어도 들어오는 자리 바로 앞은 아니게)
     }
     const angles = sites.map((g) => (Math.atan2(g.x, g.z) * 180 / Math.PI + 360) % 360).sort((a, b) => a - b);
     const gaps = angles.map((a, i) => (angles[(i + 1) % angles.length] - a + 360) % 360);

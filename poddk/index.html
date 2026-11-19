@@ -12,9 +12,9 @@
 <meta name="theme-color" content="#e8f1fb">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=ff5f7f6f">
-<link rel="stylesheet" href="css/app.css?v=ff5f7f6f">
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=ff5f7f6f","./js/capture.js":"./js/capture.js?v=ff5f7f6f","./js/carols.js":"./js/carols.js?v=ff5f7f6f","./js/clock.js":"./js/clock.js?v=ff5f7f6f","./js/controls.js":"./js/controls.js?v=ff5f7f6f","./js/crumble.js":"./js/crumble.js?v=ff5f7f6f","./js/den.js":"./js/den.js?v=ff5f7f6f","./js/field.js":"./js/field.js?v=ff5f7f6f","./js/fishing.js":"./js/fishing.js?v=ff5f7f6f","./js/fox.js":"./js/fox.js?v=ff5f7f6f","./js/igloo.js":"./js/igloo.js?v=ff5f7f6f","./js/main.js":"./js/main.js?v=ff5f7f6f","./js/map.js":"./js/map.js?v=ff5f7f6f","./js/names.js":"./js/names.js?v=ff5f7f6f","./js/net.js":"./js/net.js?v=ff5f7f6f","./js/outfit.js":"./js/outfit.js?v=ff5f7f6f","./js/penguin.js":"./js/penguin.js?v=ff5f7f6f","./js/postbox.js":"./js/postbox.js?v=ff5f7f6f","./js/santa.js":"./js/santa.js?v=ff5f7f6f","./js/showcase.js":"./js/showcase.js?v=ff5f7f6f","./js/sky.js":"./js/sky.js?v=ff5f7f6f","./js/snowball.js":"./js/snowball.js?v=ff5f7f6f","./js/snowman.js":"./js/snowman.js?v=ff5f7f6f","./js/tracks.js":"./js/tracks.js?v=ff5f7f6f","./js/weather.js":"./js/weather.js?v=ff5f7f6f","./js/wishboard.js":"./js/wishboard.js?v=ff5f7f6f","./js/xmas.js":"./js/xmas.js?v=ff5f7f6f"}}</script>
+<link rel="stylesheet" href="css/fonts.css?v=82ff041d">
+<link rel="stylesheet" href="css/app.css?v=82ff041d">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=82ff041d","./js/capture.js":"./js/capture.js?v=82ff041d","./js/carols.js":"./js/carols.js?v=82ff041d","./js/clock.js":"./js/clock.js?v=82ff041d","./js/controls.js":"./js/controls.js?v=82ff041d","./js/crumble.js":"./js/crumble.js?v=82ff041d","./js/den.js":"./js/den.js?v=82ff041d","./js/field.js":"./js/field.js?v=82ff041d","./js/fishing.js":"./js/fishing.js?v=82ff041d","./js/fox.js":"./js/fox.js?v=82ff041d","./js/igloo.js":"./js/igloo.js?v=82ff041d","./js/main.js":"./js/main.js?v=82ff041d","./js/map.js":"./js/map.js?v=82ff041d","./js/names.js":"./js/names.js?v=82ff041d","./js/net.js":"./js/net.js?v=82ff041d","./js/outfit.js":"./js/outfit.js?v=82ff041d","./js/penguin.js":"./js/penguin.js?v=82ff041d","./js/postbox.js":"./js/postbox.js?v=82ff041d","./js/santa.js":"./js/santa.js?v=82ff041d","./js/showcase.js":"./js/showcase.js?v=82ff041d","./js/sky.js":"./js/sky.js?v=82ff041d","./js/snowball.js":"./js/snowball.js?v=82ff041d","./js/snowman.js":"./js/snowman.js?v=82ff041d","./js/tracks.js":"./js/tracks.js?v=82ff041d","./js/weather.js":"./js/weather.js?v=82ff041d","./js/wishboard.js":"./js/wishboard.js?v=82ff041d","./js/xmas.js":"./js/xmas.js?v=82ff041d"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -37,7 +37,8 @@
       <svg class="g calm" viewBox="0 0 24 24"><path class="s" d="M12 3.8v16.4M4.9 7.9l14.2 8.2M19.1 7.9L4.9 16.1M9.6 4.9L12 7.1l2.4-2.2M9.6 19.1l2.4-2.2 2.4 2.2"/></svg>
       <svg class="g wild" viewBox="0 0 24 24"><path class="f" d="M7.4 14.4a3.5 3.5 0 0 1 .4-7 4.8 4.8 0 0 1 9.2 1.1 3 3 0 0 1-.3 5.9z"/><circle class="f" cx="8" cy="18.2" r="1.25"/><circle class="f" cx="12.2" cy="19.6" r="1.25"/><circle class="f" cx="16.2" cy="18" r="1.25"/></svg>
     </span>
-    <span id="storm">&nbsp;</span>
+    <!-- 전광판: 큰 눈 소식과 게임 도움말이 번갈아 한 줄씩. 길면 옆으로 흘러간다 -->
+    <span class="ticker" aria-live="polite"><span class="track"><span id="storm">&nbsp;</span><span id="tip" hidden></span></span></span>
   </div>
   <div class="row" id="peer-row" hidden>
     <span class="badge me" aria-hidden="true"><svg class="g" viewBox="0 0 24 24"><ellipse class="f" cx="12" cy="14.6" rx="5.6" ry="6.8"/><circle class="f" cx="12" cy="6.4" r="3.8"/><path class="f" d="M14.8 6.2l3 .9-3 .9z"/></svg></span>
@@ -262,6 +263,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=ff5f7f6f"></script>
+<script type="module" src="js/main.js?v=82ff041d"></script>
 </body>
 </html>
