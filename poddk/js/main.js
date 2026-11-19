@@ -9,6 +9,8 @@ import { build as buildPenguin, pose, setSnow, lie, randomLook, COLORS, STEP, ST
 import { createCrumble } from './crumble.js';
 import { createFox } from './fox.js';
 import { createSanta } from './santa.js';
+import { createCamp, BLOCKS, CLEARINGS, onIce, nearHole, HOLE } from './igloo.js';
+import { createFishing } from './fishing.js';
 import { createTracks } from './tracks.js';
 import { createWeather } from './weather.js';
 import { createControls } from './controls.js';
@@ -42,10 +44,11 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(46, 1, 0.3, 1200);
 const clock = createClock();
 const sky = createSky(scene, { shadowSize: coarse ? 1024 : 2048 });
-const field = createField(scene);
+const field = createField(scene, { clearings: CLEARINGS, blocks: BLOCKS });
+const camp = createCamp(scene);            // 이글루와 얼음 낚시터
 const tracks = createTracks(scene);
 const crumble = createCrumble(scene);
-const fox = createFox(scene, tracks);
+const fox = createFox(scene, tracks, { skipPaw: onIce });      // 얼음 위에는 발자국이 남지 않는다
 const santa = createSanta(scene);
 if (q.has('santa')) santa.force(clock.now() + 4000);       // 구경용: 주소에 ?santa 를 붙이면 들어오고 4초 뒤에 나무 쪽 하늘로 지나간다
 const weather = createWeather(scene, { count: coarse ? 8000 : 14000 });
@@ -121,10 +124,33 @@ function shakeOff(quiet = false) {
   me.full = 0; me.pop = 0;
 }
 
+// ---------- 얼음낚시 ----------
+const fishing = createFishing(scene, {
+  penguin, audio, crumble, toast: (text, ms) => toast(text, ms),
+  free: (x, z) => { const c = field.confine(x, z); return Math.hypot(c.x - x, c.z - z) < 1e-6; },
+});
+let fishHint = false, holeHint = false;
+/** 지금 낚시를 시작할 수 있는가: 낚시 구멍 곁에 서 있고, 다른 것을 하고 있지 않다 */
+const canFish = () => started && !me.angel && !fishing.active && nearHole(me.x, me.z);
+function startFishing() {
+  if (!canFish() || !fishing.start(me)) return;
+  me.walk = 0;
+  shakeOff(true); me.snow = 0;                           // 쌓인 눈은 앉으면서 털린다
+  me.idle = 0;
+  if (!fishHint) { fishHint = true; toast('찌가 쑥 들어가면 눌러요. 걸으면 그만둬요', 4600); }
+}
+/** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 그 밖에서는 눈 천사 */
+function act() {
+  if (!started) return;
+  if (fishing.active) fishing.press();
+  else if (canFish()) startFishing();
+  else startAngel();
+}
+
 // ---------- 눈 천사 ----------
 const ANGEL = { down: 0.6, flap: 7.5, up: 0.8, sweeps: 5, canLeaveAfter: 2 };   // 눕기, 휘젓기, 일어나기 (초). 휘젓는 횟수. 이만큼 지나면 걸으려 할 때 일찍 일어난다
 function startAngel() {
-  if (!started || me.angel) return;
+  if (!started || me.angel || fishing.active) return;
   me.angel = { t: 0, item: null, beats: 0, fell: false };
   me.walk = 0;
   shakeOff(true); me.snow = 0;                           // 쌓인 눈은 누우면서 털린다
@@ -162,8 +188,8 @@ function stepAngel(dt, now) {
     $('#angel').classList.remove('busy');
   }
 }
-controls.onAction(startAngel);
-$('#angel').addEventListener('click', startAngel);
+controls.onAction(act);
+$('#angel').addEventListener('click', act);
 
 // ---------- 한 박자 ----------
 const fwd = new THREE.Vector3(), camGoal = new THREE.Vector3(), lookAt = new THREE.Vector3(), focus = new THREE.Vector3();
@@ -184,6 +210,18 @@ function walk(dt, now) {
   me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, CAM_DIST_MAX);
 
   if (me.angel) { stepAngel(dt, now); setSnow(penguin, me.snow, me.pop); return; }      // 누울 때 털린 눈이 모습에도 바로 드러나게
+
+  if (fishing.active) {
+    // 낚시하는 동안: 걷지 않는다. 가만히 앉아 있으니 머리와 어깨에 눈은 쌓이지만, 눈사람이 되지는 않는다
+    me.walk = 0;
+    pose(penguin, me.phase, 0);
+    fishing.step(dt, me, mag > 0.3);
+    me.idle += dt;
+    if (me.idle > IDLE_BEFORE_SNOW && me.snow < 1) me.snow = Math.min(1, me.snow + dt / SNOW_FILL_SEC * (1 + 3 * Math.max(0, snowfallAt(now) - 0.35)));
+    setSnow(penguin, me.snow, 0);
+    return;
+  }
+  fishing.step(dt, me, false);                           // (물결이 마저 퍼지게)
 
   if (mag > 0.02) {
     // 카메라가 보는 방향 기준으로 걷는다 (앞 = 화면 안쪽)
@@ -208,8 +246,9 @@ function walk(dt, now) {
       me.side = -me.side;
       // 발 위치: 몸 가운데에서 옆으로 벌어진 자리
       const px = me.x + me.side * STANCE * Math.cos(me.yaw), pz = me.z - me.side * STANCE * Math.sin(me.yaw);
-      const packed = tracks.isPacked(px, pz, now);
-      tracks.addPrint(px, pz, me.yaw, me.side, now);
+      const ice = onIce(px, pz);                         // 얼음 위: 발자국이 남지 않고, 발소리는 다져진 눈처럼 낮게 난다
+      const packed = ice || tracks.isPacked(px, pz, now);
+      if (!ice) tracks.addPrint(px, pz, me.yaw, me.side, now);
       // 한 걸음 소리의 길이는 걸음 사이의 두 배쯤: 빨리 걸으면 짧게 끊어 뭉개지지 않게 하고, 천천히 걸으면 다 들려준다
       audio.step(packed, Math.min(0.95, Math.max(0.6, 1.92 * STEP / speed)));
     }
@@ -282,6 +321,7 @@ function tick(t) {
   // 해가 지평선 가까이 내려오면 나무의 전구에 불이 들어온다
   const night = THREE.MathUtils.clamp((3 - palette.elev) / 9, 0, 1);
   field.tree.update(seconds, night, renderer.domElement.height, camera);
+  camp.update(night, seconds);
   fox.update(now, dt, me);
   santa.update(now, camera, palette.elev);
   if (frame % 2 === 0) tracks.update(now);
@@ -295,9 +335,14 @@ function tick(t) {
     const carol = audio.carolTitle;
     $('#carol').textContent = carol ? '♪ ' + carol : '';
     document.body.dataset.storm = stormPhase(now);
+    // 낚시 구멍 곁에서는 눈 천사 버튼이 낚시 버튼으로 바뀐다
+    const fish = fishing.active || canFish(), angel = $('#angel');
+    if (angel.classList.contains('fish') !== fish) { angel.classList.toggle('fish', fish); angel.setAttribute('aria-label', fish ? '낚시하기' : '눈 천사 만들기'); }
+    if (fish && !fishing.active && !holeHint) { holeHint = true; toast('얼음 구멍이에요. 버튼을 누르면 낚시를 해요', 3600); }
     $('#zoom-in').disabled = me.camDist <= CAM_DIST_MIN + 0.01;
     $('#zoom-out').disabled = me.camDist >= CAM_DIST_MAX - 0.01;
   }
+  $('#angel').classList.toggle('bite', fishing.phase === 'bite');      // 입질: 버튼이 두근거린다
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
   raf = document.hidden ? 0 : requestAnimationFrame(tick);
@@ -374,12 +419,13 @@ raf = requestAnimationFrame(tick);
 
 // 개발자 도구와 자동 점검용
 window.__snow = {
-  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble, fox, santa,
+  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble, fox, santa, camp,
+  place: { hole: HOLE, onIce, nearHole },
   get started() { return started; },
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },
   get treeLight() { return field.tree.lamp.intensity; },
-  angel: startAngel,
+  angel: startAngel, act, fishing,
   photo: takePhoto, get lastShot() { return lastShot; },
   teleport(x, z) { const c = field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */

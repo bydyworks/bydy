@@ -691,6 +691,151 @@ try {
     assert((dir.flip === 1) === right, '가는 쪽과 그림의 방향이 다르다: ' + JSON.stringify(dir));
   });
 
+  console.log('\n■ 이글루와 얼음낚시');
+  /** 낚시 구멍 곁(이글루 반대쪽)에 세운다 */
+  const toHole = (p) => snow(p, () => { const s = window.__snow, h = s.place.hole, d = Math.hypot(h.x, h.z); s.teleport(h.x - h.x / d * 1.8, h.z - h.z / d * 1.8); s.me.idle = 0; });
+  const fishLook = (p) => snow(p, () => {
+    const s = window.__snow, f = s.fishing, u = s.penguin.userData, h = s.place.hole;
+    return { active: f.active, phase: f.phase, stats: { ...f.stats }, sitY: u.body.position.y, footZ: u.feet[0].position.z, dist: Math.hypot(s.me.x - h.x, s.me.z - h.z),
+      facing: Math.abs(Math.atan2(Math.sin(s.me.yaw - Math.atan2(h.x - s.me.x, h.z - s.me.z)), Math.cos(s.me.yaw - Math.atan2(h.x - s.me.x, h.z - s.me.z)))),
+      floatY: f.floatY, item: f.shown, rod: f.rodShown, water: s.audio.water, snow: s.me.snow, pop: s.me.pop, shell: u.shell.visible, angels: s.tracks.angelCount };
+  });
+
+  await test('이글루와 언 연못은 트리에서 먼 곳에 있다. 이글루 속으로는 못 들어가고, 얼음 위에는 발자국이 남지 않는다', async () => {
+    const p = await page();
+    const place = await snow(p, async () => { const m = await import('./js/igloo.js'); const s = window.__snow; return { igloo: m.IGLOO, pond: m.POND, hole: m.HOLE, shown: s.camp.group.visible && s.camp.group.parent !== null && s.camp.igloo.children.length >= 5 }; });
+    const fromTree = Math.hypot(place.igloo.x, place.igloo.z), fromStart = Math.hypot(place.igloo.x, place.igloo.z - 15);
+    assert(place.shown, '이글루가 그려지지 않는다');
+    assert(fromTree > 60 && fromTree < 100 && fromStart > 60, '이글루는 트리와 들어오는 자리에서 멀고, 들판 안에 있어야 한다: ' + fromTree.toFixed(0) + ' / ' + fromStart.toFixed(0));
+    assert(Math.hypot(place.hole.x - place.pond.x, place.hole.z - place.pond.z) < place.pond.radius - 1, '낚시 구멍이 연못 위에 있지 않다');
+    // 이글루 뒤에서 가운데를 향해 걸어도 벽에 막힌다
+    const toward = (x, z) => snow(p, ([x, z, ix, iz]) => { const s = window.__snow; s.teleport(x, z); s.me.camYaw = Math.atan2(ix - x, iz - z); }, [x, z, place.igloo.x, place.igloo.z]);
+    await toward(place.igloo.x + 6, place.igloo.z - 3);
+    await walk(p, 0, 1, 6);
+    let s = await state(p);
+    assert(Math.hypot(s.x - place.igloo.x, s.z - place.igloo.z) >= place.igloo.radius + 0.29, '이글루 속으로 들어갔다: ' + Math.hypot(s.x - place.igloo.x, s.z - place.igloo.z).toFixed(2));
+    // 문 쪽에서 걸어가도 문간에서 막힌다 (낚시 구멍도 밟고 지나갈 수 없다)
+    await toward(place.pond.x, place.pond.z);
+    await walk(p, 0, 1, 8);
+    s = await state(p);
+    assert(Math.hypot(s.x - place.igloo.x, s.z - place.igloo.z) > place.igloo.radius + 0.29 && Math.hypot(s.x - place.hole.x, s.z - place.hole.z) >= place.hole.radius + 0.37, '문간이나 구멍 속으로 들어갔다: ' + JSON.stringify([s.x, s.z]));
+    // 얼음 위를 걸으면 발소리는 나지만 발자국은 남지 않는다
+    await snow(p, ([x, z]) => { const s = window.__snow; s.teleport(x, z); s.me.camYaw = Math.atan2(-x, -z); }, [place.pond.x - 2.5 * place.pond.x / Math.hypot(place.pond.x, place.pond.z), place.pond.z - 2.5 * place.pond.z / Math.hypot(place.pond.x, place.pond.z)]);
+    const a = await state(p);
+    await walk(p, 0, 1, 1.4);
+    const b = await state(p);
+    assert(b.audio.steps - a.audio.steps >= 3 && b.prints === a.prints, '얼음 위: 발소리 ' + (b.audio.steps - a.audio.steps) + '번, 발자국 ' + (b.prints - a.prints) + '개');
+    assert(b.audio.packed - a.audio.packed === b.audio.steps - a.audio.steps, '얼음 위의 발소리는 낮은 소리여야 한다');
+    await walk(p, 0, 1, 6);                                               // 연못을 벗어나면 다시 남는다
+    assert((await state(p)).prints > b.prints, '연못 밖인데 발자국이 안 남는다');
+  });
+
+  await test('낚시 구멍 곁에 서면 눈 천사 버튼이 낚시 버튼으로 바뀌고, 누르면 앉아서 낚싯대를 드리운다. 걸으면 그만둔다', async () => {
+    const p = await page();
+    const button = () => p.evaluate(() => { const el = document.querySelector('#angel'), show = (c) => getComputedStyle(el.querySelector(c)).display !== 'none'; return { fish: el.classList.contains('fish'), label: el.getAttribute('aria-label'), angel: show('.angel-icon'), icon: show('.fish-icon') }; });
+    let b = await button();
+    assert(!b.fish && b.angel && !b.icon && b.label === '눈 천사 만들기', '평소에는 눈 천사 버튼: ' + JSON.stringify(b));
+    await toHole(p);
+    await until(async () => (await button()).fish, { what: '낚시 버튼' });
+    b = await button();
+    assert(!b.angel && b.icon && b.label === '낚시하기', '구멍 곁에서는 물고기 그림: ' + JSON.stringify(b));
+    await until(async () => (await p.textContent('#toast')).includes('얼음 구멍'), { what: '낚시터 안내' });
+    await p.click('#angel');
+    await walk(p, 0, 0, 1.2);
+    let f = await fishLook(p);
+    assert(f.active && f.phase === 'wait' && f.angels === 0, '버튼을 눌렀는데 낚시를 시작하지 않았다: ' + JSON.stringify(f));
+    assert(f.sitY < -0.07 && f.footZ > 0.2 && Math.abs(f.dist - 1.55) < 0.02 && f.facing < 0.02, '구멍을 보고 앉아야 한다: ' + JSON.stringify(f));
+    assert(f.rod && f.item === null && f.floatY !== null && f.floatY > 0.02 && f.floatY < 0.08, '낚싯대를 들고, 찌가 물 위에 떠 있어야 한다: ' + JSON.stringify(f));
+    await until(async () => (await p.textContent('#toast')).includes('찌가 쑥'), { what: '낚시 방법 안내' });
+    const before = await state(p);
+    await walk(p, 0, 0.2, 1);                                             // 살짝 건드린 정도로는 일어나지 않는다
+    assert((await fishLook(p)).active, '조이스틱을 살짝 건드렸는데 낚시를 그만뒀다');
+    await walk(p, 0, 1, 2);
+    f = await fishLook(p);
+    const after = await state(p);
+    assert(!f.active && f.sitY === 0 && Math.abs(f.footZ - 0.02) < 1e-6 && f.floatY === null && !f.rod, '걸으려 하면 일어나 그만둬야 한다: ' + JSON.stringify(f));
+    assert(Math.hypot(after.x - before.x, after.z - before.z) > 1, '일어난 뒤에 걸을 수 없다');
+    // 구멍에서 멀어지면 다시 눈 천사 버튼
+    await snow(p, () => window.__snow.teleport(0, 20));
+    await until(async () => !(await button()).fish, { what: '눈 천사 버튼으로 돌아옴' });
+    await p.click('#angel');
+    assert((await state(p)).angel, '구멍에서 먼 곳에서는 눈 천사를 해야 한다');
+  });
+
+  await test('입질이 오면 찌가 쑥 들어가고, 그때 누르면 낚아 올려 들어 보인 뒤 놓아준다. 놓치면 다시 기다린다', async () => {
+    const p = await page();
+    await byHand(p);
+    await toHole(p);
+    await snow(p, () => { const s = window.__snow; s.fishing.debug.biteIn(2); s.act(); });
+    await walk(p, 0, 0, 1.5);
+    await snow(p, () => window.__snow.act());                             // 입질이 없을 때 누르면 아무것도 낚이지 않는다
+    await walk(p, 0, 0, 0.3);
+    let f = await fishLook(p);
+    assert(f.phase === 'wait' && f.stats.caught === 0, '입질 전에 눌렀는데 낚였다: ' + JSON.stringify(f));
+    const w0 = f.water;
+    await walk(p, 0, 0, 1.0);
+    f = await fishLook(p);
+    assert(f.phase === 'bite' && f.stats.bites === 1 && f.water === w0 + 1, '2초 뒤에 입질이 와야 한다 (퐁 소리와 함께): ' + JSON.stringify(f));
+    let low = 9;
+    for (let i = 0; i < 12; i++) { await walk(p, 0, 0, 1 / 30); low = Math.min(low, (await fishLook(p)).floatY); }
+    assert(low < 0, '입질인데 찌가 물속으로 들어가지 않는다: ' + low);
+    await until(async () => p.evaluate(() => document.querySelector('#angel').classList.contains('bite')), { what: '두근거리는 버튼' });
+    // 놓치면: 물고기는 달아나고 다시 기다린다
+    await walk(p, 0, 0, 2.6);
+    f = await fishLook(p);
+    assert(f.phase === 'wait' && f.stats.missed === 1 && f.stats.caught === 0, '입질을 놓치면 다시 기다려야 한다: ' + JSON.stringify(f));
+    // 네 가지가 모두 낚인다: 누르면 올라오고, 이름을 알려 주고, 잠깐 들어 보인 뒤 놓아준다
+    for (const [id, name] of [['smelt', '빙어'], ['cherry', '산천어'], ['trout', '송어'], ['boot', '낡은 장화']]) {
+      const w = (await fishLook(p)).water, n = (await fishLook(p)).stats.caught;
+      await snow(p, (k) => { const s = window.__snow; s.fishing.debug.biteIn(0.2); s.fishing.debug.next(k); }, id);
+      await walk(p, 0, 0, 0.4);
+      await snow(p, () => window.__snow.act());
+      await walk(p, 0, 0, 0.2);
+      assert((await fishLook(p)).phase === 'pull', id + ': 눌렀는데 낚아 올리지 않는다');
+      await walk(p, 0, 0, 0.6);
+      f = await fishLook(p);
+      assert(f.phase === 'show' && f.stats.caught === n + 1 && f.stats.last === id && f.item === id && f.floatY === null, id + ': 낚은 것을 들어 보여야 한다: ' + JSON.stringify(f));
+      assert((await p.textContent('#toast')).includes(name + '를 낚았어요'), '낚은 것의 이름: ' + await p.textContent('#toast'));
+      await walk(p, 0, 0.9, 0.5);                                          // 들어 보이는 동안에는 걸으려 해도 그대로 있는다
+      assert((await fishLook(p)).active, '들어 보이는 중에 일어나 버렸다');
+      await walk(p, 0, 0, 2.3);
+      f = await fishLook(p);
+      assert(f.phase === 'wait' && f.water === w + 3 && f.item === null && f.floatY !== null, id + ': 놓아주고 다시 기다려야 한다 (퐁, 첨벙, 퐁): ' + JSON.stringify(f));
+    }
+    // 오래 낚시해도 눈은 머리와 어깨에만 쌓이고 눈사람이 되지는 않는다
+    await snow(p, () => window.__snow.fishing.debug.biteIn(9999));
+    await walk(p, 0, 0, 60);
+    f = await fishLook(p);
+    assert(f.active && f.snow === 1 && f.pop === 0 && !f.shell, '낚시 중에는 눈 모자까지만: ' + JSON.stringify(f));
+    // 무엇이 낚일지: 빙어가 절반을 넘고, 장화는 드물다
+    const draws = await snow(p, () => { const n = {}; for (let i = 0; i < 6000; i++) { const k = window.__snow.fishing.debug.draw(); n[k] = (n[k] || 0) + 1; } return n; });
+    assert(draws.smelt / 6000 > 0.5 && draws.smelt / 6000 < 0.64 && draws.boot / 6000 > 0.03 && draws.boot / 6000 < 0.09 && draws.cherry > draws.trout && draws.trout > draws.boot, '낚이는 비율: ' + JSON.stringify(draws));
+  });
+
+  await test('여우는 이글루를 돌아서 다니고, 얼음 위에는 여우 발자국도 남지 않는다', async () => {
+    const p = await page();
+    const r = await snow(p, async () => {
+      const { IGLOO, onIce } = await import('./js/igloo.js');
+      const s = window.__snow, t0 = s.clock.now();
+      let near = 1e9, jump = 0, prev = s.fox.at(t0);
+      for (let i = 1; i <= 12 * 3600 * 2; i++) { const f = s.fox.at(t0 + i * 500); near = Math.min(near, Math.hypot(f.x - IGLOO.x, f.z - IGLOO.z)); jump = Math.max(jump, Math.hypot(f.x - prev.x, f.z - prev.z)); prev = f; }
+      // 여우가 연못을 지나간 때를 찾아 그 무렵의 발자국을 본다
+      let onPond = null;
+      for (let i = 0; i < 48 * 3600 && onPond === null; i++) { const f = s.fox.at(t0 + i * 1000); if (onIce(f.x, f.z) && f.move > 0.5) onPond = t0 + i * 1000; }
+      let icy = -1, around = -1;
+      if (onPond !== null) {
+        s.clock.skip(onPond + 60e3 - s.clock.now());
+        await new Promise((done) => setTimeout(done, 900));
+        const paws = s.tracks.paws();
+        icy = paws.filter((it) => onIce(it.x, it.z)).length; around = paws.length;
+      }
+      return { near, jump, onPond: onPond !== null, icy, around };
+    });
+    assert(r.near >= 3.2, '여우가 이글루 속을 지나간다 (가운데에서 ' + r.near.toFixed(2) + ')');
+    assert(r.jump < 1.5, '이글루를 돌아가다가 건너뛴다 (0.5초에 ' + r.jump.toFixed(2) + ')');
+    assert(!r.onPond || (r.icy === 0 && r.around > 50), '얼음 위에 여우 발자국이 남았다: ' + JSON.stringify(r));
+  });
+
   console.log('\n■ 트리의 캐롤');
   await test('옛 캐롤 열 곡의 악보가 온전하다 (마디가 맞고, 으뜸음으로 끝난다)', async () => {
     const p = await page(undefined, { enter: false });

@@ -190,6 +190,33 @@ export function setSnow(root, hat, pop = 0) {
   }
 }
 
+/** 담요를 여며 쥔 날개 하나를 어깨 밖으로 꺼낸다. out: 0(쥐고 있음)..1(다 꺼냄) */
+function untuck(pivot, out) {
+  const a = pivot.userData.tucked, b = pivot.userData.free, w = pivot.children[0];
+  pivot.position.lerpVectors(a.pos, b.pos, out);
+  w.position.lerpVectors(a.cpos, b.cpos, out);
+  w.scale.lerpVectors(a.cscale, b.cscale, out);
+  w.rotation.set(a.crot.x + (b.crot.x - a.crot.x) * out, a.crot.y + (b.crot.y - a.crot.y) * out, a.crot.z + (b.crot.z - a.crot.z) * out);
+  if (out === 0) pivot.rotation.set(0, 0, 0);
+}
+
+/** 낚싯대를 쥔 날개 끝의 자리 (펭귄 기준). 낚싯대는 여기서 앞쪽 위로 뻗는다 */
+export const ROD_GRIP = new THREE.Vector3(0.47, 0.8, 0.36);
+
+/**
+ * 낚시 자세: 엉덩이를 붙이고 앉아 발을 앞으로 내밀고, 오른쪽 날개를 앞으로 들어 낚싯대를 쥔다. (pose() 다음에 부른다)
+ * @param {number} k 0(서 있음)..1(앉음)  @param {number} lean 윗몸을 앞(+)이나 뒤(-)로 기울이는 각도(라디안)
+ */
+export function sit(root, k, lean = 0) {
+  const u = root.userData, hand = u.wings[1];
+  u.body.position.y = -0.09 * k;
+  u.top.rotation.x = lean * k;
+  u.feet.forEach((f) => { f.rotation.x = -0.95 * k; f.position.z = 0.02 + 0.21 * k; f.position.y = 0.2 + 0.035 * k; });
+  if (u.held) untuck(hand, k);                    // 담요 펭귄은 한쪽 날개만 담요 밖으로 꺼낸다
+  hand.rotation.x = -1.2 * k;
+  hand.rotation.z = (u.held ? 0 : 0.12) * (1 - k) + 0.05 * k;
+}
+
 /**
  * 눈 천사: 뒤로 벌렁 누워 날개와 발을 휘젓는다.
  * @param {number} k 0(서 있음)..1(완전히 누움)  @param {number} flap 휘젓는 주기 위상(라디안). 누워 있지 않으면 무시
@@ -200,17 +227,7 @@ export function lie(root, k, flap = 0) {
   g.position.y = k * 0.44;                         // 등이 땅에 닿는 높이
   g.position.z = k * 0.55;                         // 누운 몸의 가운데가 서 있던 자리에 오도록
   const out = Math.min(1, Math.max(0, (k - 0.5) * 2));
-  if (u.held) {
-    // 담요를 쥐고 있던 날개를 어깨 밖으로 꺼낸다 (다 일어나면 다시 여며 쥔다)
-    u.wings.forEach((pivot) => {
-      const a = pivot.userData.tucked, b = pivot.userData.free, w = pivot.children[0];
-      pivot.position.lerpVectors(a.pos, b.pos, out);
-      w.position.lerpVectors(a.cpos, b.cpos, out);
-      w.scale.lerpVectors(a.cscale, b.cscale, out);
-      w.rotation.set(a.crot.x + (b.crot.x - a.crot.x) * out, a.crot.y + (b.crot.y - a.crot.y) * out, a.crot.z + (b.crot.z - a.crot.z) * out);
-      if (out === 0) pivot.rotation.set(0, 0, 0);
-    });
-  }
+  if (u.held) u.wings.forEach((pivot) => untuck(pivot, out));      // 담요를 쥐고 있던 날개를 어깨 밖으로 꺼낸다 (다 일어나면 다시 여며 쥔다)
   if (k > 0.5) {
     const w = Math.sin(flap), amt = out;
     u.wings[0].rotation.z = (-0.9 + w * 0.75) * amt; u.wings[1].rotation.z = (0.9 - w * 0.75) * amt; u.wings[0].rotation.x = 0; u.wings[1].rotation.x = 0;

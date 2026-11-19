@@ -4,6 +4,7 @@
 // 펭귄처럼 공·원뿔 같은 기본 도형만 쓴다.
 import * as THREE from 'three';
 import { printAlpha } from './clock.js';
+import { IGLOO } from './igloo.js';
 
 const ORANGE = '#e8853b', CREAM = '#fbf1e0', SOCK = '#4b342c', INK = '#17181d';
 
@@ -13,6 +14,8 @@ const LEG_MS = BLOCK_MS / LEGS;  // 한 토막 35초
 const ROAM = 96;                 // 가운데에서 이만큼까지 돌아다닌다 (들판의 반지름은 110)
 const KEEP = 6;                  // 목적지는 나무에서 이만큼은 떨어진 곳에 잡는다
 const CLEAR = 4;                 // 걷는 길은 나무 둥치에서 이만큼은 떨어져 지나간다
+/** 돌아가야 하는 곳들: 나무, 그리고 이글루(문간까지) */
+const AVOID = [{ x: 0, z: 0, r: CLEAR }, { x: IGLOO.x, z: IGLOO.z, r: IGLOO.radius + 2.4 }];
 const WALK = 1.15;               // 평소 걷는 빠르기 (단위/초) — 펭귄보다 조금 느려서 따라잡을 수 있다
 const STRIDE = 0.5;              // 걸음 한 주기에 나아가는 거리
 const PAW_STEP = 0.3;            // 발자국 사이의 거리
@@ -27,16 +30,20 @@ function rand(a, b) {
   h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); h ^= h >>> 12; h = Math.imul(h, 0x297a2d39); h ^= h >>> 15;
   return (h >>> 0) / 4294967296;
 }
-/** 들판 안, 나무 밖으로 */
+/** 들판 안, 나무와 이글루 밖으로 */
 function keepIn(p) {
   const r = Math.hypot(p.x, p.z);
   if (r > ROAM) { p.x *= ROAM / r; p.z *= ROAM / r; } else if (r < KEEP) { if (r < 1e-6) { p.x = KEEP; p.z = 0; } else { p.x *= KEEP / r; p.z *= KEEP / r; } }
+  for (const o of AVOID.slice(1)) {
+    const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz), keep = o.r + 2;
+    if (d < keep) { const k = d < 1e-6 ? 0 : keep / d; p.x = d < 1e-6 ? o.x - keep : o.x + dx * k; p.z = o.z + dz * k; }
+  }
   return p;
 }
 /** b 번째 목적지 */
 function spot(b) {
   const ang = rand(b, 1) * Math.PI * 2, r = KEEP + (ROAM - KEEP) * Math.sqrt(rand(b, 2));
-  return { x: Math.sin(ang) * r, z: Math.cos(ang) * r };
+  return keepIn({ x: Math.sin(ang) * r, z: Math.cos(ang) * r });
 }
 
 const cache = new Map();
@@ -59,20 +66,20 @@ function route(b) {
 }
 
 /**
- * 나무를 가로지르는 토막이 없게 한다: 가운데를 너무 가까이 스치는 토막은, 가운데 점들을 옆으로 밀어 나무를 돌아가게 한다.
+ * 나무나 이글루를 가로지르는 토막이 없게 한다: 너무 가까이 스치는 토막은, 가운데 점들을 옆으로 밀어 돌아가게 한다.
  * (처음과 끝 점은 앞뒤 구간과 이어져 있으므로 움직이지 않는다)
  */
 function detour(pts) {
   const last = pts.length - 1;
-  for (let round = 0; round < 6; round++) {
+  for (let round = 0; round < 8; round++) {
     let moved = false;
-    for (let i = 0; i < last; i++) {
+    for (const o of AVOID) for (let i = 0; i < last; i++) {
       const P = pts[i], Q = pts[i + 1], dx = Q.x - P.x, dz = Q.z - P.z, len2 = dx * dx + dz * dz;
       if (len2 < 1e-9) continue;
-      const t = clamp(-(P.x * dx + P.z * dz) / len2, 0, 1), cx = P.x + dx * t, cz = P.z + dz * t, d = Math.hypot(cx, cz);
-      if (d >= CLEAR) continue;
-      // 가운데에서 멀어지는 쪽 (정확히 가운데를 지나면 길의 옆쪽 아무 데나)
-      const len = Math.sqrt(len2), nx = d > 1e-6 ? cx / d : -dz / len, nz = d > 1e-6 ? cz / d : dx / len, push = CLEAR - d + 0.6;
+      const t = clamp(-((P.x - o.x) * dx + (P.z - o.z) * dz) / len2, 0, 1), cx = P.x + dx * t - o.x, cz = P.z + dz * t - o.z, d = Math.hypot(cx, cz);
+      if (d >= o.r) continue;
+      // 그곳에서 멀어지는 쪽 (정확히 한가운데를 지나면 길의 옆쪽 아무 데나)
+      const len = Math.sqrt(len2), nx = d > 1e-6 ? cx / d : -dz / len, nz = d > 1e-6 ? cz / d : dx / len, push = o.r - d + 0.6;
       const canP = i > 0, canQ = i + 1 < last;
       if (canP && canQ) { P.x += nx * push; P.z += nz * push; Q.x += nx * push; Q.z += nz * push; }
       else if (canQ) { const k = push / Math.max(0.2, t); Q.x += nx * k; Q.z += nz * k; }
@@ -92,10 +99,13 @@ function leg(n) {
   return { n, P, Q, len, yaw: len > 1e-6 ? Math.atan2(dx, dz) : 0, start: n * LEG_MS, walk, rest: LEG_MS - walk, seed: rand(n, 77) };
 }
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
-/** 마지막 안전장치: 그래도 나무 둥치 안으로 들어가는 자리는 둥치 밖으로 밀어낸다 (길을 미리 돌려 두므로 쓰일 일은 거의 없다) */
+/** 마지막 안전장치: 그래도 나무 둥치나 이글루 안으로 들어가는 자리는 밖으로 밀어낸다 (길을 미리 돌려 두므로 쓰일 일은 거의 없다) */
 function clear(x, z) {
-  const r = Math.hypot(x, z);
-  return r < 2.4 && r > 1e-6 ? { x: x * 2.4 / r, z: z * 2.4 / r } : { x, z };
+  for (const o of AVOID) {
+    const dx = x - o.x, dz = z - o.z, d = Math.hypot(dx, dz), keep = o.r - 1.6;
+    if (d < keep && d > 1e-6) return { x: o.x + dx * keep / d, z: o.z + dz * keep / d };
+  }
+  return { x, z };
 }
 
 /**
@@ -213,8 +223,9 @@ function pose(root, s, headYaw, time) {
 /**
  * @param {THREE.Scene} scene
  * @param {{ addPaw: Function, clearPaws: Function }} tracks
+ * @param {{ skipPaw?: (x: number, z: number) => boolean }} [o] skipPaw: 발자국이 남지 않는 자리 (얼음 위)
  */
-export function createFox(scene, tracks) {
+export function createFox(scene, tracks, { skipPaw = () => false } = {}) {
   const root = build();
   scene.add(root);
   let headYaw = 0, time = 0, pawsUntil = null, state = foxAt(0), held = null;
@@ -246,7 +257,7 @@ export function createFox(scene, tracks) {
       if (held) return;
       let from = pawsUntil;
       if (from === null || now < from || now - from > PAW_LIFE_MS) { tracks.clearPaws(); from = now - PAW_LIFE_MS; }
-      if (now > from) for (const [x, z, yaw, birth] of pawsBetween(from, now)) if (printAlpha(birth, now, PAW_LIFE_MS) > 0.01) tracks.addPaw(x, z, yaw, birth, PAW_LIFE_MS);
+      if (now > from) for (const [x, z, yaw, birth] of pawsBetween(from, now)) if (!skipPaw(x, z) && printAlpha(birth, now, PAW_LIFE_MS) > 0.01) tracks.addPaw(x, z, yaw, birth, PAW_LIFE_MS);
       pawsUntil = now;
     },
   };
