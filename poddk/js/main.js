@@ -10,7 +10,7 @@ import { createCrumble } from './crumble.js';
 import { createFox } from './fox.js';
 import { createSanta } from './santa.js';
 import { createCamp, BLOCKS, CLEARINGS, onIce, holeNear, HOLES, IGLOOS, PONDS } from './igloo.js';
-import { createFishing, makeCatch, CATCHES } from './fishing.js';
+import { createFishing, makeCatch, CATCHES, objectOf } from './fishing.js';
 import { createShowcase } from './showcase.js';
 import { ITEMS, SLOTS, wear, worn, makeItem } from './outfit.js';
 import { createPostbox, POSTBOX, subject } from './postbox.js';
@@ -168,17 +168,22 @@ const fishing = createFishing(scene, {
 });
 // 낚아 올린 것을 보여 주는 창: 선물을 받을 때처럼 작은 카드가 뿅 튀어나오고, 그 안에서 낚은 것이 3D 로 빙글 돈다
 const showcase = createShowcase();
-const CATCH_SAY = { smelt: '은빛으로 반짝이는 작은 빙어', cherry: '알록달록 무늬가 예쁜 산천어', trout: '묵직한 손맛! 커다란 송어', boot: '누가 빠뜨렸을까? 물이 뚝뚝…' };
+const CATCH_SAY = {
+  smelt: '은빛으로 반짝이는 작은 빙어', cherry: '알록달록 무늬가 예쁜 산천어', trout: '묵직한 손맛! 커다란 송어', carp: '통통하게 살이 오른 붕어',
+  catfish: '수염이 멋진 메기 아저씨', goldcarp: '눈부신 황금빛! 행운이 올 것 같아요', boot: '누가 빠뜨렸을까? 물이 뚝뚝…', mitten: '누가 잃어버린 한 짝일까요?',
+  duck: '꽥! 목욕하다 놀러 나왔나 봐요', can: '눈밭은 깨끗하게! 잘 건졌어요', bottle: '안에 누군가의 편지가 들어 있어요', treasure: '와, 금화가 반짝반짝! 오늘 운이 좋아요',
+};
 let catchHide = 0;
 function showCatch(kind) {
   const el = $('#catch'), c = CATCHES.find((x) => x.id === kind);
-  el.querySelector('.name').textContent = c.name + '를 낚았어요!';
+  el.querySelector('.name').textContent = objectOf(c.name) + ' 낚았어요!';
   el.querySelector('.say').textContent = CATCH_SAY[kind] || '';
   el.dataset.kind = kind;
   el.hidden = false; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
   const ok = showcase.show(el.querySelector('.view'), makeCatch(kind), { tilt: 0.35 });
   el.classList.toggle('flat', !ok);
-  audio.snowFx(kind === 'boot' ? 'pop' : 'ding');
+  audio.snowFx(c.junk && !c.rare ? 'pop' : 'ding');
+  el.classList.toggle('rare', !!c.rare);
   clearTimeout(catchHide); catchHide = setTimeout(hideCatch, 3200);
 }
 function hideCatch() { clearTimeout(catchHide); const el = $('#catch'); if (el.hidden) return; el.hidden = true; el.classList.remove('pop'); if (!giftOpen) showcase.hide(); }

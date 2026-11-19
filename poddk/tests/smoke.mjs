@@ -1195,7 +1195,7 @@ try {
     assert(f.active && f.phase === 'wait' && f.stats.missed === 1 && f.stats.caught === 0, '입질을 놓치면 다시 기다려야 한다 (늦게 눌러도 낚시는 이어진다): ' + JSON.stringify(f));
     await until(async () => (await label()) === '낚시 그만두기', { what: '다시 그만두기 버튼' });
     // 네 가지가 모두 낚인다: 누르면 올라오고, 이름을 알려 주고, 잠깐 들어 보인 뒤 놓아준다
-    for (const [id, name] of [['smelt', '빙어'], ['cherry', '산천어'], ['trout', '송어'], ['boot', '낡은 장화']]) {
+    for (const [id, name] of [['smelt', '빙어'], ['cherry', '산천어'], ['trout', '송어'], ['carp', '붕어'], ['catfish', '메기'], ['goldcarp', '황금 잉어'], ['boot', '낡은 장화'], ['mitten', '털장갑 한 짝'], ['duck', '고무 오리'], ['can', '찌그러진 깡통'], ['bottle', '병 속 편지'], ['treasure', '작은 보물 상자']]) {
       const w = (await fishLook(p)).water, n = (await fishLook(p)).stats.caught;
       await snow(p, (k) => { const s = window.__snow; s.fishing.debug.biteIn(0.2); s.fishing.debug.next(k); }, id);
       await walk(p, 0, 0, 0.4);
@@ -1207,7 +1207,7 @@ try {
       assert(f.phase === 'show' && f.stats.caught === n + 1 && f.stats.last === id && f.item === id && f.floatY === null, id + ': 낚은 것을 들어 보여야 한다: ' + JSON.stringify(f));
       // 낚은 것을 보여 주는 카드가 뿅 뜨고, 그 안에서 낚은 것이 3D 로 돈다 (WebGL 이 되면), 그리고 소리
       const card = await p.evaluate(() => { const el = document.querySelector('#catch'); return { shown: !el.hidden, kind: el.dataset.kind, name: el.querySelector('.name').textContent, canvas: !!el.querySelector('.view canvas') || el.classList.contains('flat') }; });
-      assert(card.shown && card.kind === id && card.name === name + '를 낚았어요!' && card.canvas, '낚은 것을 보여 주는 카드: ' + JSON.stringify(card));
+      assert(card.shown && card.kind === id && card.name === (/[짝통]$/.test(name) ? name + '을' : name + '를') + ' 낚았어요!' && card.canvas, '낚은 것을 보여 주는 카드: ' + JSON.stringify(card));
       await p.click('#catch');
       assert(await p.evaluate(() => document.querySelector('#catch').hidden), '누르면 카드가 닫혀야 한다');
       await act();                                                        // 들어 보이는 동안에는 눌러도, 걸으려 해도 그대로 있는다
