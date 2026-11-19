@@ -155,8 +155,8 @@ function loneTree() {
   return { group: g, update, bulbCount: bulbs.length, lamp };
 }
 
-/** 눈 위로 나온 마른 풀 포기들 (걸어서 지나갈 수 있다) */
-function grassTufts(count, rand) {
+/** 눈 위로 나온 마른 풀 포기들 (걸어서 지나갈 수 있다). clearings: 풀이 나지 않는 곳들 [{x, z, r}] */
+function grassTufts(count, rand, clearings = []) {
   const blade = new THREE.ConeGeometry(0.02, 0.5, 4);
   blade.translate(0, 0.25, 0);
   const mesh = new THREE.InstancedMesh(blade, new THREE.MeshStandardMaterial({ color: '#b39a6b', roughness: 1 }), count * 3);
@@ -165,11 +165,12 @@ function grassTufts(count, rand) {
   for (let i = 0; i < count; i++) {
     const r = 6 + Math.sqrt(rand()) * (FIELD_RADIUS + 30), a = rand() * Math.PI * 2;
     const cx = Math.cos(a) * r, cz = Math.sin(a) * r;
+    const bare = clearings.some((c) => Math.hypot(cx - c.x, cz - c.z) < c.r);
     for (let k = 0; k < 3; k++) {
       p.set(cx + (rand() - 0.5) * 0.18, 0, cz + (rand() - 0.5) * 0.18);
       e.set((rand() - 0.5) * 0.7, rand() * 6.28, (rand() - 0.5) * 0.7);
       const h = 0.5 + rand() * 0.9;
-      s.set(1, h, 1);
+      s.set(1, bare ? 0 : h, 1);                         // 빈터의 풀은 크기를 0 으로 (자리 순서는 그대로 두어 다른 풀들이 옮겨 가지 않게)
       m.compose(p, q.setFromEuler(e), s);
       mesh.setMatrixAt(n++, m);
     }
@@ -179,7 +180,11 @@ function grassTufts(count, rand) {
   return mesh;
 }
 
-export function createField(scene) {
+/**
+ * @param {{ clearings?: {x:number, z:number, r:number}[], blocks?: {x:number, z:number, r:number}[] }} [o]
+ *   clearings: 풀이 나지 않는 곳, blocks: 걸어서 들어갈 수 없는 둥근 자리들 (이글루 같은 것)
+ */
+export function createField(scene, { clearings = [], blocks = [] } = {}) {
   const ground = new THREE.Mesh(
     new THREE.CircleGeometry(900, 72),
     new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1, map: snowTexture() }),
@@ -192,7 +197,7 @@ export function createField(scene) {
 
   const tree = loneTree();
   scene.add(tree.group);
-  scene.add(grassTufts(520, mulberry(5)));
+  scene.add(grassTufts(520, mulberry(5), clearings));
 
   /** 가려는 자리를 들판 안으로, 나무 밖으로 고쳐 준다. @returns {{x:number, z:number, edge:boolean}} */
   function confine(x, z) {
@@ -202,6 +207,10 @@ export function createField(scene) {
     if (r < TREE_RADIUS) {
       const k = r < 1e-4 ? 1 : TREE_RADIUS / r;
       x = r < 1e-4 ? TREE_RADIUS : x * k; z = z * k;
+    }
+    for (const b of blocks) {
+      const dx = x - b.x, dz = z - b.z, d = Math.hypot(dx, dz);
+      if (d < b.r) { const k = d < 1e-4 ? 0 : b.r / d; x = d < 1e-4 ? b.x + b.r : b.x + dx * k; z = b.z + dz * k; }
     }
     return { x, z, edge };
   }

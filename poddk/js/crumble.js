@@ -33,17 +33,20 @@ export function createCrumble(scene) {
     get active() { return active; },
     /** 점검용: 지금 화면에 그려지고 있는 눈덩이들의 자리 [x, y, z] (가려져 있으면 빈 목록) */
     get shown() { return mesh.visible ? bits.filter((b) => b.size > 0).map((b) => [b.p.x, b.p.y, b.p.z]) : []; },
-    /** (x, z) 에서 눈사람이 뿅 하고 생긴다: 눈가루가 둘레로 폭 퍼졌다가 0.4초쯤 만에 사라진다 */
-    puff(x, z) {
+    /**
+     * (x, z) 에서 눈사람이 뿅 하고 생긴다: 눈가루가 둘레로 폭 퍼졌다가 0.4초쯤 만에 사라진다.
+     * size 를 작게 주면 낚시 구멍에서 튀는 작은 물보라가 된다
+     */
+    puff(x, z, size = 1) {
       bits.forEach((b, i) => {
         b.size = 0; b.puff = true; b.landed = false; b.rest = 0;
         if (i >= PUFFS) return;
-        const a = (i + Math.random()) / PUFFS * Math.PI * 2, h = 0.15 + Math.random() * 1.45;
-        const r = h > 1.05 ? 0.5 : 0.76;                       // 눈사람의 겉에서 시작한다
-        const out = 1.7 + Math.random() * 1.3;
+        const a = (i + Math.random()) / PUFFS * Math.PI * 2, h = (0.15 + Math.random() * 1.45) * size;
+        const r = (h > 1.05 * size ? 0.5 : 0.76) * size;       // 눈사람의 겉에서 시작한다
+        const out = (1.7 + Math.random() * 1.3) * (0.45 + 0.55 * size);
         b.p.set(x + Math.sin(a) * r, h, z + Math.cos(a) * r);
-        b.v.set(Math.sin(a) * out, 0.2 + Math.random() * 0.9, Math.cos(a) * out);
-        b.full = 0.06 + Math.random() * 0.07; b.size = b.full; b.age = 0; b.life = 0.3 + Math.random() * 0.2; b.spin = Math.random() * 6.28;
+        b.v.set(Math.sin(a) * out, 0.2 + Math.random() * 0.9 + (1 - size) * 1.6, Math.cos(a) * out);
+        b.full = (0.06 + Math.random() * 0.07) * (0.5 + 0.5 * size); b.size = b.full; b.age = 0; b.life = 0.3 + Math.random() * 0.2; b.spin = Math.random() * 6.28;
       });
       active = PUFFS;
       mesh.visible = true;

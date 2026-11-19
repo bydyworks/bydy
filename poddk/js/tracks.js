@@ -1,4 +1,4 @@
-// 눈 위의 자국: 발자국과 눈 천사.
+// 눈 위의 자국: 발자국, 눈 천사, 그리고 여우의 작은 발자국.
 // 자국마다 "찍힌 시각"을 기억해 두고, 지금 시각에 얼마나 남아 보일지는 clock.js 의 규칙(printAlpha)으로 정한다.
 // 수천 개를 한 번에 그리기 위해 같은 모양을 복제해 그린다(InstancedMesh).
 import * as THREE from 'three';
@@ -6,6 +6,7 @@ import { printAlpha } from './clock.js';
 
 const MAX_PRINTS = 4000;
 const MAX_ANGELS = 120;
+const MAX_PAWS = 2400;            // 여우 발자국 (작고, 금방 사라진다)
 const CELL = 0.25;                // "다져진 길" 판정용 격자 한 칸 (새 눈과 밟힌 눈의 소리가 다르다)
 const Y = 0.012;                  // 땅에서 살짝 띄운다 (겹쳐 깜빡이지 않게)
 
@@ -43,6 +44,13 @@ function flat(parts) {
 function footprintGeometry() {
   const parts = [[new THREE.CircleGeometry(0.05, 10), 0, -0.02]];
   for (const ang of [-0.5, 0, 0.5]) parts.push([new THREE.CircleGeometry(0.034, 8), Math.sin(ang) * 0.095, Math.cos(ang) * 0.095 - 0.02, ang, 0.75, 2.4]);
+  return flat(parts);
+}
+
+/** 여우 발자국 한 개: 동그란 발바닥 + 앞(+Z)의 작은 발가락 셋. 길이 약 0.11 — 펭귄 발자국의 절반 */
+function pawGeometry() {
+  const parts = [[new THREE.CircleGeometry(0.03, 9), 0, -0.012, 0, 1.1, 1]];
+  for (const x of [-0.026, 0, 0.026]) parts.push([new THREE.CircleGeometry(0.0135, 7), x, 0.036 - Math.abs(x) * 0.35, 0, 1, 1.25]);
   return flat(parts);
 }
 
@@ -89,6 +97,7 @@ function layer(scene, geometry, capacity, order) {
 export function createTracks(scene) {
   const angels = layer(scene, angelGeometry(), MAX_ANGELS, 1);        // 넓은 자국을 먼저, 그 위에 발자국
   const prints = layer(scene, footprintGeometry(), MAX_PRINTS, 2);
+  const paws = layer(scene, pawGeometry(), MAX_PAWS, 2);
   const grid = new Map();           // "ix,iz" → [그 칸이 마지막으로 밟힌 시각, 몇 번째 걸음이었는지]
   let stepNo = 0;                   // 지금까지 찍은 걸음 수 (방금 찍은 내 발자국 옆을 "밟힌 길"로 착각하지 않으려고 센다)
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3(1, 1, 1), up = new THREE.Vector3(0, 1, 0);
@@ -105,7 +114,7 @@ export function createTracks(scene) {
     L.items[i] = item;
     L.next = (L.next + 1) % L.capacity;
     L.size = Math.min(L.size + 1, L.capacity);
-    p.set(item.x, Y + (L === prints ? 0.03 : 0), item.z);       // 발자국은 눈 천사 자국보다 위에
+    p.set(item.x, Y + (L === prints ? 0.03 : L === paws ? 0.02 : 0), item.z);       // 발자국은 눈 천사 자국보다 위에
     q.setFromAxisAngle(up, item.yaw);
     m.compose(p, q, s);
     L.mesh.setMatrixAt(i, m);
@@ -119,6 +128,15 @@ export function createTracks(scene) {
   function addPrint(x, z, yaw, side, birth) {
     put(prints, { x, z, yaw: yaw - side * 0.28, birth });      // 펭귄은 발끝이 살짝 안쪽을 향한다 (side: 몸 기준 +X 쪽 발이 +1)
     stamp(x, z, 1, birth, ++stepNo);
+  }
+
+  /** 여우 발자국 하나. life: 다 흐려지기까지의 시간(ms). 소리가 달라지는 "다져진 길"로는 치지 않는다 */
+  function addPaw(x, z, yaw, birth, life) {
+    put(paws, { x, z, yaw, birth, life });
+  }
+  /** 여우 발자국을 모두 지운다 (시계가 건너뛰어 처음부터 다시 그려야 할 때) */
+  function clearPaws() {
+    paws.items.fill(undefined); paws.next = 0; paws.size = 0; paws.mesh.count = 0;
   }
 
   /** 눈 천사 자국. grow: 0..1 (휘젓는 동안 서서히 드러난다) */
@@ -139,7 +157,7 @@ export function createTracks(scene) {
     let alive = 0;
     for (let i = 0; i < L.size; i++) {
       const it = L.items[i];
-      let a = it ? printAlpha(it.birth, now) : 0;
+      let a = it ? printAlpha(it.birth, now, it.life) : 0;
       if (it && it.grow !== undefined) a *= it.grow * 0.62;      // 눈 천사는 넓은 자국이라 발자국보다 옅게 그린다
       if (a > 0.01) alive++;
       L.alpha.array[i] = a * 0.9;
@@ -148,10 +166,11 @@ export function createTracks(scene) {
     return alive;
   }
 
-  let alive = 0;
+  let alive = 0, pawsAlive = 0;
   /** 지금 시각에 맞춰 모든 자국의 흐림을 다시 정한다 */
   function update(now) {
     alive = refreshLayer(prints, now) + refreshLayer(angels, now);
+    pawsAlive = refreshLayer(paws, now);
     if (grid.size > 60000) for (const [k, v] of grid) if (printAlpha(v[0], now) <= 0) grid.delete(k);
   }
 
@@ -170,7 +189,10 @@ export function createTracks(scene) {
   }
 
   return {
-    addPrint, addAngel, isPacked, update, dump, restore, get alive() { return alive; },
+    addPrint, addAngel, addPaw, clearPaws, isPacked, update, dump, restore, get alive() { return alive; },
+    /** 점검용: 여우 발자국의 수(지금 보이는 것 / 찍어 둔 것)와 자리 */
+    get pawsAlive() { return pawsAlive; }, get pawCount() { return paws.size; },
+    paws: () => paws.items.slice(0, paws.size).filter(Boolean).map((it) => ({ x: it.x, z: it.z, birth: it.birth })),
     /** 점검용: 지금 그려지는 발자국들의 진하기 */
     alphas: () => Array.from(prints.alpha.array.subarray(0, prints.size)), get printCount() { return prints.size; }, get angelCount() { return angels.size; },
   };

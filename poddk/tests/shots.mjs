@@ -14,13 +14,13 @@ try {
   const jobs = [
     ['01-start', 't=17:05&speed=0&look=scarf&color=0', { enter: false }],
     ['02-sunset', 't=16:35&speed=0&look=scarf&color=0', { walk: [0.25, 1, 5000] }],
-    ['03-noon', 't=12:20&speed=0&look=blanket&color=5', { walk: [-0.3, 1, 4000] }],
+    ['03-noon', 't=13:20&speed=0&look=blanket&color=5', { walk: [-0.3, 1, 4000] }],
     ['04-dawn', 't=07:35&speed=0&look=scarf&color=3', { walk: [0, 1, 4000] }],
-    ['05-night', 't=21:30&speed=0&look=blanket&color=2', { walk: [0.2, 1, 4000] }],
-    ['06-blizzard', 't=02:00&speed=0&look=scarf&color=0', { walk: [0, 1, 3000] }],
+    ['05-night', 't=21:45&speed=0&look=blanket&color=2', { walk: [0.2, 1, 4000] }],
+    ['06-blizzard', 't=03:12&speed=0&look=scarf&color=0', { walk: [0, 1, 3000] }],
     ['07-angel', 't=15:40&speed=0&look=scarf&color=4', { walk: [0.5, 1, 2500], angel: true }],
     ['08-wide-sunset', 't=16:50&speed=0&look=blanket&color=0', { walk: [0.4, 1, 5000], viewport: { width: 1280, height: 720 }, mobile: false }],
-    ['09-wide-night-tree', 't=21:00&speed=0&look=scarf&color=0', { walk: [0, 0, 100], viewport: { width: 1280, height: 720 }, mobile: false, far: true }],
+    ['09-wide-night-tree', 't=21:40&speed=0&look=scarf&color=0', { walk: [0, 0, 100], viewport: { width: 1280, height: 720 }, mobile: false, far: true }],
   ];
 
   for (const [name, query, o] of jobs) {

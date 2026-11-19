@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>뽀드득 · poddk</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="description" content="뽀드득 (poddk) — Walking in a Winter Wonderland. 눈밭을 걷는 작은 공간. 지나간 자리에 발자국이 남고, 자정이 되면 폭설이 모두 지워요.">
+<meta name="description" content="뽀드득 (poddk) — Walking in a Winter Wonderland. 눈밭을 걷는 작은 공간. 지나간 자리에 발자국이 남고, 세 시간마다 폭설이 모두 지워요.">
 <meta property="og:title" content="뽀드득 · poddk">
 <meta property="og:description" content="Walking in a Winter Wonderland — 걸으면 발자국이 남아요.">
 <meta name="theme-color" content="#dfe6f5">
@@ -22,8 +22,15 @@
   <div id="storm">&nbsp;</div>
   <div id="carol"></div>
 </div>
-<button id="mute" type="button" aria-pressed="false">소리 켜짐</button>
-<button id="angel" type="button" aria-label="눈 천사 만들기">
+<!-- 버튼은 모두 글자 없이 그림만: 오른쪽 위 소리, 오른쪽 아래 한 줄로 위에서부터 캡쳐 → 눈 천사 → 확대·축소 -->
+<button id="mute" class="ui" type="button" aria-pressed="false" aria-label="소리 끄기">
+  <svg class="icon on" viewBox="0 0 24 24" aria-hidden="true"><path class="solid" d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/></svg>
+  <svg class="icon off" viewBox="0 0 24 24" aria-hidden="true"><path class="solid" d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"/><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg>
+</button>
+<button id="shot" class="ui" type="button" aria-label="지금 화면을 사진으로 저장">
+  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h3.2l1.5-2.2h6.6l1.5 2.2H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.4" r="3.3"/></svg>
+</button>
+<button id="angel" class="ui" type="button" aria-label="눈 천사 만들기">
   <!-- 눈 위에 실제로 남는 자국과 같은 모양 (js/tracks.js 의 angelGeometry: 머리, 몸통, 날개가 쓴 부채꼴 둘, 발이 쓴 부채꼴 둘) -->
   <svg class="angel-icon" viewBox="-1.15 -1.12 2.3 2.02" aria-hidden="true">
     <path d="M-0.25 -0.38 L-0.693 -1.07 A0.82 0.82 0 0 0 -0.693 0.31 Z"/>
@@ -33,15 +40,27 @@
     <ellipse cx="0" cy="-0.05" rx="0.54" ry="0.6"/>
     <circle cx="0" cy="-0.66" r="0.36"/>
   </svg>
-  <span>눈 천사</span>
+  <!-- 낚시 구멍 곁에서는 물고기 그림으로, 낚시하는 동안에는 그만두기(✕) 그림으로 바뀐다 -->
+  <svg class="icon quit-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>
+  <svg class="icon fish-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12c2.6-3.6 6-5.2 9.6-5.2 2.4 0 4.6 1.2 6.4 3.2l2-2.2v8.4l-2-2.2c-1.8 2-4 3.2-6.4 3.2-3.6 0-7-1.6-9.6-5.2z"/><circle class="solid" cx="8.4" cy="11" r="1"/></svg>
 </button>
+<div id="zoom" class="ui" role="group" aria-label="가까이·멀리 보기">
+  <button id="zoom-in" type="button" aria-label="가까이 보기"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg></button>
+  <button id="zoom-out" type="button" aria-label="멀리 보기"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+</div>
+<div id="flash" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
+<!-- 공유 창도 내려받기도 없는 휴대폰 브라우저에서 찍은 사진을 보여 주는 자리 (길게 눌러 저장한다) -->
+<div id="photo" hidden>
+  <figure><img alt="방금 찍은 사진"><figcaption>사진을 길게 눌러 저장하세요</figcaption></figure>
+  <button type="button" aria-label="닫기">닫기</button>
+</div>
 
 <div id="start">
   <div class="start-card">
     <h1>뽀드득 <span class="latin">poddk</span></h1>
     <p class="sub">Walking in a Winter Wonderland</p>
-    <p>걸으면 발자국이 남아요.<br>자정이 되면 폭설이 모두 지워요.</p>
+    <p>걸으면 발자국이 남아요.<br>세 시간마다 폭설이 모두 지워요.</p>
     <button id="enter" type="button">걸어 들어가기</button>
     <p class="hint">소리를 켜고 걸어 보세요</p>
   </div>

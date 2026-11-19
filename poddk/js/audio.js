@@ -27,7 +27,7 @@ export function createAudio(baseUrl = 'audio/') {
   let started = false;
   let weather = 0.3;
   const last = { fresh: -1, packed: -1 };
-  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, stepLen: 0, carol: null };
+  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, water: 0, stepLen: 0, carol: null };
   let box = null;               // 트리의 오르골 (carols.js)
   let treeDistance = 999;
 
@@ -130,6 +130,38 @@ export function createAudio(baseUrl = 'audio/') {
       stats.fx++;
       const at = name === 'bodyfall' ? MAP.bodyfall : MAP.rustle[0];
       shot(buffers.fx, at, volume, 0.92 + Math.random() * 0.2);
+    },
+    /**
+     * 낚시터의 물소리 (녹음이 아니라 코드로 만든 소리).
+     * 'plop': 찌가 쑥 들어가거나 물고기를 놓아줄 때의 퐁, 'splash': 낚아 올릴 때의 첨벙
+     */
+    water(kind) {
+      stats.water++;
+      if (!ctx || muted || ctx.state !== 'running') return;
+      const t = ctx.currentTime;
+      const tone = (from, to, at, len, peak) => {              // 높이가 뚝 떨어지는 짧은 소리 한 방울
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(from, t + at);
+        osc.frequency.exponentialRampToValueAtTime(to, t + at + len);
+        gain.gain.setValueAtTime(0, t + at);
+        gain.gain.linearRampToValueAtTime(peak, t + at + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + at + len + 0.06);
+        osc.connect(gain).connect(master);
+        osc.start(t + at); osc.stop(t + at + len + 0.1);
+        osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+      };
+      if (kind === 'plop') { tone(540, 170, 0, 0.11, 0.2); tone(820, 430, 0.075, 0.07, 0.07); return; }
+      // 첨벙: 낮은 퐁 위에 물 튀는 소리(걸러 낸 잡음)를 얹는다
+      tone(260, 95, 0, 0.14, 0.2); tone(700, 300, 0.11, 0.09, 0.06);
+      const len = 0.5, buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate), data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 2.2);
+      const src = ctx.createBufferSource(), band = ctx.createBiquadFilter(), gain = ctx.createGain();
+      src.buffer = buffer; band.type = 'bandpass'; band.frequency.value = 1900; band.Q.value = 0.6;
+      gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(0.13, t + 0.03); gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      src.connect(band).connect(gain).connect(master);
+      src.start(t);
+      src.onended = () => { src.disconnect(); band.disconnect(); gain.disconnect(); };
     },
     /** 트리까지의 거리: 가까울수록 오르골 캐롤이 크게 들린다 */
     setTreeDistance(d) { treeDistance = d; if (box) box.setDistance(d); },

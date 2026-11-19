@@ -33,27 +33,55 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 #carol { font-size: 12px; font-weight: 700; color: #b0533c; }       /* 트리 가까이에서 들리는 캐롤의 제목 */
 #carol:empty { display: none; }
 
-#mute {
-  position: fixed; right: calc(12px + var(--safe-r)); top: calc(10px + var(--safe-t)); height: 36px; padding: 0 13px; border-radius: 18px; background: var(--paper);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); font-size: 12px; font-weight: 700; opacity: 0; transition: opacity .6s;
-}
-#mute[aria-pressed="true"] { opacity: 0.6; }
+/* 버튼: 글자 없이 그림만. 오른쪽 위에 소리, 오른쪽 아래에 한 줄로 위에서부터 캡쳐 → 눈 천사 → 확대·축소 (모두 같은 너비).
+   가장 자주 쓰는 확대·축소가 엄지에 가장 가까운 맨 아래에 온다 */
+:root { --btn: 54px; --gap: 12px; --col-r: calc(18px + var(--safe-r)); --col-b: calc(26px + var(--safe-b)); --zoom-h: calc(var(--btn) * 2 - 8px); }
+.ui { position: fixed; opacity: 0; transition: opacity .6s, transform .12s; touch-action: manipulation; }
+.ui, .ui button { -webkit-touch-callout: none; }
+.icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.icon .solid { fill: currentColor; stroke: none; }
+#mute, #shot, #angel, #zoom { background: var(--paper); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#shot, #angel, #zoom { right: var(--col-r); width: var(--btn); border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2); }
+#mute, #shot, #angel, #zoom button { display: flex; align-items: center; justify-content: center; padding: 0; }
 
-/* 오른쪽 아래: 눈 천사 */
-#angel {
-  position: fixed; right: calc(18px + var(--safe-r)); bottom: calc(26px + var(--safe-b)); width: 84px; height: 84px; border-radius: 50%; background: var(--paper);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; font-size: 13px; font-weight: 800; opacity: 0; transition: opacity .6s, transform .12s;
-}
-#angel .angel-icon { width: 40px; height: 35px; fill: #8793cc; }      /* 눈 위의 자국과 같은 푸른 그늘 색 */
-#angel:active { transform: scale(0.93); }
+#mute { right: calc(12px + var(--safe-r)); top: calc(10px + var(--safe-t)); width: 40px; height: 40px; border-radius: 50%; }
+#mute .icon { width: 22px; height: 22px; }
+#mute .off, #mute[aria-pressed="true"] .on { display: none; }
+#mute[aria-pressed="true"] .off { display: block; }
+#mute[aria-pressed="true"] { color: rgba(42, 49, 88, 0.6); }
+
+#angel { bottom: calc(var(--col-b) + var(--zoom-h) + var(--gap)); height: var(--btn); border-radius: 50%; }
+#angel .angel-icon { width: 34px; height: 30px; fill: #8793cc; }      /* 눈 위의 자국과 같은 푸른 그늘 색 */
 #angel.busy { opacity: 0.45 !important; pointer-events: none; }
+/* 낚시 구멍 곁에서는 물고기 그림(낚시하기), 낚시하는 동안에는 ✕(그만두기). 입질이 오면 다시 물고기 그림이 되어 두근거린다 */
+#angel .fish-icon, #angel .quit-icon { display: none; width: 30px; height: 30px; color: #4f6fb0; }
+#angel .quit-icon { width: 26px; height: 26px; color: var(--ink); }
+#angel.fish .angel-icon, #angel.quit .angel-icon { display: none; }
+#angel.fish .fish-icon { display: block; }
+#angel.quit .quit-icon { display: block; }
+#angel.hold { opacity: 0.45 !important; pointer-events: none; }
+#angel.bite { animation: bite .42s ease-in-out infinite; }
+@keyframes bite { 0%, 100% { transform: scale(1); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2), 0 0 0 0 rgba(79, 111, 176, 0.5); } 50% { transform: scale(1.12); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2), 0 0 0 10px rgba(79, 111, 176, 0); } }
+#shot { bottom: calc(var(--col-b) + var(--zoom-h) + var(--btn) + 2 * var(--gap)); height: var(--btn); border-radius: 50%; }
+#shot.busy { pointer-events: none; }
+#zoom { bottom: var(--col-b); height: var(--zoom-h); border-radius: calc(var(--btn) / 2); display: flex; flex-direction: column; overflow: hidden; }
+#zoom button { flex: 1; background: none; }
+#zoom button + button { border-top: 1.5px solid rgba(42, 49, 88, 0.14); }
+#zoom button:disabled { color: rgba(42, 49, 88, 0.28); }
+#mute:active, #shot:active, #angel:active { transform: scale(0.93); }
+#zoom button:active:not(:disabled) { background: rgba(42, 49, 88, 0.08); }
 
-body.in #hud, body.in #mute, body.in #angel { opacity: 1; }
-body:not(.in) #mute, body:not(.in) #angel { pointer-events: none; }
+body.in #hud, body.in .ui { opacity: 1; }
+body:not(.in) .ui { pointer-events: none; }
 
+/* 사진을 찍는 순간: 화면이 아주 살짝 밝아졌다 돌아온다 */
+#flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+#flash.go { animation: flash .32s ease-out; }
+@keyframes flash { 0% { opacity: 0; } 18% { opacity: 0.3; } 100% { opacity: 0; } }
+
+/* 안내 글: 위쪽 가운데 (아래쪽은 버튼과 조이스틱의 자리) */
 #toast {
-  position: fixed; left: 50%; bottom: calc(132px + var(--safe-b)); transform: translate(-50%, 8px); max-width: min(86vw, 420px); padding: 10px 16px; border-radius: 16px;
+  position: fixed; left: 50%; top: calc(96px + var(--safe-t)); transform: translate(-50%, -8px); max-width: min(86vw, 420px); padding: 10px 16px; border-radius: 16px;
   background: rgba(42, 49, 88, 0.82); color: #fff; font-size: 14px; font-weight: 600; text-align: center; word-break: keep-all; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -70,11 +98,19 @@ body.in #start { opacity: 0; pointer-events: none; }
 #enter:active { transform: scale(0.98); }
 .start-card .hint { margin: 12px 0 0; font-size: 12px; opacity: 0.65; }
 
+/* 찍은 사진을 보여 주는 자리: 어둑한 바탕 위에 사진 한 장과 안내 한 줄, 닫기 */
+#photo { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; background: rgba(28, 34, 66, 0.72); }
+#photo[hidden] { display: none; }
+#photo figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 0; }
+#photo img { display: block; max-width: 100%; max-height: 68vh; border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
+#photo figcaption { color: #fff; font-size: 14px; font-weight: 600; }
+#photo button { height: 44px; padding: 0 26px; border-radius: 22px; background: rgba(255, 255, 255, 0.92); color: var(--ink); font-size: 15px; font-weight: 700; }
+
 /* 낮은 화면(휴대폰 가로): 버튼을 조금 작게 */
 @media (max-height: 430px) {
-  #angel { width: 70px; height: 70px; bottom: calc(14px + var(--safe-b)); font-size: 12px; }
-  #angel .angel-icon { width: 33px; height: 29px; }
-  #toast { bottom: calc(96px + var(--safe-b)); }
+  :root { --btn: 46px; --gap: 8px; --col-b: calc(12px + var(--safe-b)); }
+  #angel .angel-icon { width: 29px; height: 26px; }
+  #toast { top: calc(12px + var(--safe-t)); left: calc(50% + 72px); max-width: min(48vw, 400px); }      /* 왼쪽 위의 시각 표시와 오른쪽 위의 소리 버튼 사이에 */
   .start-card { padding: 16px 20px 14px; }
   .start-card h1 { font-size: 26px; margin-bottom: 0; }
   .start-card .sub { margin-bottom: 6px; font-size: 12px; }
