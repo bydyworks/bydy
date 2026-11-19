@@ -36,7 +36,7 @@ function deviceId() {
 /**
  * @param {{ url: string, scene: THREE.Scene, camera: THREE.Camera, tracks: object, name: () => string, look: { blanket: boolean, color: string }, onCount: (n: number) => void }} o
  */
-export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {}, onBall = () => {} }) {
+export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {}, onBall = () => {}, onSocial = () => {} }) {
   const peers = new Map();                 // id → { root, name, s(받은 모습), x, z, yaw, phase, t(시각), bubble }
   const stats = { connected: false, sent: 0, got: 0, marksIn: 0, marksOut: 0, tries: 0 };
   let ws = null, myId = null, wait = 2, sendIn = 0, beatIn = 0, lastSent = '', outbox = [], closed = !url, time = 0;
@@ -97,11 +97,13 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
       for (const p of m.peers) { const q = add(p.id, p.name, p.look, p.color); if (p.s) { q.s = p.s; q.x = p.s.x; q.z = p.s.z; q.yaw = p.s.yaw; } }
       for (let i = m.marks.length - 1; i >= 0; i--) mark(m.marks[i]);      // (오래된 것부터)
       onCount(peers.size);
+      onSocial({ t: 'hello', wishes: m.wishes || [], wrote: !!m.wrote, snowmen: m.snowmen || [] });      // 소원판의 소원들, 눈밭의 눈사람들
     } else if (m.t === 'join') { add(m.id, m.name, m.look, m.color); onCount(peers.size); }
     else if (m.t === 'bye') { drop(m.id); onCount(peers.size); }
     else if (m.t === 's') { const p = peers.get(m.id); if (p) { const first = !p.s; p.s = m.s; if (first) { p.x = m.s.x; p.z = m.s.z; p.yaw = m.s.yaw; } } }
     else if (m.t === 'm') for (const q of m.l) mark(q);
     else if (m.t === 'g') onGame(m);
+    else if (m.t === 'wish' || m.t === 'wished' || m.t === 'sm' || m.t === 'smx') onSocial(m);
     else if (m.t === 'b') { const p = peers.get(m.id); if (p) { p.threw = 0; onBall({ ...m, name: p.name }); } }
   }
 
@@ -116,6 +118,12 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     get id() { return myId; },
     /** 이글루 안 주사위 놀이: op 'invite'(같은 방에 앉은 펭귄들 부르기) | 'join' | 'roll' | 'leave' */
     game(op, gid) { send({ t: 'g', op, gid }); },
+    /** 소원 하나를 붙인다 (서버가 'wished' 로 답한다) */
+    wish(text) { send({ t: 'wish', text }); },
+    /** 눈사람을 세웠다 / 이상한 그림이라 신고한다 / 내 눈사람을 허문다 */
+    snowman(x, z, yaw, d) { send({ t: 'sm', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, yaw: Math.round(yaw * 100) / 100, d }); },
+    snowmanReport(id) { send({ t: 'smr', id }); },
+    snowmanRemove(id) { send({ t: 'smd', id }); },
     /** 눈덩이를 던졌다: 내 자리(x, z)에서 (tx, tz)로, to: 맞힐 펭귄의 번호 */
     ball(x, z, tx, tz, to) { send({ t: 'b', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, tx: Math.round(tx * 100) / 100, tz: Math.round(tz * 100) / 100, to: to || '' }); },
     /** 이름으로 다른 펭귄 찾기 (번호 → 이름) */

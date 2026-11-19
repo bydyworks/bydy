@@ -393,7 +393,7 @@ try {
 
   await test('버튼은 글자 없이 그림만 있고, 소리 버튼을 누르면 꺼짐 그림으로 바뀐다', async () => {
     const p = await page();
-    const ui = await p.evaluate(() => ['#mute', '#shot', '#act', '#slide', '#angel', '#flap'].map((q) => { const el = document.querySelector(q); return { q, text: el.textContent.trim(), label: el.getAttribute('aria-label') || '', svg: el.querySelectorAll('svg').length }; }));
+    const ui = await p.evaluate(() => ['#mute', '#shot', '#act', '#slide', '#angel', '#flap'].map((q) => { const el = document.querySelector(q), c = el.cloneNode(true); c.querySelectorAll('.emo').forEach((x) => x.remove()); return { q, text: c.textContent.trim(), label: el.getAttribute('aria-label') || '', svg: el.querySelectorAll('svg').length }; }));
     for (const b of ui) assert(b.text === '' && b.label.length > 2 && b.svg >= 1, '글자 없이 그림과 설명만 있어야 한다: ' + JSON.stringify(b));
     const mute = () => p.evaluate(() => { const el = document.querySelector('#mute'), show = (c) => getComputedStyle(el.querySelector(c)).display !== 'none'; return { pressed: el.getAttribute('aria-pressed'), label: el.getAttribute('aria-label'), on: show('.on'), off: show('.off') }; });
     let m = await mute();
@@ -891,7 +891,7 @@ try {
     const paws = await snow(p, () => {
       const s = window.__snow, now = s.clock.now(), list = s.tracks.paws();
       let off = 0, newest = -Infinity, oldest = Infinity;
-      for (const it of list) { const f = s.fox.at(it.birth); off = Math.max(off, Math.hypot(it.x - f.x, it.z - f.z)); newest = Math.max(newest, it.birth); oldest = Math.min(oldest, it.birth); }
+      for (const it of list) { const f = s.fox.at(it.birth), g = s.arctic.at(it.birth); off = Math.max(off, Math.min(Math.hypot(it.x - f.x, it.z - f.z), Math.hypot(it.x - g.x, it.z - g.z)));      // (붉은여우나 북극여우 가운데 하나의 길 위) newest = Math.max(newest, it.birth); oldest = Math.min(oldest, it.birth); }
       const f = s.fox.at(now), last = list.reduce((a, b) => (b.birth > a.birth ? b : a), list[0]);
       return { n: list.length, alive: s.tracks.pawsAlive, off, newest: now - newest, oldest: now - oldest, lastGap: Math.hypot(last.x - f.x, last.z - f.z), prints: s.tracks.printCount };
     });
@@ -1017,7 +1017,7 @@ try {
     // 서로 겹치지 않고 멀리 떨어져 있다 (이글루끼리도, 낚시터끼리도, 이글루와 낚시터도)
     let closest = 1e9;
     for (let i = 0; i < sites.length; i++) for (let j = i + 1; j < sites.length; j++) closest = Math.min(closest, Math.hypot(sites[i].x - sites[j].x, sites[i].z - sites[j].z));
-    assert(closest > 40, '두 곳이 너무 가깝다: ' + closest.toFixed(1));
+    assert(closest > 24, '두 곳이 너무 가깝다: ' + closest.toFixed(1));      // (눈밭을 줄여 트리 둘레에 오밀조밀하게 모았다)
     // 트리 둘레에 흩어져 있다: 트리에서 멀찍이, 들판 안에, 들어오는 자리에서 바로 보이지 않을 만큼 떨어져, 여러 방향에
     for (const g of sites) {
       const r = Math.hypot(g.x, g.z);
