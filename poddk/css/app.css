@@ -361,3 +361,19 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #me-say::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; margin-left: -6px; background: inherit; transform: rotate(45deg); border-radius: 0 0 3px 0; }
 #me-say small { display: block; font-size: 11px; font-weight: 700; color: #4a6382; }
 
+/* 오른쪽 아래 단추들도 오른쪽 위 소리 단추와 같은 크기로 (40px) */
+:root { --btn: 40px; --gap: 12px; }
+#shot .g { width: 21px; height: 21px; }
+#slide .slide-icon { width: 26px; height: 20px; }
+#angel .angel-icon { width: 25px; height: 22px; }
+#flap .flap-icon { width: 26px; height: 23px; }
+#angel .fish-icon { width: 23px; height: 23px; }
+#angel .quit-icon { width: 20px; height: 20px; }
+#angel .enter-icon, #angel .exit-icon, #angel .sit-icon, #angel .stand-icon { width: 22px; height: 22px; }
+@media (max-height: 430px) { :root { --btn: 40px; --gap: 9px; } }
+
+/* 함께 걷는 펭귄 수, 다른 펭귄의 말풍선 */
+#peers { font-size: 12.5px; font-weight: 700; color: var(--brown-soft); }
+.peer-say { position: fixed; left: 0; top: 0; z-index: 1; padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: 800; color: #27405f; white-space: nowrap; pointer-events: none; background: rgba(255, 255, 255, 0.85); box-shadow: 0 4px 12px rgba(36, 64, 110, 0.16); transform: translate(-50%, -100%); }
+.peer-say[hidden] { display: none; }
+.peer-say small { display: block; font-size: 10.5px; font-weight: 700; color: #4a6382; }

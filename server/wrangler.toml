@@ -1,0 +1,15 @@
+# 뽀드득 2단계 서버: 여럿이 함께 걷는 눈밭.
+# Worker 하나와, 눈밭 전체를 맡는 Durable Object 하나(Field). 접속한 펭귄들의 자리와 남긴 자국을 주고받는다.
+name = "poddk"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true          # https://poddk.poddk-server.workers.dev
+preview_urls = false
+
+[[durable_objects.bindings]]
+name = "FIELD"
+class_name = "Field"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Field"]
