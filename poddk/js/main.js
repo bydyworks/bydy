@@ -440,7 +440,6 @@ function tick(t) {
     $('#zoom-out').disabled = me.camDist >= CAM_DIST_MAX - 0.01;
   }
   showAction();
-  if (hudAway ? rested > HUD_BACK_AFTER : strolled > HUD_HIDE_AFTER) { hudAway = !hudAway; document.body.classList.toggle('walking', hudAway); }
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
   raf = document.hidden ? 0 : requestAnimationFrame(tick);

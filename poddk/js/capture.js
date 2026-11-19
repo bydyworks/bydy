@@ -42,13 +42,7 @@ export function createCapture({ canvas, draw, touch }) {
       if (!blob) throw new Error('사진을 만들지 못했어요');
       const name = `poddk-${stamp()}.jpg`;
       const info = { how: 'download', width: out.width, height: out.height, bytes: blob.size, name };
-      if (touch && navigator.canShare) {
-        const file = new File([blob], name, { type: 'image/jpeg' });
-        if (navigator.canShare({ files: [file] })) {
-          try { await navigator.share({ files: [file] }); info.how = 'share'; return info; }
-          catch (e) { if (e && e.name === 'AbortError') { info.how = 'cancel'; return info; } }      // 공유를 못 하면 아래에서 내려받는다
-        }
-      }
+      // 휴대폰: 공유 창을 띄우지 않고 사진을 화면에 띄운다 (꾹 눌러 사진첩에 저장)
       if (touch) { info.how = 'show'; info.url = URL.createObjectURL(blob); return info; }
       download(blob, name);
       return info;
