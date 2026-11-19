@@ -66,7 +66,7 @@ try {
 
   await test('처음 화면은 무엇을 하는 곳인지 알려 주고, 들어가면 걷는 법과 둘러보는 법이 화면에 잠깐 보였다가 해 보면 사라진다', async () => {
     const p = await page(undefined, { enter: false });
-    const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').getAttribute('aria-label'), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
+    const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').textContent.trim(), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
     const SAYINGS = ['우연히 뽀드득 명당을 발견했다!오늘 산책은 여기로 정했어.', '뽀드득 소리가 딱 좋은 눈밭이다!조금만 더 놀다 가야지.', '아무도 안 밟은 새하얀 눈밭이잖아?내 발자국부터 남겨봐야지.', '뒤뚱뒤뚱 걷다 보니 눈밭을 찾았네.여기 눈, 소리가 유난히 좋잖아?'];
     assert(card.title === '뽀드득' && card.sub === null && SAYINGS.includes(card.say) && card.button === '눈 밟으러 가기' && card.hint.includes('소리'), '처음 화면의 글: ' + JSON.stringify(card));
     // 제목 아래의 한마디는 올 때마다 넷 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
@@ -328,26 +328,15 @@ try {
     assert((await state(p)).camDist === d, '손을 뗐는데 계속 움직인다');
   });
 
-  await test('걷는 동안에는 위쪽 글이 물러나고, 멈춰 서면 다시 나온다 (눈 천사나 낚시 중에는 그대로 보인다)', async () => {
+  await test('걷는 동안에도 위쪽 정보 상자는 그대로 보인다', async () => {
     const p = await page();
     await byHand(p);
-    const hud = () => p.evaluate(() => ({ away: document.body.classList.contains('walking'), opacity: Number(getComputedStyle(document.querySelector('#hud')).opacity) }));
-    await until(async () => (await hud()).opacity > 0.95, { what: '들어온 직후의 위쪽 글' });
-    await snow(p, () => { const s = window.__snow; s.controls.debugMove(0, 1); s.sim(0.5); });
-    await sleep(120);
-    assert(!(await hud()).away, '걸음을 떼자마자 사라지면 안 된다');
-    await snow(p, () => window.__snow.sim(0.8));
-    await until(async () => { const h = await hud(); return h.away && h.opacity < 0.05; }, { what: '걷는 동안 물러남' });
-    await snow(p, () => { const s = window.__snow; s.controls.debugMove(0, 0); s.sim(0.8); });
-    await sleep(120);
-    assert((await hud()).away, '잠깐 멈칫한 것만으로 다시 나오면 깜박거린다');
-    await snow(p, () => window.__snow.sim(0.8));
-    await until(async () => { const h = await hud(); return !h.away && h.opacity > 0.95; }, { what: '멈춰 서면 다시 나옴' });
-    // 눈 천사를 하는 동안에는 조이스틱을 밀어도 걷는 것이 아니다
-    await p.click('#angel');
-    await snow(p, () => { const s = window.__snow; s.controls.debugMove(0, 1); s.sim(2.5); s.controls.debugMove(0, 0); });
-    await sleep(120);
-    assert(!(await hud()).away, '눈 천사를 하는 동안 위쪽 글이 사라졌다');
+    const op = () => p.evaluate(() => Number(getComputedStyle(document.querySelector('#hud')).opacity));
+    await until(async () => (await op()) > 0.95, { what: '들어온 직후의 위쪽 글' });
+    await snow(p, () => { const s = window.__snow; s.controls.debugMove(0, 1); s.sim(4); });
+    await sleep(900);
+    assert((await op()) > 0.95, '걷는 동안 위쪽 정보 상자가 사라졌다');
+    await snow(p, () => window.__snow.controls.debugMove(0, 0));
   });
 
   await test('글자와 그림은 바탕과 또렷이 구분된다 (작은 글자 4.5:1, 단추의 그림 3:1 이상 — 낮, 해 질 녘, 밤 모두)', async () => {
@@ -356,13 +345,14 @@ try {
       const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
       const rgb = (s) => s.match(/[\d.]+/g).slice(0, 3).map(Number);
       const lum = (s) => { const [r, g, b] = rgb(s).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
-      const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+      const glass = (c) => (/rgba\(.*,\s*0\)$/.test(c) || c === 'transparent' ? 'rgb(228, 240, 252)' : c);      // 얼음 유리: 바탕이 그림(그러데이션)이라 대표 색으로 본다
+      const ratio = (a, b) => { const x = lum(glass(a)), y = lum(glass(b)); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
       const css = (q, prop) => getComputedStyle(document.querySelector(q))[prop];
       const hud = css('#hud', 'backgroundColor');
       return {
         clock: ratio(css('#clock', 'color'), hud), storm: ratio(css('#storm', 'color'), hud), carol: ratio(css('#carol', 'color'), hud),
         toast: ratio(css('#toast', 'color'), css('#toast', 'backgroundColor')), zoom: ratio(css('#zoom-in', 'color'), css('#zoom', 'backgroundColor')),
-        mute: ratio(css('#mute', 'color'), css('#mute', 'backgroundColor')), shot: ratio(css('#shot', 'color'), css('#shot', 'backgroundColor')), angelIcon: css('#angel .angel-icon', 'fill'),
+        mute: ratio(css('#mute', 'color'), css('#mute', 'backgroundColor')), shot: ratio(css('#shot', 'color'), css('#shot', 'backgroundColor')), angel: ratio(css('#angel .angel-icon', 'fill'), css('#angel', 'backgroundColor')),
         badge: ratio(css('.badge.time', 'color'), css('.badge.time', 'backgroundColor')), snowBadge: ratio(css('.badge.snow', 'color'), css('.badge.snow', 'backgroundColor')), music: ratio(css('.badge.music', 'color'), css('.badge.music', 'backgroundColor')),
         say: ratio(css('.start-card .say', 'color'), css('.start-card', 'backgroundColor')), hint: ratio(css('.start-card .hint', 'color'), css('.start-card', 'backgroundColor')), enter: ratio(css('#enter', 'color'), css('#enter', 'backgroundColor')),
       };
@@ -373,14 +363,13 @@ try {
       await sleep(1500);                                                   // 쪽지 색이 옮겨 가기를 기다린다
       const c = await measure();
       for (const k of ['clock', 'storm', 'carol', 'toast', 'say', 'hint', 'enter']) assert(c[k] >= 4.5, `${time} 글자 ${k} 의 대비 ${c[k].toFixed(2)}`);
-      for (const k of ['zoom', 'mute', 'shot', 'badge', 'snowBadge', 'music']) assert(c[k] >= 3, `${time} 그림 ${k} 의 대비 ${c[k].toFixed(2)}`);
-      assert(c.angelIcon === 'rgb(255, 255, 255)', '눈 천사 그림은 눈 자국이라 흰색이다: ' + c.angelIcon);
+      for (const k of ['zoom', 'mute', 'shot', 'angel', 'badge', 'snowBadge', 'music']) assert(c[k] >= 3, `${time} 그림 ${k} 의 대비 ${c[k].toFixed(2)}`);
     }
     // 낚시 단추의 세 모습도
     await toHole(p);
     await byHand(p);
     await snow(p, () => window.__snow.sim(0.1));
-    const tone = () => p.evaluate(() => { const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; const lum = (s) => { const [r, g, b] = s.match(/[\d.]+/g).slice(0, 3).map(Number).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const el = document.querySelector('#angel'), cs = getComputedStyle(el); const x = lum(cs.color), y = lum(cs.backgroundColor); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); });
+    const tone = () => p.evaluate(() => { const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; const lum = (s) => { const [r, g, b] = s.match(/[\d.]+/g).slice(0, 3).map(Number).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; }; const el = document.querySelector('#angel'), cs = getComputedStyle(el); const bg = /rgba\(.*,\s*0\)$/.test(cs.backgroundColor) ? 'rgb(228, 240, 252)' : cs.backgroundColor; const x = lum(cs.color), y = lum(bg); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); });
     await until(async () => p.evaluate(() => document.querySelector('#angel').classList.contains('fish')), { what: '낚시 단추' });
     await sleep(300); assert((await tone()) >= 3, '낚시하기 단추의 대비 ' + (await tone()).toFixed(2));
     await snow(p, () => { const s = window.__snow; s.fishing.debug.biteIn(1.2); s.act(); s.sim(1.5); });
@@ -391,18 +380,10 @@ try {
     await sleep(300); assert((await tone()) >= 3, '입질 단추의 대비 ' + (await tone()).toFixed(2));
   });
 
-  await test('단추의 색종이는 밝기가 모두 같아서 어느 하나만 튀지 않는다', async () => {
+  await test('단추는 모두 같은 얼음 유리이고, 뒤의 눈밭이 비쳐 보인다', async () => {
     const p = await page();
-    const tones = await p.evaluate(() => {
-      const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
-      const okL = (s) => { const [r, g, b] = s.match(/[\d.]+/g).slice(0, 3).map(Number).map(lin); const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), q = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b); return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * q; };
-      const root = getComputedStyle(document.documentElement), probe = document.createElement('i'); document.body.appendChild(probe);
-      const out = {};
-      for (const name of ['mint', 'coral', 'sky', 'aqua', 'sun', 'gray', 'dusk', 'night', 'plum', 'slate']) { probe.style.color = root.getPropertyValue('--' + name); out[name] = okL(getComputedStyle(probe).color); }
-      probe.remove(); return out;
-    });
-    const values = Object.values(tones);
-    assert(Math.max(...values) - Math.min(...values) < 0.015, '색종이의 밝기가 서로 다르다: ' + JSON.stringify(tones));
+    const looks = await p.evaluate(() => ['#mute', '#shot', '#angel'].map((q) => { const cs = getComputedStyle(document.querySelector(q)); return { q, bg: cs.backgroundImage.slice(0, 40), blur: cs.backdropFilter || cs.webkitBackdropFilter || '' }; }));
+    assert(looks.every((l) => l.bg === looks[0].bg && l.bg.includes('gradient') && l.blur.includes('blur')), '단추의 모습이 서로 다르거나 유리가 아니다: ' + JSON.stringify(looks));
   });
 
   await test('단추를 누르면 살짝 커졌다가 제자리로 돌아온다', async () => {
@@ -459,15 +440,14 @@ try {
     assert(varied > 12, '사진이 한 가지 색뿐이다: ' + varied);
   });
 
-  await test('휴대폰에서 캡쳐하면 공유 창으로 사진을 넘긴다 (사진첩에 저장하거나 보낼 수 있게)', async () => {
-    const init = () => { window.__shared = []; navigator.canShare = (d) => !!(d && d.files && d.files.length); navigator.share = async (d) => { window.__shared.push(d.files[0].name + '|' + d.files[0].type + '|' + (d.files[0].size > 20000)); }; };
+  await test('휴대폰에서 캡쳐하면 공유 창 없이 찍은 사진을 띄우고, 꾹 눌러 저장하게 한다', async () => {
+    const init = () => { window.__shared = []; navigator.canShare = () => true; navigator.share = async () => { window.__shared.push(1); }; };
     const p = await page(undefined, { init });
     await p.click('#shot');
-    await until(async () => (await p.evaluate(() => window.__shared.length)) === 1, { what: '공유 창' });
-    const shared = await p.evaluate(() => window.__shared[0]);
-    assert(/^poddk-\d{8}-\d{6}\.jpg\|image\/jpeg\|true$/.test(shared), '넘긴 사진: ' + shared);
-    assert((await p.evaluate(() => window.__snow.lastShot.how)) === 'share', '공유로 넘기지 않았다');
-    assert(!(await p.textContent('#toast')).includes('저장했어요'), '공유했는데 저장했다고 안내했다');
+    await until(async () => p.evaluate(() => !document.querySelector('#photo').hidden && document.querySelector('#photo img').naturalWidth > 100), { what: '찍은 사진' });
+    assert((await p.evaluate(() => window.__shared.length)) === 0, '공유 창이 떴다');
+    assert((await p.evaluate(() => window.__snow.lastShot.how)) === 'show', '사진을 띄우는 길로 가지 않았다');
+    assert((await p.textContent('#photo figcaption')).includes('길게 눌러'), '꾹 눌러 저장하라는 안내가 없다');
   });
 
   await test('공유 창이 없는 휴대폰 브라우저에서는 저장했다고 하지 않고, 찍은 사진을 띄워 길게 눌러 저장하게 한다', async () => {
@@ -497,8 +477,9 @@ try {
     const d1 = await dist();
     await until(async () => (await dist()) > d1 * 1.08, { what: '손가락이 미끄러진 뒤에도 계속 멀어짐' });
     await send('pointerup');
+    await sleep(150);                                                    // (뗀 순간 이미 쌓여 있던 한 칸은 다음 그림에서 마저 움직인다)
     const d2 = await dist();
-    await sleep(300);
+    await sleep(400);
     assert(Math.abs((await dist()) - d2) < 1e-6, '손가락을 뗐는데 계속 움직인다');
   });
 
@@ -613,18 +594,35 @@ try {
     assert(s.pop === 1 && s.shell && s.tall === 1 && s.bits === 0, '눈사람인 채로 더 서 있어도 그대로여야 한다');
   });
 
+  await test('눈사람이 되는 순간 "뿅" 소리가, 쌓인 눈이 털리거나 눈사람이 부서질 때도 소리가 난다', async () => {
+    const p = await page();
+    await byHand(p);
+    const fx = () => snow(p, () => [...window.__snow.audio.snowFx]);
+    // 머리와 어깨에만 쌓였을 때 걸음을 떼면: 후두둑
+    await snow(p, () => { const s = window.__snow; for (let i = 0; i < 1200 && s.me.snow < 0.9; i++) s.sim(1 / 60); });
+    await walk(p, 0, 1, 0.5);
+    assert(JSON.stringify(await fx()) === '["shake"]', '털리는 소리: ' + JSON.stringify(await fx()));
+    // 눈사람이 되는 순간: 뿅 (한 번만)
+    await snow(p, () => { const s = window.__snow; for (let i = 0; i < 60 * 40 && s.me.pop < 1; i++) s.sim(1 / 60); s.sim(1); });
+    assert(JSON.stringify(await fx()) === '["shake","pop"]', '뿅 소리: ' + JSON.stringify(await fx()));
+    // 눈사람이 걸음을 떼면: 와르르
+    await walk(p, 0, 1, 0.5);
+    assert(JSON.stringify(await fx()) === '["shake","pop","burst"]', '부서지는 소리: ' + JSON.stringify(await fx()));
+  });
+
   await test('눈사람은 걸음을 떼면 눈덩이가 부서져 흩어지며 털리고, 뿅 하려는 순간에 걸어도 탈이 없다', async () => {
     const p = await page();
     await byHand(p);
     await stand(p, (v) => v.pop === 1, { step: 0.5 });
     await walk(p, 0, 0, 1);
-    const fx0 = (await state(p)).audio.fx;
+    const fx0 = (await state(p)).audio.snowFx.length;
     await walk(p, 0, 1, 0.2);
     let s = await snowLook(p);
     assert(!s.shell && s.skin && s.feet && s.pop === 0 && s.full === 0 && s.snow < 1 && s.eyeZ < 0.3 && s.tall === 1, '걸음을 뗐는데 눈사람 그대로다: ' + JSON.stringify(s));
     assert(s.bits === 22, '눈덩이가 흩어지지 않았다: ' + s.bits);
     assert(s.shown === 22 && s.far < 1.5, '눈덩이가 펭귄 둘레에 보여야 한다: ' + JSON.stringify(s));
-    assert((await state(p)).audio.fx === fx0 + 1, '눈 털리는 소리가 한 번 나야 한다');
+    const after = (await state(p)).audio.snowFx;
+    assert(after.length === fx0 + 1 && after[after.length - 1] === 'burst', '눈사람이 부서지는 소리가 한 번 나야 한다: ' + JSON.stringify(after));
     await walk(p, 0, 1, 1.3);
     assert((await snowLook(p)).snow === 0, '걸어도 눈이 안 털렸다');
     await walk(p, 0, 1, 2.5);
@@ -632,11 +630,12 @@ try {
     // 몸을 움츠린 순간(아직 펭귄일 때) 걸으면: 눈사람이 되지 않고, 눈가루도 눈덩이도 없다
     await stand(p, (v) => v.full >= 9.9, { step: 0.5 });
     await stand(p, (v) => v.pop > 0.08, { step: FRAME });
-    const fx1 = (await state(p)).audio.fx;
+    const fx1 = (await state(p)).audio.snowFx.length;
     await walk(p, 0, 1, 0.2);
     s = await snowLook(p);
     assert(s.pop === 0 && !s.shell && s.skin && s.bits === 0 && s.tall === 1 && s.wide === 1, '움츠린 순간에 걸으면 그냥 눈만 털려야 한다: ' + JSON.stringify(s));
-    assert((await state(p)).audio.fx === fx1 + 1, '눈 모자가 털리는 소리가 한 번 나야 한다');
+    const after2 = (await state(p)).audio.snowFx;
+    assert(after2.length === fx1 + 1 && after2[after2.length - 1] === 'shake', '눈 모자가 털리는 소리가 한 번 나야 한다: ' + JSON.stringify(after2));
     // 눈사람인 채로 눈 천사를 하면: 눈이 부서져 털리고 평소처럼 눕는다
     await walk(p, 0, 1, 1.5);
     await stand(p, (v) => v.pop === 1, { step: 0.5 });
