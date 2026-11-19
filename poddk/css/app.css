@@ -388,7 +388,6 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .gift-card { box-shadow: 0 18px 44px rgba(36, 64, 110, 0.25); }
 .gift-close { box-shadow: inset 0 -10px 16px rgba(140, 190, 238, 0.4), 0 8px 18px rgba(36, 84, 150, 0.2); }
 /* 처음 화면: 이 눈밭에서 할 수 있는 일 */
-.start-card .what { margin: -6px 0 18px; font-size: 13.5px; line-height: 1.6; font-weight: 700; color: var(--ink-soft); word-break: keep-all; }
 /* 낚아 올린 것을 보여 주는 카드 (화면 위쪽 가운데, 낚시하는 펭귄을 가리지 않게) */
 #catch { position: fixed; left: 50%; top: max(calc(214px + var(--safe-t)), 24%); z-index: 3; width: 210px; padding: 6px 14px 14px; border-radius: 26px; text-align: center; color: var(--ink); cursor: pointer;
   transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -465,3 +464,33 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .die.wait { opacity: 0.4; }
 .die.spin { animation: die-spin .16s linear infinite; }
 @keyframes die-spin { 0% { transform: rotate(-12deg); } 50% { transform: rotate(12deg) translateY(-3px); } 100% { transform: rotate(-12deg); } }
+/* ---------- 처음 화면: 친구에게 보내는 엽서와 같은 크림색 엽서 ---------- */
+.start-card { background: #fffaf0; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: 0 20px 46px rgba(36, 64, 110, 0.28); color: #3b2f2a; border-radius: 26px; padding-top: 16px; }
+.start-card h1 { margin: 0 0 8px; color: #27405f; }
+.start-card .say { margin-bottom: 12px; min-height: 0; color: #4a3d35; }
+.start-card .me-name, .start-card .hint, .start-card .hint .g { color: #7d6450; }
+.start-card .me-name { margin: 0 0 14px; }
+.start-card .me-name b { color: #27405f; }
+.postcard-art { position: relative; height: 120px; margin: 0 -10px 14px; border-radius: 18px; overflow: hidden; background: linear-gradient(#a9d4fb, #dceeff 70%); }
+.postcard-art .sun { position: absolute; left: 22px; top: 18px; width: 30px; height: 30px; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 22px 8px rgba(255, 243, 196, 0.7); }
+.postcard-art .hill { position: absolute; border-radius: 50%; background: #fff; }
+.postcard-art .hill.a { left: -30px; bottom: -40px; width: 230px; height: 90px; }
+.postcard-art .hill.b { right: -40px; bottom: -50px; width: 260px; height: 100px; background: #f2f7fd; }
+.postcard-art .scene { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; justify-content: center; align-items: flex-end; gap: 18px; font-size: 40px; line-height: 1; }
+.postcard-art .scene i { font-style: normal; filter: drop-shadow(0 4px 4px rgba(60, 90, 140, 0.18)); }
+.postcard-art .scene i.p { font-size: 34px; }
+.postcard-art .stamp { position: absolute; right: 10px; top: 10px; width: 44px; height: 52px; display: grid; place-items: center; font-size: 26px; background: #fff; border-radius: 4px;
+  outline: 2px dashed #e8a0a0; outline-offset: -5px; transform: rotate(6deg); box-shadow: 0 3px 6px rgba(60, 90, 140, 0.16); }
+.postcard-art .mark { position: absolute; right: 52px; top: 16px; width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(80, 110, 160, 0.35); color: rgba(60, 90, 140, 0.55);
+  font-size: 9.5px; font-weight: 800; line-height: 1.35; white-space: nowrap; display: grid; place-items: center; align-content: center; text-align: center; transform: rotate(-14deg); }
+.start-card .what .tiles { list-style: none; margin: 0 0 6px; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.start-card .what li { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px 7px; border-radius: 16px; background: #fff; box-shadow: 0 3px 10px rgba(120, 90, 60, 0.12);
+  font-size: 12.5px; font-weight: 800; color: #4a3d35; word-break: keep-all; }
+.start-card .what li b { font-size: 24px; line-height: 1.1; }
+.start-card .what .cap { margin: 0 0 12px; font-size: 13px; font-weight: 800; color: #c0533f; word-break: keep-all; }
+#enter { color: #fff; text-shadow: none; background-color: #2f6fc4; background-image: linear-gradient(160deg, #5a9be6, #2f6fc4); box-shadow: inset 0 -10px 16px rgba(20, 60, 150, 0.25), 0 10px 22px rgba(47, 111, 196, 0.32); }      /* 파란 단추 (흰 글자가 또렷하게) */
+#enter::before { opacity: 0.5; }
+#start { background: rgba(232, 242, 255, 0.16); }
+/* 낮은 화면(가로로 눕힌 휴대폰 등): 그림은 접고 타일만 */
+@media (max-height: 640px) { .postcard-art { height: 76px; margin-bottom: 8px; } .postcard-art .scene { font-size: 28px; } .postcard-art .scene i.p { font-size: 24px; } .postcard-art .mark { display: none; } }
+@media (max-height: 430px) { .postcard-art { display: none; } .start-card .what li { flex-direction: row; justify-content: center; gap: 4px; padding: 6px 2px; } .start-card .what li b { font-size: 16px; } .start-card .what .cap { margin-bottom: 8px; } .start-card .me-name { margin-bottom: 8px; } }

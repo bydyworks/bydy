@@ -12,9 +12,9 @@
 <meta name="theme-color" content="#e8f1fb">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=093485a9">
-<link rel="stylesheet" href="css/app.css?v=093485a9">
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=093485a9","./js/capture.js":"./js/capture.js?v=093485a9","./js/carols.js":"./js/carols.js?v=093485a9","./js/clock.js":"./js/clock.js?v=093485a9","./js/controls.js":"./js/controls.js?v=093485a9","./js/crumble.js":"./js/crumble.js?v=093485a9","./js/den.js":"./js/den.js?v=093485a9","./js/field.js":"./js/field.js?v=093485a9","./js/fishing.js":"./js/fishing.js?v=093485a9","./js/fox.js":"./js/fox.js?v=093485a9","./js/igloo.js":"./js/igloo.js?v=093485a9","./js/main.js":"./js/main.js?v=093485a9","./js/map.js":"./js/map.js?v=093485a9","./js/names.js":"./js/names.js?v=093485a9","./js/net.js":"./js/net.js?v=093485a9","./js/outfit.js":"./js/outfit.js?v=093485a9","./js/penguin.js":"./js/penguin.js?v=093485a9","./js/postbox.js":"./js/postbox.js?v=093485a9","./js/santa.js":"./js/santa.js?v=093485a9","./js/showcase.js":"./js/showcase.js?v=093485a9","./js/sky.js":"./js/sky.js?v=093485a9","./js/tracks.js":"./js/tracks.js?v=093485a9","./js/weather.js":"./js/weather.js?v=093485a9","./js/xmas.js":"./js/xmas.js?v=093485a9"}}</script>
+<link rel="stylesheet" href="css/fonts.css?v=a9f857d7">
+<link rel="stylesheet" href="css/app.css?v=a9f857d7">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=a9f857d7","./js/capture.js":"./js/capture.js?v=a9f857d7","./js/carols.js":"./js/carols.js?v=a9f857d7","./js/clock.js":"./js/clock.js?v=a9f857d7","./js/controls.js":"./js/controls.js?v=a9f857d7","./js/crumble.js":"./js/crumble.js?v=a9f857d7","./js/den.js":"./js/den.js?v=a9f857d7","./js/field.js":"./js/field.js?v=a9f857d7","./js/fishing.js":"./js/fishing.js?v=a9f857d7","./js/fox.js":"./js/fox.js?v=a9f857d7","./js/igloo.js":"./js/igloo.js?v=a9f857d7","./js/main.js":"./js/main.js?v=a9f857d7","./js/map.js":"./js/map.js?v=a9f857d7","./js/names.js":"./js/names.js?v=a9f857d7","./js/net.js":"./js/net.js?v=a9f857d7","./js/outfit.js":"./js/outfit.js?v=a9f857d7","./js/penguin.js":"./js/penguin.js?v=a9f857d7","./js/postbox.js":"./js/postbox.js?v=a9f857d7","./js/santa.js":"./js/santa.js?v=a9f857d7","./js/showcase.js":"./js/showcase.js?v=a9f857d7","./js/sky.js":"./js/sky.js?v=a9f857d7","./js/tracks.js":"./js/tracks.js?v=a9f857d7","./js/weather.js":"./js/weather.js?v=a9f857d7","./js/xmas.js":"./js/xmas.js?v=a9f857d7"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -176,9 +176,23 @@
 
 <div id="start">
   <div class="start-card">
+    <!-- 엽서의 그림: 눈 언덕 위의 트리와 펭귄과 눈사람, 우표와 소인 (친구에게 보내는 엽서와 같은 꼴) -->
+    <div class="postcard-art" aria-hidden="true">
+      <span class="sun"></span><span class="hill a"></span><span class="hill b"></span>
+      <span class="scene"><i>🎄</i><i class="p">🐧</i><i>⛄</i></span>
+      <span class="stamp">🐧</span><span class="mark">뽀드득 눈밭<br><span id="mark-year">2026</span> 겨울</span>
+    </div>
     <h1>뽀드득</h1>
     <p class="say" id="say"></p>
-    <p class="what">🎣 연못에선 얼음 낚시, 🛖 이글루에선 불멍.<br>🎁 눈밭엔 산타가 흘린 선물들도 있대?!</p>
+    <!-- 여기서 할 수 있는 일 -->
+    <div class="what">
+      <ul class="tiles"><li><b aria-hidden="true">🎣</b>얼음 낚시</li><li><b aria-hidden="true">🔥</b>이글루 불멍</li><li><b aria-hidden="true">🎁</b>산타 선물</li></ul>
+      <p class="cap">눈밭엔 산타가 흘린 선물들도 있대?!</p>
+    </div>
+    <script>
+      // 소인의 해: 1~2월은 지난해 겨울로 친다
+      (function () { var d = new Date(); document.getElementById('mark-year').textContent = d.getMonth() < 2 ? d.getFullYear() - 1 : d.getFullYear(); })();
+    </script>
     <p class="me-name">오늘의 나는 <b id="my-name"></b> <button id="rename" type="button" aria-label="다른 이름으로 바꾸기"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M19 8.5A7.4 7.4 0 0 0 5.6 7.3M5 15.5a7.4 7.4 0 0 0 13.4 1.2M5.4 3.6v3.9h3.9M18.6 20.4v-3.9h-3.9"/></svg></button></p>
     <script>
       // 제목 아래의 한마디(펭귄의 혼잣말): 올 때마다 넷 가운데 하나가 나온다. 주소에 ?say=1..4 를 붙이면 그 문장이 나온다.
@@ -203,6 +217,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=093485a9"></script>
+<script type="module" src="js/main.js?v=a9f857d7"></script>
 </body>
 </html>
