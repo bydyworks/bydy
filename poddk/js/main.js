@@ -16,7 +16,7 @@ import { myName, rename } from './names.js';
 import { createDens, STATUSES } from './den.js';
 import { createNet, ACT } from './net.js';
 // 함께 걷는 눈밭의 서버 (server/ 를 Cloudflare 에 올린 주소). 비어 있으면 혼자 걷는 눈밭이다. 주소에 ?server=… 를 붙여 바꿀 수 있고, ?server=off 면 끈다
-const SERVER_URL = '';
+const SERVER_URL = 'wss://poddk.poddk-server.workers.dev/ws';
 import { createTracks, SLIDE_PIECE } from './tracks.js';
 import { createWeather } from './weather.js';
 import { createControls } from './controls.js';

@@ -42,7 +42,8 @@ export async function open(browser, base, { query = '', viewport = { width: 390,
   if (init) await page.addInitScript(init);
   page.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
-  await page.goto(base + 'index.html' + (query ? '?' + query : ''));
+  if (!/(^|&)server=/.test(query)) query = (query ? query + '&' : '') + 'server=off';      // 점검은 진짜 서버에 이어지지 않는다 (together.mjs 만 서버를 고른다)
+  await page.goto(base + 'index.html' + '?' + query);
   await page.waitForFunction(() => window.__snow && window.__snow.ready, null, { timeout: 60000 });
   if (enter) { await page.click('#enter'); await page.waitForFunction(() => window.__snow.started); }
   return { ctx, page };

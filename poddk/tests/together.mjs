@@ -1,19 +1,20 @@
 // 함께 걷는 눈밭 점검: 서버(server/)를 이 컴퓨터 안에서 띄우고, 두 펭귄을 따로 들여보내 서로 보이는지 본다.
 //   node together.mjs
+//   SERVER=wss://poddk.poddk-server.workers.dev/ws node together.mjs   (올려 둔 진짜 서버로 점검할 때)
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startStatic, launch, open, sleep, assert, until } from './harness.mjs';
-const PORT = 8798, SERVER = `ws://127.0.0.1:${PORT}/ws`;
+const PORT = 8798, REMOTE = process.env.SERVER || '', SERVER = REMOTE || `ws://127.0.0.1:${PORT}/ws`;
 const serverDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../server');
-const dev = spawn('npx', ['wrangler', 'dev', '--local', '--port', String(PORT), '--persist-to', '.wrangler/together-state'], { cwd: serverDir, stdio: ['ignore', 'pipe', 'pipe'], detached: true, env: { ...process.env, WRANGLER_SEND_METRICS: 'false' } });
-const stopDev = () => { try { process.kill(-dev.pid, 'SIGTERM'); } catch { /* 이미 끝났다 */ } };      // (wrangler 가 띄운 것까지 함께 끈다)
-let log = ''; dev.stdout.on('data', (d) => { log += d; }); dev.stderr.on('data', (d) => { log += d; });
+const dev = REMOTE ? null : spawn('npx', ['wrangler', 'dev', '--local', '--port', String(PORT), '--persist-to', '.wrangler/together-state'], { cwd: serverDir, stdio: ['ignore', 'pipe', 'pipe'], detached: true, env: { ...process.env, WRANGLER_SEND_METRICS: 'false' } });
+const stopDev = () => { if (!dev) return; try { process.kill(-dev.pid, 'SIGTERM'); } catch { /* 이미 끝났다 */ } };      // (wrangler 가 띄운 것까지 함께 끈다)
+let log = ''; if (dev) { dev.stdout.on('data', (d) => { log += d; }); dev.stderr.on('data', (d) => { log += d; }); }
 const site = await startStatic(); const browser = await launch(); const errors = [];
 let ok = 0, bad = 0;
 async function test(name, fn) { try { await fn(); ok++; console.log('  PASS  ' + name); } catch (e) { bad++; console.log('  FAIL  ' + name + '\n        ' + String(e.message).split('\n')[0]); } }
 try {
-  for (let i = 0; i < 120; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}/`)).ok) break; } catch { /* 아직 */ } await sleep(500); }
+  for (let i = 0; i < 120 && dev; i++) { try { if ((await fetch(`http://127.0.0.1:${PORT}/`)).ok) break; } catch { /* 아직 */ } await sleep(500); }
   console.log('  (서버가 떴다)');
   const enter = async (q) => (await open(browser, site.url, { query: `t=14:00&speed=0&server=${encodeURIComponent(SERVER)}&${q}`, errors })).page;
   const a = await enter('look=scarf&color=0'), b = await enter('look=blanket&color=5');
@@ -50,7 +51,10 @@ try {
     await sleep(400); await a.evaluate(() => { const s = window.__snow; s.act(); s.sim(0.8); });
     await until(async () => a.evaluate(() => !document.querySelector('#status').hidden), { what: '상태 고르기' });
     await a.click('#status .status-list button:nth-child(2)');
-    await until(async () => b.evaluate(() => { const el = document.querySelector('.peer-say'); return !!el && !el.hidden && el.textContent.includes('영화 보는 중'); }), { what: '다른 화면의 말풍선 ' + JSON.stringify(await b.evaluate(() => [...window.__snow.net.peers.values()].map((p) => p.s))), timeout: 10000 });
+    // b 는 a 쪽을 바라본다 (말풍선은 화면에 보이는 펭귄 위에만 뜬다)
+    const ap = await a.evaluate(() => ({ x: window.__snow.me.x, z: window.__snow.me.z }));
+    await b.evaluate((p) => { const s = window.__snow, m = s.me; m.yaw = m.camYaw = Math.atan2(-(p.x - m.x), -(p.z - m.z)); }, ap);
+    await until(async () => b.evaluate(() => { const el = document.querySelector('.peer-say'); return !!el && !el.hidden && el.textContent.includes('영화 보는 중'); }), { what: '다른 화면의 말풍선', timeout: 10000 }).catch(async (e) => { throw new Error(e.message + ' a=' + JSON.stringify(await a.evaluate(() => ({ st: window.__snow.net.stats, me: window.__snow.seat ?? null })) ) + ' b=' + JSON.stringify(await b.evaluate(() => [...window.__snow.net.peers.values()].map((p) => p.s))) + ' bubbles=' + JSON.stringify(await b.evaluate(() => [...document.querySelectorAll('.peer-say')].map((el) => [el.hidden, el.textContent])))); });
   });
   await test('한 펭귄이 나가면 다른 화면에서 사라지고 수가 줄어든다', async () => {
     await a.close();
