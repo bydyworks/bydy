@@ -1426,7 +1426,7 @@ try {
     const o = await open(browser, site.url, { query: 'persist=1&look=scarf', errors, enter: false });
     opened.push(o.ctx);
     const p = o.page;
-    const names = () => p.evaluate(() => ({ card: document.querySelector('#my-name').textContent, hud: document.querySelector('#hud-name').textContent, me: window.__snow.name }));
+    const names = () => p.evaluate(() => ({ card: document.querySelector('#my-name').textContent, hud: document.querySelector('#me-tag').textContent, me: window.__snow.name }));
     let n = await names();
     assert(/^\S+( \S+)* \S+$/.test(n.card) && n.card === n.hud && n.card === n.me, '이름: ' + JSON.stringify(n));
     await p.reload(); await p.waitForFunction(() => window.__snow && window.__snow.ready);
@@ -1436,6 +1436,11 @@ try {
     assert(m.card !== n.card && m.card === m.hud, '이름 바꾸기: ' + JSON.stringify([n, m]));
     await p.reload(); await p.waitForFunction(() => window.__snow && window.__snow.ready);
     assert((await names()).card === m.card, '바꾼 이름이 남지 않았다');
+    // 들어가면 펭귄 머리 위에 이름표가 뜬다
+    await p.click('#enter');
+    await until(async () => p.evaluate(() => document.querySelector('#me-tag').classList.contains('show')), { what: '머리 위 이름표' });
+    const tag = await p.evaluate(() => { const b = document.querySelector('#me-tag').getBoundingClientRect(); return { cx: (b.left + b.right) / 2, bottom: b.bottom, w: innerWidth, h: innerHeight }; });
+    assert(Math.abs(tag.cx - tag.w / 2) < tag.w * 0.15 && tag.bottom > tag.h * 0.25 && tag.bottom < tag.h * 0.8, '이름표가 펭귄 머리 위에 있어야 한다: ' + JSON.stringify(tag));
   });
 
   await test('이글루 문 앞에서 들어가면 모닥불 둘레에 방석 여섯이 있는 방이다. 앉으면 지금 하는 일을 고를 수 있고, 문 앞에서 나온다', async () => {
