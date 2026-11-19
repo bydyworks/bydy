@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { startStatic, launch, open, sleep, assert, until } from './harness.mjs';
 const PORT = 8798, REMOTE = process.env.SERVER || '', SERVER = REMOTE || `ws://127.0.0.1:${PORT}/ws`;
 const serverDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../server');
+if (!process.env.SERVER) (await import('node:fs')).rmSync(path.join(serverDir, '.wrangler/together-state'), { recursive: true, force: true });      // 지난번 점검이 남긴 자국 없이 시작한다
 const dev = REMOTE ? null : spawn('npx', ['wrangler', 'dev', '--local', '--port', String(PORT), '--persist-to', '.wrangler/together-state'], { cwd: serverDir, stdio: ['ignore', 'pipe', 'pipe'], detached: true, env: { ...process.env, WRANGLER_SEND_METRICS: 'false' } });
 const stopDev = () => { if (!dev) return; try { process.kill(-dev.pid, 'SIGTERM'); } catch { /* 이미 끝났다 */ } };      // (wrangler 가 띄운 것까지 함께 끈다)
 let log = ''; if (dev) { dev.stdout.on('data', (d) => { log += d; }); dev.stderr.on('data', (d) => { log += d; }); }
