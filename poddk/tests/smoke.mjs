@@ -891,7 +891,7 @@ try {
     const paws = await snow(p, () => {
       const s = window.__snow, now = s.clock.now(), list = s.tracks.paws();
       let off = 0, newest = -Infinity, oldest = Infinity;
-      for (const it of list) { const f = s.fox.at(it.birth), g = s.arctic.at(it.birth); off = Math.max(off, Math.min(Math.hypot(it.x - f.x, it.z - f.z), Math.hypot(it.x - g.x, it.z - g.z)));      // (붉은여우나 북극여우 가운데 하나의 길 위) newest = Math.max(newest, it.birth); oldest = Math.min(oldest, it.birth); }
+      for (const it of list) { const f = s.fox.at(it.birth), g = s.arctic.at(it.birth); off = Math.max(off, Math.min(Math.hypot(it.x - f.x, it.z - f.z), Math.hypot(it.x - g.x, it.z - g.z))); newest = Math.max(newest, it.birth); oldest = Math.min(oldest, it.birth); }      // (붉은여우나 북극여우 가운데 하나의 길 위)
       const f = s.fox.at(now), last = list.reduce((a, b) => (b.birth > a.birth ? b : a), list[0]);
       return { n: list.length, alive: s.tracks.pawsAlive, off, newest: now - newest, oldest: now - oldest, lastGap: Math.hypot(last.x - f.x, last.z - f.z), prints: s.tracks.printCount };
     });
