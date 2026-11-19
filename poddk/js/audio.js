@@ -198,8 +198,22 @@ export function createAudio(baseUrl = 'audio/') {
         src.start(t + at);
         src.onended = () => { src.disconnect(); band.disconnect(); gain.disconnect(); };
       };
-      if (kind === 'flap') {                                // 파닥파닥: 날개가 공기를 치는 짧고 낮은 소리 여섯 번
-        for (let i = 0; i < 6; i++) { puff(i * 0.13, 0.07, 520 + (i % 2) * 140, 0.17 - i * 0.012); tone('sine', 170, 110, i * 0.13, 0.04, 0.05); }
+      if (kind === 'flap') {                                // 파닥파닥: 날개가 공기를 "푸드득" 치는 소리 여섯 번 (위로 쳐올릴 때 크게, 내릴 때 작게)
+        const beat = (at, peak, freq) => {
+          const len = 0.11, buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate), d = buffer.getChannelData(0);
+          for (let i = 0; i < d.length; i++) { const u = i / d.length; d[i] = (Math.random() * 2 - 1) * Math.min(1, u * 30) * Math.pow(1 - u, 2.4) * (0.6 + 0.4 * Math.sin(u * 70)); }      // 깃이 떨리는 결
+          const src = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), bp = ctx.createBiquadFilter(), gain = ctx.createGain();
+          src.buffer = buffer; lp.type = 'lowpass'; lp.frequency.setValueAtTime(freq * 2.4, t + at); lp.frequency.exponentialRampToValueAtTime(freq, t + at + len);
+          bp.type = 'peaking'; bp.frequency.value = freq; bp.gain.value = 9; bp.Q.value = 1.2; gain.gain.value = peak;
+          src.connect(lp).connect(bp).connect(gain).connect(master);
+          src.start(t + at);
+          src.onended = () => { src.disconnect(); lp.disconnect(); bp.disconnect(); gain.disconnect(); };
+        };
+        for (let i = 0; i < 6; i++) {
+          beat(i * 0.2, 0.9 - i * 0.07, 700 + (i % 2) * 120);              // 탁
+          beat(i * 0.2 + 0.085, 0.35, 420);                               //  흣
+          tone('sine', 140, 85, i * 0.2, 0.05, 0.12);                     // 날개가 몸에 닿는 낮은 툭
+        }
         return;
       }
       if (kind === 'pop') {

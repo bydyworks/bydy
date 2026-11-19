@@ -996,7 +996,7 @@ try {
 
   await test('이글루 셋과 낚시터 셋이 트리 둘레에 서로 떨어져 있다. 이글루 속으로는 못 들어가고, 얼음 위에는 발자국이 남지 않는다', async () => {
     const p = await page();
-    const place = await snow(p, async () => { const m = await import('./js/igloo.js'); const s = window.__snow; return { igloos: m.IGLOOS, ponds: m.PONDS, shown: s.camp.group.visible && s.camp.group.parent !== null, built: [s.camp.igloos.length, s.camp.ponds.length, s.camp.igloos.every((g) => g.children.length >= 5), s.camp.ponds.every((g) => g.children.length === 3)] }; });
+    const place = await snow(p, async () => { const m = await import('./js/igloo.js'); const s = window.__snow; return { igloos: m.IGLOOS, ponds: m.PONDS, shown: s.camp.group.visible && s.camp.group.parent !== null, built: [s.camp.igloos.length, s.camp.ponds.length, s.camp.igloos.every((g) => g.children.length >= 5), s.camp.ponds.every((g) => g.children.length === 11)] }; });
     assert(place.igloos.length === 3 && place.ponds.length === 3 && place.shown && place.built.join() === '3,3,true,true', '이글루 셋과 낚시터 셋이 그려져야 한다: ' + JSON.stringify(place.built));
     const sites = [...place.igloos.map((g) => ({ ...g, kind: '이글루' })), ...place.ponds.map((g) => ({ ...g, kind: '낚시터' }))];
     // 서로 겹치지 않고 멀리 떨어져 있다 (이글루끼리도, 낚시터끼리도, 이글루와 낚시터도)
@@ -1048,7 +1048,7 @@ try {
     await byHand(p);
     const n = await snow(p, () => window.__snow.place.holes.length);
     for (let i = 0; i < n; i++) {
-      await snow(p, (i) => { const s = window.__snow, h = s.place.holes[i]; s.teleport(h.x + 1.2, h.z - 1.3); s.me.idle = 0; s.fishing.debug.biteIn(0.5); s.fishing.debug.next('smelt'); s.act(); }, i);
+      await snow(p, (i) => { const s = window.__snow, h = s.place.holes[i]; const c = s.place.ponds.find((q) => q.holes.includes(h)), dx = h.x - c.x, dz = h.z - c.z, d = Math.hypot(dx, dz); s.teleport(h.x + dx / d * 1.7, h.z + dz / d * 1.7); s.me.idle = 0; s.fishing.debug.biteIn(0.5); s.fishing.debug.next('smelt'); s.act(); }, i);
       await walk(p, 0, 0, 1.3);
       const f = await snow(p, (i) => { const s = window.__snow, h = s.place.holes[i]; return { phase: s.fishing.phase, dist: Math.hypot(s.me.x - h.x, s.me.z - h.z), angels: s.tracks.angelCount }; }, i);
       assert(f.phase === 'bite' && Math.abs(f.dist - 1.55) < 0.02 && f.angels === 0, (i + 1) + '번째 낚시터에서 낚시가 되지 않는다: ' + JSON.stringify(f));
@@ -1235,7 +1235,7 @@ try {
     const ice = await snow(p, () => {
       const s = window.__snow; s.sim(12);                                // 앞의 눈 천사를 마저 하고 일어난다
       const pond = s.place.ponds[1], away = Math.hypot(pond.x, pond.z), n0 = s.tracks.angelCount;
-      s.teleport(pond.x + pond.x / away * 3.4, pond.z + pond.z / away * 3.4);      // 구멍의 반대쪽 얼음 위
+      s.teleport(pond.x, pond.z);
       s.sim(0.1); s.act(); s.sim(0.5);
       return { onIce: s.place.onIce(s.me.x, s.me.z), nearHole: !!s.place.holeNear(s.me.x, s.me.z), lying: !!s.me.angel, fishing: s.fishing.active, made: s.tracks.angelCount - n0 };
     });
