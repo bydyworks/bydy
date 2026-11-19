@@ -1481,6 +1481,25 @@ try {
     assert(out.d < 0.01, '나온 자리가 이글루 문 앞이 아니다: ' + JSON.stringify(out));
   });
 
+  await test('이글루 안에서도 끌면 카메라가 방을 돌고, 두 손가락으로 가까이·멀리 본다. 카메라는 벽 밖으로 나가지 않는다', async () => {
+    const p = await page('t=21:30&speed=0');
+    await snow(p, () => { const s = window.__snow, e = s.entrances[0]; s.teleport(e.x, e.z); s.sim(0.1); s.act(); });
+    await until(async () => (await snow(p, () => window.__snow.inside)) === 0, { what: '이글루 안' });
+    await sleep(900);
+    const cam = () => snow(p, () => ({ yaw: window.__snow.me.camYaw, dist: window.__snow.me.camDist }));
+    const a = await cam();
+    await pointer(p, 'pointerdown', 7, 300, 300); await pointer(p, 'pointermove', 7, 200, 300); await pointer(p, 'pointerup', 7, 200, 300);
+    await walk(p, 0, 0, 0.2);
+    const b = await cam();
+    assert(Math.abs(b.yaw - a.yaw) > 0.3, '끌었는데 돌지 않는다: ' + JSON.stringify([a, b]));
+    await p.mouse.move(195, 420); await p.mouse.wheel(0, -600); await walk(p, 0, 0, 0.2);
+    const c = await cam();
+    assert(c.dist < b.dist * 0.85, '가까이 보기가 안 된다: ' + JSON.stringify([b, c]));
+    // 어디를 보든 카메라는 벽 안쪽에 있다 (가장 멀리 본 채로 한 바퀴)
+    const far = await snow(p, async () => { const s = window.__snow, c = s.dens.dens[0].center, cam = s.camera, out = []; s.me.camDist = 99; for (let k = 0; k < 8; k++) { s.me.camYaw = k * Math.PI / 4; for (let i = 0; i < 40; i++) await new Promise((r) => requestAnimationFrame(r)); out.push(Math.hypot(cam.position.x - c.x, cam.position.z - c.z)); } return { max: Math.max(...out), y: cam.position.y }; });
+    assert(far.max < 5.3 && far.y < 3.9, '카메라가 벽 밖으로 나갔다: ' + JSON.stringify(far));
+  });
+
   await test('이글루 셋의 방은 저마다 조금씩 다르다', async () => {
     const p = await page();
     const d = await snow(p, () => window.__snow.dens.dens.map((x) => ({ name: x.name, rug: x.group.children.find((o) => o.geometry && o.geometry.type === 'RingGeometry').material.color.getHexString(), deco: x.group.children[x.group.children.length - 1].children.length })));
@@ -1653,7 +1672,7 @@ try {
       assert(col.every((b) => size(b).join() === size(r.shot).join() && Math.abs(b.l - r.shot.l) < 0.5) && size(r.shot)[0] === size(r.shot)[1], '네 버튼이 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
       assert(r.shot.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 캡쳐, 배 썰매, 눈 천사, 파닥파닥)');
       assert(Math.abs((r.view[1] - r.flap.b) - (r.view[1] < 431 ? 12 : 26)) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
-      assert(size(r.shot)[0] >= 44 && size(r.mute)[0] >= 36 && (await p.$('#zoom')) === null, '버튼이 누르기에 너무 작다: ' + size(r.shot) + ' / ' + size(r.mute));
+      assert(size(r.shot)[0] >= 40 && size(r.shot).join() === size(r.mute).join() && (await p.$('#zoom')) === null, '오른쪽 아래 단추가 소리 단추와 크기가 같아야 한다: ' + size(r.shot) + ' / ' + size(r.mute));
       assert(r.canvas[0] === r.view[0] && r.canvas[1] === r.view[1], '눈밭이 화면을 다 채우지 않는다');
       assert(r.scroll[0] <= r.view[0] && r.scroll[1] <= r.view[1], '화면이 밀린다');
     });

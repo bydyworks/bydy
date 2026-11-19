@@ -162,7 +162,8 @@ const canFish = () => started && me.inside === null && !me.angel && !me.slide &&
 const FISH_VIEW = { turn: 1.05, pitch: 0.22, look: 0.9 };      // 낚시하는 동안의 카메라: 등 뒤에서 이만큼(라디안) 옆으로 비켜서고, 조금 더 내려다보며, 펭귄보다 구멍 쪽을 본다
 let fishTurn = 0;                // 낚시를 시작하며 카메라가 마저 돌아야 할 각 (라디안)
 let fishView = 0;
-let slideLift = 0;               // 0(평소)..1(미끄러지는 중)                // 0(평소)..1(낚시를 들여다보는 중)
+let slideLift = 0;
+let viewYaw = 0;                 // 이글루 안에서 카메라가 실제로 보는 쪽 (걷는 방향의 기준)               // 0(평소)..1(미끄러지는 중)                // 0(평소)..1(낚시를 들여다보는 중)
 function startFishing() {
   const hole = canFish() ? holeNear(me.x, me.z) : null;
   if (!hole || !fishing.start(me, hole)) return;
@@ -406,7 +407,7 @@ function goIn(i) {
   shakeOff(true); me.snow = 0; me.idle = 0; me.walk = 0;
   me.outside = { x: me.x, z: me.z, yaw: me.yaw };
   audio.fx('rustle', 0.35);
-  throughDoor(() => { const d = dens.dens[i]; me.inside = i; me.x = d.spawn.x; me.z = d.spawn.z; me.yaw = me.camYaw = d.spawn.yaw; me.camDist = Math.min(me.camDist, 4.2); if (firstTime('den')) toast('따뜻하다! 방석에 앉아 쉬어 가요', 3200); });
+  throughDoor(() => { const d = dens.dens[i]; me.inside = i; me.x = d.spawn.x; me.z = d.spawn.z; me.yaw = me.camYaw = d.spawn.yaw; me.camDist = 6; if (firstTime('den')) toast('따뜻하다! 방석에 앉아 쉬어 가요', 3200); });
 }
 function goOut() {
   if (busyDoor || me.inside === null) return;
@@ -565,7 +566,7 @@ function walk(dt, now) {
   const lk = controls.takeLook();
   me.camYaw -= lk.dx * 0.0052;
   me.camPitch = THREE.MathUtils.clamp(me.camPitch + lk.dy * 0.0035, 0.08, 0.75);
-  me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, me.inside !== null ? 4.4 : CAM_DIST_MAX);
+  me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, me.inside !== null ? 6.8 : CAM_DIST_MAX);
   coach.note(0, Math.abs(lk.dx) + Math.abs(lk.dy));
   if (mag > 0.02 && !me.angel && !fishing.active) { strolled += dt; rested = 0; } else { rested += dt; strolled = 0; }
 
@@ -589,7 +590,7 @@ function walk(dt, now) {
 
   if (mag > 0.02) {
     // 카메라가 보는 방향 기준으로 걷는다 (앞 = 화면 안쪽)
-    const fx = Math.sin(me.camYaw), fz = Math.cos(me.camYaw);
+    const base = me.inside !== null ? viewYaw : me.camYaw, fx = Math.sin(base), fz = Math.cos(base);
     let dx = fx * mv.y + -fz * mv.x, dz = fz * mv.y + fx * mv.x;
     const len = Math.hypot(dx, dz) || 1; dx /= len; dz /= len;
     const want = Math.atan2(dx, dz);
@@ -656,13 +657,22 @@ function placeCamera(dt) {
   camGoal.copy(focus).addScaledVector(fwd, -dist * Math.cos(pitch));
   camGoal.y = CAM_TARGET_H + dist * Math.sin(pitch);
   if (me.inside !== null) {
-    // 이글루 안: 카메라는 모닥불 건너편 위에서 펭귄을 본다 (벽에 끼지 않고, 불과 방석과 펭귄이 함께 보인다).
-    // 앞으로 밀면 카메라에서 멀어지는 쪽으로 걷도록, 걷는 방향의 기준도 카메라가 보는 쪽에 맞춘다
-    const c = dens.dens[me.inside].center, dx = me.x - c.x, dz = me.z - c.z, d = Math.hypot(dx, dz) || 1;
-    camGoal.set(c.x - dx / d * 1.8, 3.6, c.z - dz / d * 1.8);
-    const k = dt > 0 ? 1 - Math.exp(-dt * 5) : 1;
+    // 이글루 안: 카메라는 방 가운데를 둘레로 돌며(벽 안쪽) 펭귄을 본다. 끌어서 돌리고, 두 손가락이나 휠로 가까이·멀리 한다.
+    // 걷는 방향의 기준은 카메라가 실제로 보는 쪽이다
+    // 펭귄 뒤쪽 camDist 만큼에 두되, 벽(가운데에서 5) 밖이면 벽 안쪽 둘레로 당기고, 그래서 펭귄에 너무 붙으면 둘레를 따라 옆으로 비켜선다
+    const c = dens.dens[me.inside].center, d = THREE.MathUtils.clamp(me.camDist * 0.8, 2.6, 5.4), LIM = 5;
+    let cx = me.x - Math.sin(me.camYaw) * d, cz = me.z - Math.cos(me.camYaw) * d;
+    let r = Math.hypot(cx - c.x, cz - c.z);
+    if (r > LIM) {
+      let a = Math.atan2(cx - c.x, cz - c.z);
+      const near = (t) => Math.hypot(c.x + Math.sin(t) * LIM - me.x, c.z + Math.cos(t) * LIM - me.z);
+      for (let step = 0; step < 40 && near(a) < 3.2; step++) a += (angleDiff(a, Math.atan2(me.x - c.x, me.z - c.z)) >= 0 ? 1 : -1) * 0.06;
+      cx = c.x + Math.sin(a) * LIM; cz = c.z + Math.cos(a) * LIM; r = LIM;
+    }
+    camGoal.set(cx, Math.min(3.7, 2.1 + d * 0.32), cz);
+    const k = dt > 0 ? 1 - Math.exp(-dt * 6) : 1;
     camera.position.lerp(camGoal, k);
-    me.camYaw = Math.atan2(me.x - camera.position.x, me.z - camera.position.z);
+    viewYaw = Math.atan2(me.x - camera.position.x, me.z - camera.position.z);
     lookAt.set(me.x, 0.75, me.z);
     camera.lookAt(lookAt);
     return;
@@ -812,7 +822,7 @@ raf = requestAnimationFrame(tick);
 
 // 개발자 도구와 자동 점검용
 window.__snow = {
-  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble, fox, santa, camp, weather,
+  clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble, fox, santa, camp, weather, camera,
   place: { hole: HOLES[0], holes: HOLES, igloos: IGLOOS, ponds: PONDS, onIce, holeNear },
   get started() { return started; },
   get snowfall() { return snowfallAt(clock.now()); },
