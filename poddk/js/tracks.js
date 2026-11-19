@@ -6,6 +6,8 @@ import { printAlpha } from './clock.js';
 
 const MAX_PRINTS = 4000;
 const MAX_ANGELS = 120;
+const MAX_SLIDES = 1600;          // 배로 미끄러진 자국 (조각마다 한 개)
+export const SLIDE_PIECE = 0.3;   // 미끄러진 자국 한 조각의 길이
 const MAX_PAWS = 2400;            // 여우 발자국 (작고, 금방 사라진다)
 const CELL = 0.25;                // "다져진 길" 판정용 격자 한 칸 (새 눈과 밟힌 눈의 소리가 다르다)
 const Y = 0.012;                  // 땅에서 살짝 띄운다 (겹쳐 깜빡이지 않게)
@@ -45,6 +47,11 @@ function footprintGeometry() {
   const parts = [[new THREE.CircleGeometry(0.05, 10), 0, -0.02]];
   for (const ang of [-0.5, 0, 0.5]) parts.push([new THREE.CircleGeometry(0.034, 8), Math.sin(ang) * 0.095, Math.cos(ang) * 0.095 - 0.02, ang, 0.75, 2.4]);
   return flat(parts);
+}
+
+/** 배로 미끄러진 자국 한 조각: 배 너비만 한 넓은 띠. 조각을 이어 놓으면 길게 쓸린 자국이 된다 (가장자리는 살짝 둥글다) */
+function slideGeometry() {
+  return flat([[new THREE.PlaneGeometry(0.44, SLIDE_PIECE), 0, 0]]);
 }
 
 /** 여우 발자국 한 개: 동그란 발바닥 + 앞(+Z)의 작은 발가락 셋. 길이 약 0.11 — 펭귄 발자국의 절반 */
@@ -97,6 +104,8 @@ function layer(scene, geometry, capacity, order) {
 export function createTracks(scene) {
   const angels = layer(scene, angelGeometry(), MAX_ANGELS, 1);        // 넓은 자국을 먼저, 그 위에 발자국
   const prints = layer(scene, footprintGeometry(), MAX_PRINTS, 2);
+  const slides = layer(scene, slideGeometry(), MAX_SLIDES, 1);
+  slides.fade = 0.42;               // 배로 쓸린 자리는 넓고 얕다: 발자국보다 훨씬 옅게
   const paws = layer(scene, pawGeometry(), MAX_PAWS, 2);
   const grid = new Map();           // "ix,iz" → [그 칸이 마지막으로 밟힌 시각, 몇 번째 걸음이었는지]
   let stepNo = 0;                   // 지금까지 찍은 걸음 수 (방금 찍은 내 발자국 옆을 "밟힌 길"로 착각하지 않으려고 센다)
@@ -130,6 +139,12 @@ export function createTracks(scene) {
     stamp(x, z, 1, birth, ++stepNo);
   }
 
+  /** 배로 미끄러진 자국 한 조각. yaw: 미끄러지는 방향 */
+  function addSlide(x, z, yaw, birth) {
+    put(slides, { x, z, yaw, birth });
+    stamp(x, z, 1, birth, ++stepNo);
+  }
+
   /** 여우 발자국 하나. life: 다 흐려지기까지의 시간(ms). 소리가 달라지는 "다져진 길"로는 치지 않는다 */
   function addPaw(x, z, yaw, birth, life) {
     put(paws, { x, z, yaw, birth, life });
@@ -160,16 +175,17 @@ export function createTracks(scene) {
       let a = it ? printAlpha(it.birth, now, it.life) : 0;
       if (it && it.grow !== undefined) a *= it.grow * 0.62;      // 눈 천사는 넓은 자국이라 발자국보다 옅게 그린다
       if (a > 0.01) alive++;
-      L.alpha.array[i] = a * 0.9;
+      L.alpha.array[i] = a * 0.9 * (L.fade || 1);
     }
     L.alpha.needsUpdate = true;
     return alive;
   }
 
-  let alive = 0, pawsAlive = 0;
+  let alive = 0, pawsAlive = 0, slidesAlive = 0;
   /** 지금 시각에 맞춰 모든 자국의 흐림을 다시 정한다 */
   function update(now) {
     alive = refreshLayer(prints, now) + refreshLayer(angels, now);
+    slidesAlive = refreshLayer(slides, now);
     pawsAlive = refreshLayer(paws, now);
     if (grid.size > 60000) for (const [k, v] of grid) if (printAlpha(v[0], now) <= 0) grid.delete(k);
   }
@@ -178,18 +194,21 @@ export function createTracks(scene) {
   function dump(now) {
     const pick = (L) => L.items.filter((it) => it && printAlpha(it.birth, now) > 0.02 && (it.grow === undefined || it.grow >= 1))
       .map((it) => [Math.round(it.x * 100) / 100, Math.round(it.z * 100) / 100, Math.round(it.yaw * 100) / 100, Math.round(it.birth)]);
-    return { prints: pick(prints), angels: pick(angels) };
+    return { prints: pick(prints), angels: pick(angels), slides: pick(slides) };
   }
 
   function restore(data, now) {
     if (!data || typeof data !== 'object') return;
     const ok = (r) => Array.isArray(r) && r.length === 4 && r.every(Number.isFinite) && printAlpha(r[3], now) > 0.02;
     (Array.isArray(data.prints) ? data.prints : []).filter(ok).slice(-MAX_PRINTS).forEach(([x, z, yaw, birth]) => { put(prints, { x, z, yaw, birth }); stamp(x, z, 1, birth); });
+    (Array.isArray(data.slides) ? data.slides : []).filter(ok).slice(-MAX_SLIDES).forEach(([x, z, yaw, birth]) => { put(slides, { x, z, yaw, birth }); stamp(x, z, 1, birth); });
     (Array.isArray(data.angels) ? data.angels : []).filter(ok).slice(-MAX_ANGELS).forEach(([x, z, yaw, birth]) => { put(angels, { x, z, yaw, birth, grow: 1 }); stamp(x, z, 4, birth); });
   }
 
   return {
-    addPrint, addAngel, addPaw, clearPaws, isPacked, update, dump, restore, get alive() { return alive; },
+    addPrint, addAngel, addPaw, addSlide, get slideCount() { return slides.size; }, get slidesAlive() { return slidesAlive; },
+    slides: () => slides.items.slice(0, slides.size).filter(Boolean).map((it) => ({ x: it.x, z: it.z, birth: it.birth })),
+    clearPaws, isPacked, update, dump, restore, get alive() { return alive; },
     /** 점검용: 여우 발자국의 수(지금 보이는 것 / 찍어 둔 것)와 자리 */
     get pawsAlive() { return pawsAlive; }, get pawCount() { return paws.size; },
     paws: () => paws.items.slice(0, paws.size).filter(Boolean).map((it) => ({ x: it.x, z: it.z, birth: it.birth })),

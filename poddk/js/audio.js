@@ -27,7 +27,7 @@ export function createAudio(baseUrl = 'audio/') {
   let started = false;
   let weather = 0.3;
   const last = { fresh: -1, packed: -1 };
-  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, water: 0, snowFx: [], stepLen: 0, carol: null };
+  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, water: 0, snowFx: [], slide: 0, slideLevel: 0, stepLen: 0, carol: null };
   let box = null;               // 트리의 오르골 (carols.js)
   let treeDistance = 999;
 
@@ -131,6 +131,43 @@ export function createAudio(baseUrl = 'audio/') {
       const at = name === 'bodyfall' ? MAP.bodyfall : MAP.rustle[0];
       shot(buffers.fx, at, volume, 0.92 + Math.random() * 0.2);
     },
+    /**
+     * 배로 미끄러지는 소리 (코드로 만든 소리): 눈 위에서는 "스으윽" 쓸리는 소리, 얼음 위에서는 더 높고 매끄러운 소리.
+     * level(빠르기 0..1, 얼음 위인가)을 박자마다 알려 주고, 다 멈추면 stop.
+     */
+    slide: (() => {
+      let src = null, band = null, gain = null;
+      return {
+        start() {
+          stats.slide++;
+          if (!ctx || muted || ctx.state !== 'running' || src) return;
+          const len = 2, buffer = ctx.createBuffer(1, ctx.sampleRate * len, ctx.sampleRate), d = buffer.getChannelData(0);
+          let b = 0;
+          for (let i = 0; i < d.length; i++) { b = 0.86 * b + 0.14 * (Math.random() * 2 - 1); d[i] = b * (0.75 + 0.25 * Math.sin(i / ctx.sampleRate * Math.PI * 2 * 7)); }      // 낮게 거른 잡음에 잔결
+          src = ctx.createBufferSource(); src.buffer = buffer; src.loop = true;
+          band = ctx.createBiquadFilter(); band.type = 'bandpass'; band.frequency.value = 900; band.Q.value = 0.7;
+          gain = ctx.createGain(); gain.gain.value = 0;
+          src.connect(band).connect(gain).connect(master);
+          src.start();
+        },
+        level(speed, ice) {
+          stats.slideLevel = speed;
+          if (!src) return;
+          const t = ctx.currentTime;
+          gain.gain.setTargetAtTime((ice ? 0.22 : 0.42) * speed, t, 0.05);
+          band.frequency.setTargetAtTime((ice ? 2600 : 800) + speed * (ice ? 900 : 500), t, 0.08);
+        },
+        stop() {
+          stats.slideLevel = 0;
+          if (!src) return;
+          const s = src, g = gain, f = band, t = ctx.currentTime;
+          g.gain.setTargetAtTime(0, t, 0.06);
+          s.stop(t + 0.4);
+          s.onended = () => { s.disconnect(); f.disconnect(); g.disconnect(); };
+          src = band = gain = null;
+        },
+      };
+    })(),
     /**
      * 눈사람 소리 (코드로 만든 소리).
      * 'pop': 눈사람으로 바뀌는 순간의 "뿅" — 통통 튀어 오르는 짧은 음 둘과 반짝이는 소리
