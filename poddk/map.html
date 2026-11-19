@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>뽀드득 지도</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#eef2fa">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<style>
+  /* 만드는 사람끼리 보는 지도: 게임 화면에는 나오지 않고, 게임에서 이리로 오는 길도 없다 */
+  :root { --ink: #2a3158; --soft: #5d6787; --line: #d5ddef; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #eef2fa; color: var(--ink); }
+  body { font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; line-height: 1.5; padding: 16px 16px calc(28px + env(safe-area-inset-bottom, 0px)); }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 2px 0 2px; letter-spacing: 0.02em; }
+  h1 small { font-size: 13px; font-weight: 700; opacity: 0.55; margin-left: 6px; letter-spacing: 0.08em; }
+  .lead { margin: 0 0 12px; font-size: 13.5px; color: var(--soft); word-break: keep-all; }
+  .card { background: #fff; border-radius: 18px; box-shadow: 0 2px 10px rgba(42, 49, 88, 0.08); padding: 10px; }
+  #map { display: block; width: 100%; height: auto; touch-action: manipulation; }
+  #map text { font-family: inherit; fill: var(--ink); paint-order: stroke; stroke: #fff; stroke-width: 1.3px; stroke-linejoin: round; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 4px 2px; font-size: 12.5px; color: var(--soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  h2 { font-size: 15px; margin: 18px 4px 8px; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; padding: 6px 8px; }
+  dt { color: var(--soft); white-space: nowrap; }
+  dd { margin: 0; font-weight: 600; word-break: keep-all; font-variant-numeric: tabular-nums; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-size: 12px; color: var(--soft); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x: auto; }
+  .foot { margin: 16px 4px 0; font-size: 12.5px; color: var(--soft); word-break: keep-all; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>뽀드득 지도 <small>poddk map</small></h1>
+  <p class="lead">위에서 내려다본 눈밭입니다. 게임 화면에는 나오지 않습니다. 여우의 자리와 눈 소식은 지금 시각 그대로 움직입니다.</p>
+  <div class="card">
+    <svg id="map" viewBox="-128 -128 256 256" role="img" aria-label="위에서 내려다본 눈밭 지도"></svg>
+    <div class="legend">
+      <span><i style="background:#2f7d5b"></i>트리</span>
+      <span><i style="background:#eef3fb;border:1.5px solid #8fa3c8"></i>이글루</span>
+      <span><i style="background:#cfe5f6;border:1.5px solid #8fb8dc"></i>낚시터</span>
+      <span><i style="background:#e8853b"></i>여우 (지나온 길, 갈 길)</span>
+      <span><i style="background:#d0312d"></i>들어오는 자리</span>
+      <span><i style="background:#c9a25a"></i>썰매가 다음에 지나갈 하늘 (점 쪽으로)</span>
+      <span id="legend-me" hidden><i style="background:#2f66c0"></i>내 펭귄이 마지막으로 있던 자리</span>
+    </div>
+  </div>
+
+  <h2>지금</h2>
+  <div class="card"><dl id="now"></dl></div>
+
+  <h2>자리 <small style="font-size:12px;font-weight:500;color:var(--soft)">걸어서 걸리는 시간</small></h2>
+  <div class="card scroll"><table id="sites"></table></div>
+
+  <p class="foot">아래쪽이 들어오는 자리이고, 들어오면 트리를 바라보고 섭니다. 점선 원은 트리에서 걸어서 30초, 1분이 걸리는 거리이고, 큰 원이 걸어 다닐 수 있는 끝입니다. 이 지도는 게임의 자리 값을 그대로 읽어 그리므로, 게임에서 자리를 옮기면 함께 바뀝니다.</p>
+</main>
+<script type="module" src="js/map.js"></script>
+</body>
+</html>

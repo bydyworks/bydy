@@ -996,6 +996,35 @@ try {
     assert(!p.url().includes('/snow'), '뒤로 가면 옛 주소로 돌아간다: ' + p.url());
   });
 
+  console.log('\n■ 지도 (만드는 사람끼리 보는 것)');
+  await test('지도 페이지: 위에서 본 눈밭에 이글루 셋, 낚시터 셋, 여우가 게임과 같은 자리에 그려지고, 게임에서는 이리로 오는 길이 없다', async () => {
+    const p = await page('t=20:10&speed=0&look=scarf&color=0&persist=1');
+    await walk(p, 0.2, 1, 6);
+    const game = await snow(p, () => { const s = window.__snow; window.dispatchEvent(new Event('pagehide')); const f = s.fox.at(s.clock.now()); return { fox: [f.x, f.z], me: [s.me.x, s.me.z], prints: s.tracks.printCount, igloos: s.place.igloos.map((g) => [g.x, g.z]), ponds: s.place.ponds.map((g) => [g.x, g.z]), links: [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')), html: document.documentElement.innerHTML.includes('map.html') }; });
+    assert(game.links.every((h) => !h.includes('map')) && !game.html, '게임 화면에 지도로 가는 길이 있다');
+    await p.goto(site.url + 'map.html?t=20:10&speed=0');
+    await p.waitForFunction(() => window.__map);
+    await sleep(400);
+    const m = await p.evaluate(() => {
+      const num = (el, k) => Number(el.getAttribute(k)), q = (k) => [...document.querySelectorAll(`[data-kind=${k}]`)];
+      const first = (g) => g.querySelector('circle');
+      return {
+        igloos: q('igloo').map((g) => [num(first(g), 'cx'), num(first(g), 'cy')]), ponds: q('pond').map((g) => [num(first(g), 'cx'), num(first(g), 'cy')]),
+        fox: q('fox').map((c) => [num(c, 'cx'), num(c, 'cy')])[0], me: q('me').map((c) => [num(c, 'cx'), num(c, 'cy')])[0], prints: document.querySelectorAll('[data-kind=prints] circle').length,
+        trail: (document.querySelector('[data-kind=fox-trail]').getAttribute('d').match(/L/g) || []).length, santa: !!document.querySelector('[data-kind=santa]'),
+        rows: document.querySelectorAll('#sites tr').length, now: document.querySelector('#now').textContent, view: document.querySelector('#map').getAttribute('viewBox'),
+        wide: document.documentElement.scrollWidth <= innerWidth, noindex: !!document.querySelector('meta[name=robots][content=noindex]'),
+      };
+    });
+    const same = (a, b) => a.length === b.length && a.every((v, i) => Math.abs(v[0] - b[i][0]) < 0.01 && Math.abs(v[1] - b[i][1]) < 0.01);
+    assert(same(m.igloos, game.igloos) && same(m.ponds, game.ponds), '지도의 이글루·낚시터 자리가 게임과 다르다: ' + JSON.stringify([m.igloos, game.igloos]));
+    assert(Math.hypot(m.fox[0] - game.fox[0], m.fox[1] - game.fox[1]) < 0.01, '지도의 여우 자리가 게임과 다르다: ' + JSON.stringify([m.fox, game.fox]));
+    assert(m.me && Math.hypot(m.me[0] - game.me[0], m.me[1] - game.me[1]) < 0.01 && m.prints === game.prints, '내 펭귄의 자리와 발자국이 게임과 다르다: ' + JSON.stringify([m.me, game.me, m.prints, game.prints]));
+    assert(m.trail > 100 && m.santa && m.rows === 7, '여우가 지나온 길, 썰매가 지나갈 하늘, 자리 표가 있어야 한다: ' + JSON.stringify(m));
+    assert(m.now.includes('오후 8:10') && m.now.includes('폭설까지 50분') && /\d\d:\d\d · \d\d:\d\d · \d\d:\d\d/.test(m.now), '지금의 소식: ' + m.now);
+    assert(m.wide && m.noindex, '화면보다 넓거나, 검색에 걸리지 않게 하는 표시가 없다');
+  });
+
   console.log('\n■ 화면 배치');
   for (const [w, h, mobile] of [[360, 640, true], [390, 844, true], [844, 390, true], [1280, 720, false]]) {
     await test(`${w}x${h}: 글과 버튼이 화면 안에 있고 서로 겹치지 않는다`, async () => {
