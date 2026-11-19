@@ -467,21 +467,8 @@ function showSay() {
 let crackleIn = 0;
 
 // ---------- 내 이름 ----------
-// 이름은 펭귄 머리 위의 작은 이름표로 늘 따라다닌다 (앉아서 고른 말풍선이 떠 있을 때는 그 안에 이름이 있으므로 숨는다)
-const tagAt = new THREE.Vector3();
-function placeTag() {
-  const el = $('#me-tag');
-  const low = me.angel || me.slide ? 0.95 : me.seat ? 1.45 : 1.75;      // 누웠거나 엎드리면 낮게
-  let show = started && $('#me-say').hidden && !giftOpen;
-  if (show) {
-    tagAt.set(me.x, low, me.z).project(camera);
-    show = tagAt.z < 1 && Math.abs(tagAt.x) < 1 && Math.abs(tagAt.y) < 1;
-    if (show) { el.style.left = ((tagAt.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - tagAt.y) / 2 * innerHeight) + 'px'; }
-  }
-  if (el.classList.contains('show') !== show) el.classList.toggle('show', show);
-}
 let name = myName(!TEST_MODE);
-function showName() { $('#my-name').textContent = name; $('#me-tag').textContent = name; }
+function showName() { $('#my-name').textContent = name; }
 showName();
 $('#rename').addEventListener('click', () => { name = rename(!TEST_MODE); showName(); });
 
@@ -727,7 +714,6 @@ function tick(t) {
   xmas.update(now, dt, seconds, me, () => audio.snowFx('hohoho'));
   placeSantaSay();
   if (me.seat) showSay();
-  placeTag();
   santa.update(now, camera, palette.elev);
   if (frame % 2 === 0) tracks.update(now);
   audio.setWeather(me.inside !== null ? 0 : snowfall);
