@@ -15,7 +15,8 @@ const MAP = {
 };
 const FILES = { fresh: 'steps-fresh.mp3', packed: 'steps-packed.mp3', fx: 'fx.mp3', snowfall: 'snowfall.mp3', blizzard: 'blizzard.mp3' };
 const STEP_MAX = 0.95;        // 한 걸음 소리는 길어야 이만큼 (걸음이 이어지면 겹쳐 뭉개지므로). 빨리 걸을 때는 main.js 가 더 짧게 정해 준다
-const VOLUME = { fresh: 0.5, packed: 0.42, snowfall: 0.55, snowfallInStorm: 0.4, wind: 0.2 };   // 발소리가 주인공, 배경은 뒤에 깔린다
+const VOLUME = { fresh: 0.5, packed: 0.42, snowfall: 0.55, snowfallInStorm: 0.4, wind: 0.2 };
+const INDOOR = { outside: 0.07, fire: 0.3 };      // 이글루 안: 바깥 눈 소리는 이만큼만(두꺼운 눈벽 너머로 아주 작게), 장작이 타는 웅웅 소리의 세기   // 발소리가 주인공, 배경은 뒤에 깔린다
 
 export function createAudio(baseUrl = 'audio/') {
   /** @type {AudioContext | null} */
@@ -26,8 +27,9 @@ export function createAudio(baseUrl = 'audio/') {
   let muted = false;
   let started = false;
   let weather = 0.3;
+  let indoor = false, fire = null;           // 이글루 안인가, 장작이 타는 소리(웅웅)
   const last = { fresh: -1, packed: -1 };
-  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, water: 0, snowFx: [], slide: 0, slideLevel: 0, stepLen: 0, carol: null };
+  const stats = { started: false, loaded: [], failed: [], steps: 0, fresh: 0, packed: 0, fx: 0, water: 0, snowFx: [], slide: 0, slideLevel: 0, stepLen: 0, carol: null, indoor: false, fire: 0, outside: 1 };
   let box = null;               // 트리의 오르골 (carols.js)
   let treeDistance = 999;
 
@@ -65,9 +67,28 @@ export function createAudio(baseUrl = 'audio/') {
 
   function applyWeather(tau = 1.5) {
     if (!ctx) return;
-    const storm = Math.min(1, Math.max(0, (weather - 0.38) / 0.62));
-    if (loops.snowfall) loops.snowfall.gain.gain.setTargetAtTime(VOLUME.snowfall + (VOLUME.snowfallInStorm - VOLUME.snowfall) * storm, ctx.currentTime, tau);
-    if (loops.blizzard) loops.blizzard.gain.gain.setTargetAtTime(storm * VOLUME.wind, ctx.currentTime, tau);
+    const storm = Math.min(1, Math.max(0, (weather - 0.38) / 0.62)), out = indoor ? INDOOR.outside : 1;
+    if (loops.snowfall) loops.snowfall.gain.gain.setTargetAtTime((VOLUME.snowfall + (VOLUME.snowfallInStorm - VOLUME.snowfall) * storm) * out, ctx.currentTime, tau);
+    if (loops.blizzard) loops.blizzard.gain.gain.setTargetAtTime(storm * VOLUME.wind * out, ctx.currentTime, tau);
+    stats.outside = out;
+  }
+
+  /** 장작이 타는 소리: 낮게 웅웅거리는 불의 숨소리 (걸러 낸 잡음을 이어 튼다). 이글루 안에서만 들린다 */
+  function fireBed() {
+    if (fire || !ctx) return fire;
+    const len = 4, buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate), d = buffer.getChannelData(0);
+    let b = 0;
+    for (let i = 0; i < d.length; i++) { b = (b + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = b * 3.2; }      // 갈색 잡음 (낮은 소리가 많은 잡음)
+    const n = 2000; for (let i = 0; i < n; i++) { const u = i / n; d[i] = d[i] * u + d[d.length - n + i] * (1 - u); }      // 이음매가 튀지 않게
+    const src = ctx.createBufferSource(), low = ctx.createBiquadFilter(), gain = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain();
+    src.buffer = buffer; src.loop = true; src.loopEnd = len - n / ctx.sampleRate;
+    low.type = 'lowpass'; low.frequency.value = 520; low.Q.value = 0.5;
+    lfo.frequency.value = 0.37; depth.gain.value = 140; lfo.connect(depth).connect(low.frequency);      // 불길이 일렁이듯 소리 결이 천천히 바뀐다
+    gain.gain.value = 0;
+    src.connect(low).connect(gain).connect(master);
+    src.start(); lfo.start();
+    fire = { gain };
+    return fire;
   }
 
   /** 소리 한 조각을 튼다. [시작, 길이], 세기, 빠르기, 최대 길이 */
@@ -229,7 +250,12 @@ export function createAudio(baseUrl = 'audio/') {
         }
         return;
       }
-      if (kind === 'crackle') { puff(0, 0.025 + Math.random() * 0.03, 1800 + Math.random() * 2400, (0.05 + Math.random() * 0.12) * level); return; }      // 모닥불이 타닥
+      if (kind === 'crackle') {                             // 모닥불이 타닥: 잔 불티 소리, 가끔 장작이 툭 터지는 소리
+        puff(0, 0.025 + Math.random() * 0.03, 1800 + Math.random() * 2400, (0.14 + Math.random() * 0.24) * level);
+        if (Math.random() < 0.16) { puff(0.01, 0.05, 700 + Math.random() * 500, 0.42 * level); puff(0.05, 0.03, 2600, 0.2 * level); }
+        return;
+      }
+      if (kind === 'dice') { for (let i = 0; i < 4; i++) puff(i * 0.07 + Math.random() * 0.03, 0.03, 2400 + Math.random() * 1600, 0.3 - i * 0.05); return; }      // 주사위가 데굴데굴 달각
       if (kind === 'paper') { puff(0, 0.09, 3200, 0.22); puff(0.05, 0.07, 2200, 0.14); return; }      // 포장지를 톡 두드리는 바스락
       if (kind === 'tear') {                                // 포장지가 쫙 찢어지는 소리
         for (let i = 0; i < 6; i++) puff(i * 0.035, 0.1, 2600 + i * 300, 0.26 - i * 0.025);
@@ -291,6 +317,15 @@ export function createAudio(baseUrl = 'audio/') {
     setTreeDistance(d) { treeDistance = d; if (box) box.setDistance(d); },
     /** 지금 들리는 캐롤의 제목 (들리지 않으면 빈 글자) */
     get carolTitle() { return box && box.stats.gain > 0.012 ? box.stats.title : ''; },
+    /** 이글루 안에 들어왔다·나갔다: 안에서는 바깥 눈 소리가 아주 작아지고 장작 타는 소리가 들린다 */
+    setIndoor(on) {
+      if (on === indoor && (!on || fire || !ctx)) return;      // (소리가 켜지기 전에 들어왔으면, 켜진 뒤에 장작 소리를 붙인다)
+      indoor = on; stats.indoor = on;
+      applyWeather(0.4);
+      const f = on ? fireBed() : fire;
+      if (f) f.gain.gain.setTargetAtTime(on ? INDOOR.fire : 0, ctx.currentTime, 0.5);
+      stats.fire = on ? INDOOR.fire : 0;
+    },
     /** 눈발의 세기 0..1 */
     setWeather(snowfall) { if (Math.abs(snowfall - weather) > 0.01) { weather = snowfall; applyWeather(); } },
     setMuted(on) {

@@ -16,13 +16,13 @@ export const CATCHES = [
   { id: 'trout', name: '송어', weight: 12 },
   { id: 'boot', name: '낡은 장화', weight: 6 },
 ];
-const SEAT = 1.55;                 // 구멍에서 이만큼 떨어져 앉는다
+export const SEAT = 1.55;                 // 구멍에서 이만큼 떨어져 앉는다
 const T = { sit: 0.6, bite: 2.6, pull: 0.55, show: 1.9, release: 0.65, stand: 0.45 };      // 단계마다 걸리는 시간(초)
 const WAIT = [4, 12];              // 입질을 기다리는 시간의 범위(초)
 const NIB = { len: 0.32, early: 0.9, lead: 1.1, gap: 1.0, tail: 1.0, dip: 0.036 };      // 가짜 입질: 까딱이는 시간, 그때부터 이만큼은 버튼이 쉰다(누르면 "일렀다"로 친다), 앉고 나서·서로·진짜 입질 앞에 두는 틈(초), 찌가 내려가는 깊이
 const GRACE = { sat: 0.5, missed: 0.9, released: 0.6 };      // 막 앉았거나, 입질을 놓쳤거나, 놓아준 직후 이만큼은 버튼을 눌러도 그만두지 않는다 (한 박자 늦게 누른 것일 수 있다)
-const ROD_LEN = 1.5, ROD_TILT = 0.96;     // 낚싯대의 길이와, 앞으로 기운 각도(라디안)
-const FLOAT_Y = 0.05;              // 찌가 떠 있는 높이
+export const ROD_LEN = 1.5, ROD_TILT = 0.96;     // 낚싯대의 길이와, 앞으로 기운 각도(라디안)
+export const FLOAT_Y = 0.05;              // 찌가 떠 있는 높이
 
 const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -63,11 +63,15 @@ const MAKERS = {
 
 /**
  * @param {THREE.Scene} scene
- * @param {{ penguin: THREE.Group, audio: { water: Function }, crumble: { puff: Function }, toast: Function, free: (x: number, z: number) => boolean, early?: Function }} o
+ * @param {{ penguin: THREE.Group, audio: { water: Function }, crumble: { puff: Function }, toast: Function, free: (x: number, z: number) => boolean, early?: Function, caught?: (kind: string) => void }} o
+ *   caught: 무엇인가 낚아 올렸을 때 (없으면 알림 글로 알린다)
  *   free: 그 자리에 설 수 있는가 (이글루 같은 것에 막혀 있지 않은가)
  *   early: 가짜 입질에 서둘러 눌렀을 때 부른다
  */
-export function createFishing(scene, { penguin, audio, crumble, toast, free, early = () => {} }) {
+/** 낚인 것의 모형을 새로 하나 만든다 (낚은 것을 보여 주는 창에 쓴다) */
+export function makeCatch(id) { const o = MAKERS[id](); o.visible = true; return o; }
+
+export function createFishing(scene, { penguin, audio, crumble, toast, free, early = () => {}, caught = null }) {
   // 낚싯대는 펭귄에 붙어 다닌다
   const rod = new THREE.Group();
   const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.024, ROD_LEN, 8), mat('#8a5a36', 0.8));
@@ -225,7 +229,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free, ear
         wiggle = 1;
         if (s.t >= T.pull) {
           go('show'); stats.caught++; stats.last = s.kind;
-          toast(CATCHES.find((c) => c.id === s.kind).name + '를 낚았어요', 2200);
+          if (caught) caught(s.kind); else toast(CATCHES.find((c) => c.id === s.kind).name + '를 낚았어요', 2200);
         }
       } else if (s.phase === 'show') {
         s.k = 1; lean = -0.14; lift = -0.3;

@@ -4,6 +4,8 @@ const PORT = 8799, BASE = `http://127.0.0.1:${PORT}`, WS = `ws://127.0.0.1:${POR
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let ok = 0, bad = 0;
 const check = (cond, what) => { if (cond) { ok++; console.log('  PASS  ' + what); } else { bad++; console.log('  FAIL  ' + what); } };
+import { rmSync } from 'node:fs';
+rmSync(new URL('../.wrangler/test-state', import.meta.url), { recursive: true, force: true });      // 지난번 점검이 남긴 자국 없이 시작한다
 const dev = spawn('npx', ['wrangler', 'dev', '--local', '--port', String(PORT), '--persist-to', '.wrangler/test-state'], { stdio: ['ignore', 'pipe', 'pipe'], detached: true, env: { ...process.env, WRANGLER_SEND_METRICS: 'false' } });
 let log = ''; dev.stdout.on('data', (d) => { log += d; }); dev.stderr.on('data', (d) => { log += d; });
 try {

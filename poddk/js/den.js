@@ -6,7 +6,6 @@ import * as THREE from 'three';
 export const DEN_RADIUS = 6.2;            // 걸어 다닐 수 있는 방의 반지름
 const DOME = 6.8;                         // 둥근 벽의 반지름
 const WALL_Y = 0.86;                      // 둥근 벽을 위아래로 눌러 놓은 정도 (가운데 높이 약 5.8)
-export const CAMERA_ROOM = 5.1;           // 카메라는 가운데에서 이만큼 안에 (벽 밖으로 나가지 않게)
 const FIRE_BLOCK = 1.35;                  // 모닥불 둘레 (들어갈 수 없다)
 const SEAT_RING = 3.1;                    // 방석이 놓인 둘레
 export const SEATS = 6;
@@ -24,23 +23,42 @@ const VARIANTS = [
 
 const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, ...o });
 
+/** 눈 벽돌 무늬: 가로줄과, 줄마다 엇갈린 세로 이음매 (둥근 벽에 입힌다) */
+let brickTex = null;
+function bricks() {
+  if (brickTex) return brickTex;
+  const W = 1024, H = 256, ROWS = 6, PER = 26;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  x.fillStyle = '#eef2fa'; x.fillRect(0, 0, W, H);
+  x.strokeStyle = '#d3dbea'; x.lineWidth = 3;
+  for (let r = 0; r < ROWS; r++) {
+    const y0 = H - (r / ROWS) * H;                            // 아래(바닥)부터 위(꼭대기)로
+    x.beginPath(); x.moveTo(0, y0); x.lineTo(W, y0); x.stroke();
+    const n = Math.max(6, Math.round(PER * Math.cos((r + 0.5) / ROWS * Math.PI / 2)));      // 위로 갈수록 둘레가 짧아 벽돌 수가 준다
+    for (let k = 0; k < n; k++) { const xx = ((k + (r % 2) * 0.5) / n) * W; x.beginPath(); x.moveTo(xx, y0); x.lineTo(xx, y0 - H / ROWS); x.stroke(); }
+  }
+  brickTex = new THREE.CanvasTexture(c); brickTex.colorSpace = THREE.SRGBColorSpace; brickTex.anisotropy = 4;
+  return brickTex;
+}
+
 function room(v, i) {
   const g = new THREE.Group();
   // 바닥과 둥근 눈벽 (안쪽에서 보는 벽)
   const floor = new THREE.Mesh(new THREE.CircleGeometry(DOME, 48), mat('#e9e4dc', { roughness: 1 })); floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; g.add(floor);
-  const wall = new THREE.Mesh(new THREE.SphereGeometry(DOME, 40, 18, 0, Math.PI * 2, 0, Math.PI / 2), mat('#eef2fa', { roughness: 1, side: THREE.DoubleSide }));
-  wall.scale.y = WALL_Y; wall.castShadow = true; wall.receiveShadow = true; g.add(wall);
-  // 벽의 눈 벽돌 줄
-  for (let k = 1; k <= 4; k++) {
-    const y = k * 1.0, r = Math.sqrt(Math.max(0.1, DOME * DOME - (y / WALL_Y) ** 2)) - 0.02;
-    const line = new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 4, 64), mat('#d5dceb')); line.rotation.x = Math.PI / 2; line.position.y = y; g.add(line);
-  }
+  // 둥근 벽은 안쪽 면만 그린다 (BackSide): 카메라가 벽 밖으로 물러나도 앞쪽 벽은 그려지지 않고 건너편 벽만 보여서,
+  // 지붕을 걷어 낸 인형의 집처럼 방 전체를 넓게 내려다볼 수 있다
+  const wall = new THREE.Mesh(new THREE.SphereGeometry(DOME, 48, 24, 0, Math.PI * 2, 0, Math.PI / 2), mat('#ffffff', { roughness: 1, side: THREE.BackSide, map: bricks() }));
+  wall.scale.y = WALL_Y; wall.receiveShadow = true; g.add(wall);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(DOME, 0.22, 8, 64, Math.PI * 2), mat('#e6ecf6', { roughness: 1 })); rim.rotation.x = Math.PI / 2; rim.scale.z = 0.5; g.add(rim);      // 벽이 땅에 닿는 둘레의 두툼한 눈
   // 문: 바깥 빛이 비치는 둥근 구멍 (+Z 쪽)
   const door = new THREE.Mesh(new THREE.CircleGeometry(1.15, 24, 0, Math.PI), new THREE.MeshBasicMaterial({ color: '#cfe3fb' }));
   door.position.set(0, 0.01, DOME - 0.35); door.rotation.y = Math.PI; g.add(door);
   // 깔개
   const rug = new THREE.Mesh(new THREE.RingGeometry(1.5, 4.2, 48), mat(v.rug, { roughness: 1 })); rug.rotation.x = -Math.PI / 2; rug.position.y = 0.012; rug.receiveShadow = true; g.add(rug);
   const rugEdge = new THREE.Mesh(new THREE.RingGeometry(4.05, 4.2, 48), mat('#f3ead8')); rugEdge.rotation.x = -Math.PI / 2; rugEdge.position.y = 0.015; g.add(rugEdge);
+  // 벽 밖의 눈밭 (벽 너머로 물러난 카메라 아래에 보인다)
+  const yard = new THREE.Mesh(new THREE.RingGeometry(DOME - 0.05, 40, 64), mat('#f4f7fc', { roughness: 1 })); yard.rotation.x = -Math.PI / 2; yard.position.y = -0.02; yard.receiveShadow = true; g.add(yard);
   // 모닥불: 둘러놓은 돌, 엇갈린 장작, 일렁이는 불꽃, 따뜻한 빛
   for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI * 2, s = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), mat('#8a8f9c')); s.scale.set(1, 0.65, 1); s.position.set(Math.sin(a) * 0.82, 0.1, Math.cos(a) * 0.82); s.castShadow = true; g.add(s); }
   for (const r of [0.5, -0.6, 1.7]) { const log = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.2, 8), mat('#6b4428')); log.rotation.set(Math.PI / 2 - 0.2, r, 0); log.position.y = 0.16; log.castShadow = true; g.add(log); }
@@ -83,7 +101,7 @@ function room(v, i) {
     }
     for (const s of [-0.15, 0.15]) { const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 2.4, 6), mat('#8a5a36')); rod.position.set(Math.sin(4.3) * 5.5 + s, 1.1, Math.cos(4.3) * 5.5); rod.rotation.z = 0.25 + s; rod.castShadow = true; deco.add(rod); }
   }
-  return { group: g, seats, flames, light, glow };
+  return { group: g, seats, flames, light, glow, deco };
 }
 
 /** 이글루 셋의 방. 저마다 들판 밖 먼 곳에 지어 둔다 */
@@ -112,9 +130,18 @@ export function createDens(scene) {
     /** 그 자리에서 가까운 방석 (없으면 -1) */
     seatNear(i, x, z) { let best = -1, bd = 1.1; dens[i].seats.forEach((s, k) => { const d = Math.hypot(s.x - x, s.z - z); if (d < bd) { bd = d; best = k; } }); return best; },
     nearDoor(i, x, z) { const d = dens[i].door; return Math.hypot(d.x - x, d.z - z) < 1.5; },
-    /** 불꽃이 일렁인다 */
-    update(dt) {
+    /** 불꽃이 일렁인다. camera 를 주면, 카메라가 벽 밖으로 물러났을 때 카메라 쪽 벽에 붙은 꾸밈은 감춘다 (앞을 가리지 않게) */
+    update(dt, camera = null) {
       time += dt;
+      for (const d of dens) {
+        if (!d.group.visible || !camera) continue;
+        const cx = camera.position.x - d.center.x, cz = camera.position.z - d.center.z, cr = Math.hypot(cx, cz);
+        for (const o of d.deco.children) {
+          if (!o.isMesh) continue;
+          const r = Math.hypot(o.position.x, o.position.z) || 1;
+          o.visible = !(cr > DOME - 0.6 && (o.position.x * cx + o.position.z * cz) / (r * cr) > 0.35);
+        }
+      }
       for (const d of dens) {
         if (!d.group.visible) continue;
         for (const f of d.flames) { const k = f.userData.k; const s = 1 + 0.16 * Math.sin(time * (9 + k * 3)) + 0.08 * Math.sin(time * 23 + k); f.scale.set(1 - 0.06 * Math.sin(time * 13 + k), s, 1); f.position.y = 0.2 + f.userData.h * s / 2; f.rotation.y = time * (0.6 + k * 0.3); }
