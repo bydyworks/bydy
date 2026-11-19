@@ -218,6 +218,39 @@ export function sit(root, k, lean = 0) {
 }
 
 /**
+ * 서서 파닥파닥: 양 날개를 빠르게 위아래로 퍼덕이고 몸이 통통 들썩인다. (pose() 다음에 부른다)
+ * @param {number} k 0..1 (시작과 끝에서 부드럽게)  @param {number} beat 날갯짓 위상(라디안)
+ */
+export function flap(root, k, beat = 0) {
+  const u = root.userData;
+  if (u.held) u.wings.forEach((pivot) => untuck(pivot, Math.min(1, k * 2)));
+  const a = (1 - Math.cos(beat)) / 2;              // 0(내림)..1(올림)
+  u.wings[0].rotation.z = -(0.15 + 1.15 * a) * k; u.wings[1].rotation.z = (0.15 + 1.15 * a) * k;
+  u.wings[0].rotation.x = 0; u.wings[1].rotation.x = 0;
+  u.top.position.y += Math.abs(Math.sin(beat)) * 0.05 * k;
+  if (k === 0) u.wings.forEach((pivot) => { pivot.rotation.z = 0; });
+}
+
+/**
+ * 배 썰매: 앞으로 엎드려 배를 깔고, 날개는 몸에 붙여 뒤로 뻗는다 (펭귄이 눈 위를 미끄러질 때의 자세).
+ * @param {number} k 0(서 있음)..1(완전히 엎드림)  @param {number} wiggle 미끄러지는 동안 발을 살랑이는 위상(라디안)
+ */
+export function belly(root, k, wiggle = 0) {
+  const u = root.userData, g = u.body;
+  g.rotation.x = k * Math.PI / 2 * 0.94;           // 머리가 앞(+Z)으로 숙여지고 배가 땅에 닿는다 (고개는 살짝 든다)
+  g.position.y = k * 0.4;
+  g.position.z = -k * 0.5;                         // 엎드린 몸의 가운데가 서 있던 자리에 오도록
+  const out = Math.min(1, Math.max(0, (k - 0.4) / 0.6));
+  if (u.held) u.wings.forEach((pivot) => untuck(pivot, out));
+  u.wings[0].rotation.z = -0.32 * out; u.wings[1].rotation.z = 0.32 * out;      // 날개를 옆구리에 붙여 뒤로
+  u.wings[0].rotation.x = 0.5 * out; u.wings[1].rotation.x = 0.5 * out;
+  const w = Math.sin(wiggle) * 0.35 * out;
+  u.feet[0].rotation.x = -0.6 * out + w; u.feet[1].rotation.x = -0.6 * out - w;      // 발은 뒤로 들고 살랑인다
+  u.feet[0].rotation.y = 0; u.feet[1].rotation.y = 0;
+  if (k === 0) u.wings.forEach((pivot) => { pivot.rotation.x = 0; });
+}
+
+/**
  * 눈 천사: 뒤로 벌렁 누워 날개와 발을 휘젓는다.
  * @param {number} k 0(서 있음)..1(완전히 누움)  @param {number} flap 휘젓는 주기 위상(라디안). 누워 있지 않으면 무시
  */
