@@ -17,3 +17,9 @@
 ## 코드
 
 - 3D 그리기: [three.js](https://threejs.org) r170 (MIT, `vendor/three.LICENSE`)
+
+## 글꼴
+
+| 파일 | 글꼴 | 만든 곳 | 라이선스 |
+|---|---|---|---|
+| `fonts/NanumSquareRound*.woff2` | 나눔스퀘어라운드 (NanumSquareRound) | NAVER Corporation · Sandoll Communications | SIL Open Font License 1.1 (`fonts/LICENSE.txt`) |
