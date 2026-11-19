@@ -33,7 +33,7 @@ export function createCapture({ canvas, draw, touch }) {
       // 구석의 작은 이름 (화면 너비에 맞춘 크기)
       const unit = out.width / Math.max(1, canvas.clientWidth || out.width);        // 화면 1px 이 사진에서 몇 px 인가
       const size = Math.round(13 * unit * Math.max(1, Math.min(1.4, (canvas.clientWidth || 390) / 520)));
-      g.font = `800 ${size}px NanumSquareRound, system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif`;
+      g.font = `700 ${size}px system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif`;
       g.textBaseline = 'alphabetic';
       g.shadowColor = 'rgba(42, 49, 88, 0.45)'; g.shadowBlur = 4 * unit; g.shadowOffsetY = 1 * unit;
       g.fillStyle = 'rgba(255, 255, 255, 0.92)';

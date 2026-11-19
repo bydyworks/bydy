@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 export const { chromium } = require('playwright');
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = path.resolve(ROOT, '..');          // 저장소 맨 위 (GitHub Pages 가 내주는 곳)
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.png': 'image/png', '.json': 'application/json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.mp3': 'audio/mpeg', '.png': 'image/png', '.json': 'application/json' };
 
 export async function startStatic() {
   const server = http.createServer((req, res) => {

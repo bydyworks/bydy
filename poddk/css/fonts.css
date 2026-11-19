@@ -1,5 +1,0 @@
-/* 글꼴: 나눔스퀘어라운드 (네이버, SIL Open Font License 1.1 — fonts/LICENSE.txt). 파일을 함께 싣고 쓰므로 밖에서 받아 오는 것이 없다.
-   글꼴이 도착하기 전에는 기기의 글꼴로 먼저 보여 준다 */
-@font-face { font-family: 'NanumSquareRound'; font-weight: 400; font-style: normal; font-display: swap; src: local('NanumSquareRound Regular'), local('NanumSquareRoundR'), url(../fonts/NanumSquareRoundR.woff2) format('woff2'); }
-@font-face { font-family: 'NanumSquareRound'; font-weight: 700; font-style: normal; font-display: swap; src: local('NanumSquareRound Bold'), local('NanumSquareRoundB'), url(../fonts/NanumSquareRoundB.woff2) format('woff2'); }
-@font-face { font-family: 'NanumSquareRound'; font-weight: 800 900; font-style: normal; font-display: swap; src: local('NanumSquareRound ExtraBold'), local('NanumSquareRoundEB'), url(../fonts/NanumSquareRoundEB.woff2) format('woff2'); }

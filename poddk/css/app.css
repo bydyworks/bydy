@@ -1,38 +1,16 @@
-/* 뽀드득: 화면은 눈밭이 전부이고, 글과 버튼은 가장자리에 작게 얹는다.
-   생김새: 납작한 종이. 크림색 쪽지에 진한 갈색 글씨, 색종이를 동그랗게 오린 단추에 갈색 그림.
-   - 어느 단추도 혼자 튀지 않는다: 단추의 색종이는 밝기와 진하기가 모두 같고 색의 종류만 다르다. 무엇인지는 색이 아니라 그림으로 안다
-   - 꾸밈은 한 겹만: 쪽지에는 옅은 그늘 하나뿐, 테두리나 무늬는 두지 않는다
-   - 걷는 동안에는 위쪽 글이 물러나고, 멈춰 서면 다시 나온다
-   - 누르면 작게 움츠렸다가 통 하고 돌아온다 */
+/* 뽀드득: 화면은 눈밭이 전부이고, 글과 버튼은 가장자리에 작게 얹는다 */
 :root {
-  --cream: #fffaf0;                                /* 쪽지 바탕 (해 질 녘과 밤에는 아래에서 살짝 옮긴다) */
-  --cream-line: #e6dac3;                           /* 쪽지 위의 점선 */
-  --brown: #5b4737; --brown-soft: #766250;         /* 글자와 그림. 작은 글자도 또렷하게 읽히는 진하기 (크림색 위에서 8.4:1, 5.6:1) */
-  /* 단추의 색종이: 모두 같은 밝기와 진하기 (OKLCH L 0.80, C 0.085 안팎) */
-  --mint: #7dd0c0; --coral: #f5a797; --sky: #92c3f2; --aqua: #78cddc; --sun: #deb866; --gray: #c7bcaf;
-  --dusk: #efae7c; --night: #b2b8f4; --plum: #cfafe7; --slate: #b0bedc;
-  --glyph: var(--brown);                           /* 단추 위의 그림 */
-  --float: 0 3px 10px rgba(80, 58, 36, 0.13);      /* 눈밭 위에 살짝 떠 보일 만큼만 */
-  --squish: cubic-bezier(.34, 1.56, .64, 1);       /* 눌렀다 떼면 통 하고 돌아온다 */
+  --ink: #2a3158;
+  --paper: rgba(255, 255, 255, 0.72);
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
-  --btn: 54px; --gap: 13px; --col-r: calc(19px + var(--safe-r)); --col-b: calc(26px + var(--safe-b)); --zoom-h: calc(var(--btn) * 2 - 8px);
 }
-/* 하늘에 따라 쪽지의 색조만 살짝 옮긴다 (모양은 그대로): 해 질 녘에는 조금 따뜻하게, 밤에는 눈부시지 않게 조금 가라앉힌다 */
-body[data-sky="dusk"] { --cream: #fff4e6; }
-body[data-sky="night"] { --cream: #f3eee6; --cream-line: #ddd2bf; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #dfe6f5; color: var(--brown); overscroll-behavior: none; }
-/* 글꼴은 나눔스퀘어라운드 (css/fonts.css). 아직 도착하지 않았으면 기기의 글꼴로 */
-body { font-family: 'NanumSquareRound', ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; -webkit-user-select: none; user-select: none; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #dfe6f5; color: var(--ink); overscroll-behavior: none; }
+body { font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif; -webkit-user-select: none; user-select: none; }
 button { font: inherit; color: inherit; border: 0; cursor: pointer; }
-
-/* 그림: 채운 모양(.f)과 굵고 둥근 선(.s) */
-.g { display: block; width: 24px; height: 24px; }
-.g .f { fill: currentColor; }
-.g .s { fill: none; stroke: currentColor; stroke-width: 2.7; stroke-linecap: round; stroke-linejoin: round; }
 
 #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 /* 누르는 곳: 화면 전체. 끌어도 페이지가 움직이거나 확대되지 않게 한다 */
@@ -41,158 +19,102 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; }
 /* 조이스틱: 누른 자리에 나타난다 */
 #stick {
   position: fixed; left: 0; top: 0; width: 112px; height: 112px; border-radius: 50%; pointer-events: none; opacity: 0; transition: opacity .15s;
-  background: rgba(255, 250, 240, 0.34); border: 3px dotted rgba(255, 250, 240, 0.95);
+  background: rgba(255, 255, 255, 0.22); border: 2px solid rgba(255, 255, 255, 0.6); box-shadow: 0 2px 14px rgba(42, 49, 88, 0.18);
 }
-#knob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: var(--cream); box-shadow: var(--float); }
+#knob { position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px; border-radius: 50%; background: rgba(255, 255, 255, 0.85); box-shadow: 0 2px 8px rgba(42, 49, 88, 0.25); }
 
-/* 위쪽 왼쪽: 시각, 눈 소식, 들리는 캐롤 — 크림색 쪽지 한 장에, 줄마다 작은 색 동그라미 그림 */
+/* 위쪽: 시각과 눈 소식 */
 #hud {
-  position: fixed; left: calc(12px + var(--safe-l)); top: calc(10px + var(--safe-t)); padding: 9px 16px 9px 10px; border-radius: 22px; background: var(--cream);
-  box-shadow: var(--float); pointer-events: none; opacity: 0; transition: opacity .7s, background-color 1.2s; display: flex; flex-direction: column; gap: 5px; max-width: calc(100vw - 86px - var(--safe-l) - var(--safe-r));
+  position: fixed; left: calc(12px + var(--safe-l)); top: calc(10px + var(--safe-t)); padding: 7px 12px; border-radius: 14px; background: var(--paper);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); pointer-events: none; line-height: 1.35; opacity: 0; transition: opacity .6s;
 }
-#hud .row { display: flex; align-items: center; gap: 7px; min-height: 22px; }
-#hud .row[hidden] { display: none; }
-.badge { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: var(--glyph); background: var(--sun); }
-.badge .g { width: 15px; height: 15px; grid-area: 1 / 1; }
-.badge .g .s { stroke-width: 3; }
-/* 시각의 그림: 낮에는 해, 해 뜰 녘·해 질 녘에는 지평선의 해, 밤에는 달 */
-.badge.time .dusk, .badge.time .night { display: none; }
-body[data-sky="dusk"] .badge.time { background: var(--dusk); }
-body[data-sky="dusk"] .badge.time .day, body[data-sky="night"] .badge.time .day { display: none; }
-body[data-sky="dusk"] .badge.time .dusk { display: block; }
-body[data-sky="night"] .badge.time { background: var(--night); }
-body[data-sky="night"] .badge.time .night { display: block; }
-/* 눈 소식의 그림: 평소에는 눈송이, 큰 눈이 오는 동안에는 눈구름 */
-.badge.snow { background: var(--sky); }
-.badge.snow .wild { display: none; }
-body:not([data-storm="calm"])[data-storm] .badge.snow { background: var(--slate); }
-body:not([data-storm="calm"])[data-storm] .badge.snow .calm { display: none; }
-body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
-.badge.music { background: var(--plum); }
-#clock { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
-#storm { font-size: 12.5px; font-weight: 700; color: var(--brown-soft); word-break: keep-all; }
-#carol { font-size: 12.5px; font-weight: 700; color: #7d55a6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }       /* 트리 가까이에서 들리는 캐롤의 제목 */
+#clock { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+#storm { font-size: 12px; font-weight: 600; opacity: 0.8; word-break: keep-all; }
+#carol { font-size: 12px; font-weight: 700; color: #b0533c; }       /* 트리 가까이에서 들리는 캐롤의 제목 */
+#carol:empty { display: none; }
 
 /* 버튼: 글자 없이 그림만. 오른쪽 위에 소리, 오른쪽 아래에 한 줄로 위에서부터 캡쳐 → 눈 천사 → 확대·축소 (모두 같은 너비).
    가장 자주 쓰는 확대·축소가 엄지에 가장 가까운 맨 아래에 온다 */
-.ui { position: fixed; opacity: 0; transition: opacity .6s, transform .28s var(--squish), background-color .2s; touch-action: manipulation; }
+:root { --btn: 54px; --gap: 12px; --col-r: calc(18px + var(--safe-r)); --col-b: calc(26px + var(--safe-b)); --zoom-h: calc(var(--btn) * 2 - 8px); }
+.ui { position: fixed; opacity: 0; transition: opacity .6s, transform .12s; touch-action: manipulation; }
 .ui, .ui button { -webkit-touch-callout: none; }
-/* 동그란 색종이 단추: 납작한 한 가지 색에 갈색 그림, 크림색 테두리 한 줄 */
-.round {
-  --c: var(--sky);
-  display: flex; align-items: center; justify-content: center; padding: 0; color: var(--glyph); background: var(--c);
-  border-radius: 50%; box-shadow: 0 0 0 3px var(--cream), 0 5px 12px rgba(80, 58, 36, 0.16);
-}
-.round:active { transform: scale(0.92); transition-duration: .6s, .08s, .2s; }
-#shot, #angel, #zoom { right: var(--col-r); width: var(--btn); }
+.icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+.icon .solid { fill: currentColor; stroke: none; }
+#mute, #shot, #angel, #zoom { background: var(--paper); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+#shot, #angel, #zoom { right: var(--col-r); width: var(--btn); border: 2px solid rgba(255, 255, 255, 0.85); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2); }
+#mute, #shot, #angel, #zoom button { display: flex; align-items: center; justify-content: center; padding: 0; }
 
-#mute { --c: var(--mint); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t)); width: 40px; height: 40px; }
-#mute .g { width: 22px; height: 22px; }
+#mute { right: calc(12px + var(--safe-r)); top: calc(10px + var(--safe-t)); width: 40px; height: 40px; border-radius: 50%; }
+#mute .icon { width: 22px; height: 22px; }
 #mute .off, #mute[aria-pressed="true"] .on { display: none; }
 #mute[aria-pressed="true"] .off { display: block; }
-#mute[aria-pressed="true"] { --c: var(--gray); }
+#mute[aria-pressed="true"] { color: rgba(42, 49, 88, 0.6); }
 
-#shot { --c: var(--coral); bottom: calc(var(--col-b) + var(--zoom-h) + var(--btn) + 2 * var(--gap)); height: var(--btn); }
-#shot .g { width: 28px; height: 28px; }
-#shot.busy { pointer-events: none; }
-
-#angel { bottom: calc(var(--col-b) + var(--zoom-h) + var(--gap)); height: var(--btn); }
-#angel .angel-icon { width: 33px; height: 29px; fill: #fff; }      /* 눈 위에 남는 자국과 같은 모양. 눈 자국이므로 이 그림만 흰색이다 */
-#angel.busy { opacity: 0.5 !important; pointer-events: none; }
-/* 낚시 구멍 곁에서는 물고기 그림(낚시하기), 낚시하는 동안에는 ✕(그만두기). 입질이 오면 다시 물고기 그림이 되어 노랗게 통통 뛴다 */
-#angel .fish-icon, #angel .quit-icon { display: none; width: 30px; height: 30px; }
-#angel .quit-icon { width: 26px; height: 26px; }
-#angel .quit-icon .s { stroke-width: 3.2; }
+#angel { bottom: calc(var(--col-b) + var(--zoom-h) + var(--gap)); height: var(--btn); border-radius: 50%; }
+#angel .angel-icon { width: 34px; height: 30px; fill: #8793cc; }      /* 눈 위의 자국과 같은 푸른 그늘 색 */
+#angel.busy { opacity: 0.45 !important; pointer-events: none; }
+/* 낚시 구멍 곁에서는 물고기 그림(낚시하기), 낚시하는 동안에는 ✕(그만두기). 입질이 오면 다시 물고기 그림이 되어 두근거린다 */
+#angel .fish-icon, #angel .quit-icon { display: none; width: 30px; height: 30px; color: #4f6fb0; }
+#angel .quit-icon { width: 26px; height: 26px; color: var(--ink); }
 #angel.fish .angel-icon, #angel.quit .angel-icon { display: none; }
-#angel.fish { --c: var(--aqua); }
 #angel.fish .fish-icon { display: block; }
-#angel.quit { --c: var(--gray); }
 #angel.quit .quit-icon { display: block; }
-#angel.hold { opacity: 0.5 !important; pointer-events: none; }
-#angel.rest { opacity: 0.5 !important; }       /* 가짜 입질이 지나가는 잠깐: 흐려져 쉰다. 눌리기는 하지만 그만두지는 않는다 */
-#angel.fish, #angel.quit { transition-duration: .16s, .28s, .2s; }      /* 낚시하는 동안의 단추는 모습이 바로바로 바뀐다 (찌의 움직임과 어긋나지 않게) */
-#angel.bite { --c: var(--sun); animation: bite .46s ease-in-out infinite; }
-@keyframes bite { 0%, 100% { transform: scale(1) rotate(-5deg); } 50% { transform: scale(1.16) rotate(5deg); } }
-
-/* 확대·축소: 크림색 알약 쪽지 하나에 더하기와 빼기, 사이에 점선 */
-#zoom { bottom: var(--col-b); height: var(--zoom-h); border-radius: calc(var(--btn) / 2); display: flex; flex-direction: column; overflow: hidden; background: var(--cream); box-shadow: var(--float); color: var(--brown); }
-#zoom button { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0; background: none; transition: transform .25s var(--squish); }
-#zoom button + button { border-top: 2.5px dotted var(--cream-line); }
-#zoom .g .s { stroke-width: 3.2; }
-#zoom button:disabled { color: #cfc1a8; }
-#zoom button:active:not(:disabled) { transform: scale(0.86); }
-
-/* 누른 단추: 0.2초쯤, 살짝 커졌다가 제자리로 (js 가 누를 때마다 .pop 을 붙였다 뗀다) */
-.pop, #zoom button.pop { animation: pop .22s ease-out; }
-@keyframes pop { 0% { transform: scale(0.92); } 45% { transform: scale(1.13); } 100% { transform: scale(1); } }
+#angel.hold { opacity: 0.45 !important; pointer-events: none; }
+#angel.bite { animation: bite .42s ease-in-out infinite; }
+@keyframes bite { 0%, 100% { transform: scale(1); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2), 0 0 0 0 rgba(79, 111, 176, 0.5); } 50% { transform: scale(1.12); box-shadow: 0 4px 18px rgba(42, 49, 88, 0.2), 0 0 0 10px rgba(79, 111, 176, 0); } }
+#shot { bottom: calc(var(--col-b) + var(--zoom-h) + var(--btn) + 2 * var(--gap)); height: var(--btn); border-radius: 50%; }
+#shot.busy { pointer-events: none; }
+#zoom { bottom: var(--col-b); height: var(--zoom-h); border-radius: calc(var(--btn) / 2); display: flex; flex-direction: column; overflow: hidden; }
+#zoom button { flex: 1; background: none; }
+#zoom button + button { border-top: 1.5px solid rgba(42, 49, 88, 0.14); }
+#zoom button:disabled { color: rgba(42, 49, 88, 0.28); }
+#mute:active, #shot:active, #angel:active { transform: scale(0.93); }
+#zoom button:active:not(:disabled) { background: rgba(42, 49, 88, 0.08); }
 
 body.in #hud, body.in .ui { opacity: 1; }
 body:not(.in) .ui { pointer-events: none; }
-/* 걷는 동안에는 위쪽 글이 물러나 눈밭만 남는다. 멈춰 서서 한숨 돌리면 다시 나온다 */
-body.in.walking #hud { opacity: 0; transition: opacity .5s, background-color 1.2s; }
 
 /* 사진을 찍는 순간: 화면이 아주 살짝 밝아졌다 돌아온다 */
 #flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
 #flash.go { animation: flash .32s ease-out; }
 @keyframes flash { 0% { opacity: 0; } 18% { opacity: 0.3; } 100% { opacity: 0; } }
 
-/* 안내 글: 위쪽 가운데의 크림색 쪽지 (아래쪽은 버튼과 조이스틱의 자리). 통 하고 나타난다 */
+/* 안내 글: 위쪽 가운데 (아래쪽은 버튼과 조이스틱의 자리) */
 #toast {
-  position: fixed; left: 50%; top: calc(106px + var(--safe-t)); transform: translate(-50%, -6px) scale(0.9); max-width: min(86vw, 420px); padding: 10px 18px; border-radius: 20px;
-  background: var(--cream); color: var(--brown); box-shadow: var(--float); font-size: 14px; font-weight: 700; line-height: 1.5; text-align: center; word-break: keep-all; opacity: 0; transition: opacity .25s, transform .35s var(--squish); pointer-events: none;
+  position: fixed; left: 50%; top: calc(96px + var(--safe-t)); transform: translate(-50%, -8px); max-width: min(86vw, 420px); padding: 10px 16px; border-radius: 16px;
+  background: rgba(42, 49, 88, 0.82); color: #fff; font-size: 14px; font-weight: 600; text-align: center; word-break: keep-all; opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none;
 }
-#toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
 
-/* 처음 왔을 때의 길잡이: 왼쪽 아래에 "밀어서 걷기", 오른쪽에 "끌어서 둘러보기". 해 보면 사라지고, 한 번 해 본 기기에서는 다시 나오지 않는다 */
-#coach { position: fixed; inset: 0; pointer-events: none; }
-#coach .tip { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0; transform: translateY(6px); transition: opacity .5s, transform .5s; color: var(--brown-soft); }
-#coach .tip b { font-size: 13.5px; font-weight: 800; color: var(--brown); background: var(--cream); padding: 6px 13px; border-radius: 15px; box-shadow: var(--float); white-space: nowrap; }
-#coach .walk { left: calc(12% + var(--safe-l)); bottom: calc(15% + var(--safe-b)); }
-#coach .look { right: var(--col-r); bottom: calc(56% + var(--safe-b)); }
-#coach .pad { width: 84px; height: 84px; border-radius: 50%; border: 3px dotted rgba(91, 71, 55, 0.6); background: rgba(255, 250, 240, 0.5); display: grid; place-items: center; }
-#coach .pad i { width: 32px; height: 32px; border-radius: 50%; background: var(--cream); box-shadow: var(--float); animation: nudge 1.5s ease-in-out infinite; }
-#coach .look .g { width: 76px; height: 38px; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 2px #fff); animation: sway 1.7s ease-in-out infinite; }
-#coach .look .g .s { stroke-width: 3.4; }
-@keyframes nudge { 0%, 100% { transform: translateY(8px); } 50% { transform: translateY(-14px); } }
-@keyframes sway { 0%, 100% { transform: translateX(-7px); } 50% { transform: translateX(7px); } }
-body.coach-walk #coach .walk, body.coach-look #coach .look { opacity: 1; transform: none; }
-
-/* 처음 화면: 눈밭 위에 얹힌 크림색 쪽지 한 장. 맨 위에 손으로 그린 제목 */
-#start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(255, 250, 240, 0.18); transition: opacity .7s; }
+/* 처음 화면: 눈밭 위에 얹힌 한 장 */
+#start { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(223, 230, 245, 0.28); transition: opacity .7s; }
 body.in #start { opacity: 0; pointer-events: none; }
-.start-card { position: relative; width: min(100%, 328px); padding: 22px 26px 22px; border-radius: 34px; background: var(--cream); text-align: center; box-shadow: 0 8px 26px rgba(80, 58, 36, 0.16); }
-.start-card h1 { margin: 0 0 12px; font-size: 38px; font-weight: 900; letter-spacing: 0.06em; }
-/* 제목은 손으로 그린 그림(svg)이다 */
-.start-card h1.logo svg { display: block; width: 244px; max-width: 100%; height: auto; margin: 0 auto; overflow: visible; }
-.start-card .say { margin: 0 0 18px; min-height: 3.3em; font-size: 15.5px; font-weight: 700; line-height: 1.65; word-break: keep-all; }      /* 제목 아래의 한마디: 올 때마다 넷 가운데 하나 (index.html) */
-/* 들어가기 단추: 납작한 민트색 알약에 갈색 글씨 */
-#enter { position: relative; width: 100%; height: 56px; border-radius: 28px; background: var(--mint); color: var(--brown); font-size: 18px; font-weight: 800; letter-spacing: 0.03em; transition: transform .28s var(--squish); }
-#enter:active { transform: scale(0.95); transition-duration: .08s; }
-.start-card .hint { margin: 14px 0 0; font-size: 12.5px; font-weight: 700; color: var(--brown-soft); display: flex; align-items: center; justify-content: center; gap: 5px; }
-.start-card .hint .g { width: 17px; height: 17px; color: var(--brown-soft); }
+.start-card { width: min(100%, 320px); padding: 26px 22px 20px; border-radius: 26px; background: rgba(255, 255, 255, 0.86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); text-align: center; box-shadow: 0 10px 40px rgba(42, 49, 88, 0.18); }
+.start-card h1 { margin: 0 0 2px; font-size: 34px; letter-spacing: 0.06em; }
+.start-card h1 .latin { font-size: 15px; font-weight: 700; letter-spacing: 0.12em; opacity: 0.55; vertical-align: middle; margin-left: 2px; }
+.start-card .sub { margin: 0 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; opacity: 0.7; }
+.start-card p { margin: 0 0 18px; font-size: 15px; line-height: 1.6; word-break: keep-all; }
+#enter { width: 100%; height: 54px; border-radius: 27px; background: var(--ink); color: #fff; font-size: 17px; font-weight: 800; }
+#enter:active { transform: scale(0.98); }
+.start-card .hint { margin: 12px 0 0; font-size: 12px; opacity: 0.65; }
 
 /* 찍은 사진을 보여 주는 자리: 어둑한 바탕 위에 사진 한 장과 안내 한 줄, 닫기 */
 #photo { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; background: rgba(28, 34, 66, 0.72); }
 #photo[hidden] { display: none; }
 #photo figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 0; }
 #photo img { display: block; max-width: 100%; max-height: 68vh; border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
-#photo figcaption { color: #fffaf0; font-size: 14px; font-weight: 700; }
-#photo button { height: 44px; padding: 0 26px; border-radius: 22px; background: var(--cream); color: var(--brown); font-size: 15px; font-weight: 800; }
+#photo figcaption { color: #fff; font-size: 14px; font-weight: 600; }
+#photo button { height: 44px; padding: 0 26px; border-radius: 22px; background: rgba(255, 255, 255, 0.92); color: var(--ink); font-size: 15px; font-weight: 700; }
 
 /* 낮은 화면(휴대폰 가로): 버튼을 조금 작게 */
 @media (max-height: 430px) {
-  :root { --btn: 46px; --gap: 9px; --col-b: calc(12px + var(--safe-b)); }
-  #angel .angel-icon { width: 28px; height: 25px; }
-  #shot .g { width: 24px; height: 24px; }
-  #angel .fish-icon { width: 26px; height: 26px; }
-  #toast { top: calc(12px + var(--safe-t)); left: calc(50% + 80px); max-width: min(46vw, 400px); }      /* 왼쪽 위의 시각 표시와 오른쪽 위의 소리 버튼 사이에 */
-  #coach .walk { bottom: calc(10% + var(--safe-b)); }
-  #coach .pad { width: 70px; height: 70px; }
-  .start-card { padding: 16px 24px 14px; width: min(100%, 360px); }
-  .start-card h1 { font-size: 28px; margin-bottom: 6px; }
-  .start-card h1.logo svg { width: 170px; }
-  .start-card .say { margin-bottom: 10px; font-size: 14px; line-height: 1.5; }
-  #enter { height: 44px; font-size: 16px; }
-  .start-card .hint { margin-top: 9px; }
+  :root { --btn: 46px; --gap: 8px; --col-b: calc(12px + var(--safe-b)); }
+  #angel .angel-icon { width: 29px; height: 26px; }
+  #toast { top: calc(12px + var(--safe-t)); left: calc(50% + 72px); max-width: min(48vw, 400px); }      /* 왼쪽 위의 시각 표시와 오른쪽 위의 소리 버튼 사이에 */
+  .start-card { padding: 16px 20px 14px; }
+  .start-card h1 { font-size: 26px; margin-bottom: 0; }
+  .start-card .sub { margin-bottom: 6px; font-size: 12px; }
+  .start-card p { margin-bottom: 10px; font-size: 14px; }
+  #enter { height: 46px; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; } }

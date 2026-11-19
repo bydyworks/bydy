@@ -131,13 +131,10 @@ export function clockText(ms) {
 /** 눈 소식 한 줄 */
 export function stormText(ms) {
   const phase = stormPhase(ms);
-  // 일기예보처럼 어림으로만 말한다 (분 단위로 세면 쫓기는 기분이 든다). 큰 눈은 발자국을 잃는 일이 아니라 새 눈이 깔리는 일이다
-  if (phase === 'rising') return '눈발이 굵어져요. 새 눈이 깔려요';
-  if (phase === 'peak') return '큰 눈이 와요. 새 눈이 금세 쌓여요';
-  if (phase === 'fading') return '눈이 잦아들어요. 새 눈밭이에요';
-  const min = msUntilStorm(ms) / 60e3;
-  if (min < 10) return '곧 큰 눈이 와요';
-  if (min < 50) return `큰 눈은 ${Math.round(min / 10) * 10}분쯤 뒤`;
-  const halves = Math.round(min / 30);                    // 반 시간 단위로 어림한다: 1시간쯤, 1시간 반쯤, 2시간쯤, 2시간 반쯤
-  return `큰 눈은 ${Math.floor(halves / 2)}시간${halves % 2 ? ' 반' : ''}쯤 뒤`;
+  if (phase === 'rising') return '눈발이 굵어져요. 발자국이 덮이고 있어요';
+  if (phase === 'peak') return `폭설이에요. ${Math.max(1, Math.ceil(msUntilCalm(ms) / 60e3))}분 뒤에 그쳐요`;
+  if (phase === 'fading') return '눈이 잦아들고 있어요';
+  const left = msUntilStorm(ms);
+  const hh = Math.floor(left / HOUR), mm = Math.floor((left % HOUR) / 60e3);
+  return hh > 0 ? `폭설까지 ${hh}시간 ${mm}분` : `폭설까지 ${Math.max(1, mm)}분`;
 }
