@@ -12,9 +12,9 @@
 <meta name="theme-color" content="#e8f1fb">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=7e96b145">
-<link rel="stylesheet" href="css/app.css?v=7e96b145">
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=7e96b145","./js/capture.js":"./js/capture.js?v=7e96b145","./js/carols.js":"./js/carols.js?v=7e96b145","./js/clock.js":"./js/clock.js?v=7e96b145","./js/controls.js":"./js/controls.js?v=7e96b145","./js/crumble.js":"./js/crumble.js?v=7e96b145","./js/den.js":"./js/den.js?v=7e96b145","./js/field.js":"./js/field.js?v=7e96b145","./js/fishing.js":"./js/fishing.js?v=7e96b145","./js/fox.js":"./js/fox.js?v=7e96b145","./js/igloo.js":"./js/igloo.js?v=7e96b145","./js/main.js":"./js/main.js?v=7e96b145","./js/map.js":"./js/map.js?v=7e96b145","./js/names.js":"./js/names.js?v=7e96b145","./js/net.js":"./js/net.js?v=7e96b145","./js/penguin.js":"./js/penguin.js?v=7e96b145","./js/santa.js":"./js/santa.js?v=7e96b145","./js/sky.js":"./js/sky.js?v=7e96b145","./js/tracks.js":"./js/tracks.js?v=7e96b145","./js/weather.js":"./js/weather.js?v=7e96b145","./js/xmas.js":"./js/xmas.js?v=7e96b145"}}</script>
+<link rel="stylesheet" href="css/fonts.css?v=093485a9">
+<link rel="stylesheet" href="css/app.css?v=093485a9">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=093485a9","./js/capture.js":"./js/capture.js?v=093485a9","./js/carols.js":"./js/carols.js?v=093485a9","./js/clock.js":"./js/clock.js?v=093485a9","./js/controls.js":"./js/controls.js?v=093485a9","./js/crumble.js":"./js/crumble.js?v=093485a9","./js/den.js":"./js/den.js?v=093485a9","./js/field.js":"./js/field.js?v=093485a9","./js/fishing.js":"./js/fishing.js?v=093485a9","./js/fox.js":"./js/fox.js?v=093485a9","./js/igloo.js":"./js/igloo.js?v=093485a9","./js/main.js":"./js/main.js?v=093485a9","./js/map.js":"./js/map.js?v=093485a9","./js/names.js":"./js/names.js?v=093485a9","./js/net.js":"./js/net.js?v=093485a9","./js/outfit.js":"./js/outfit.js?v=093485a9","./js/penguin.js":"./js/penguin.js?v=093485a9","./js/postbox.js":"./js/postbox.js?v=093485a9","./js/santa.js":"./js/santa.js?v=093485a9","./js/showcase.js":"./js/showcase.js?v=093485a9","./js/sky.js":"./js/sky.js?v=093485a9","./js/tracks.js":"./js/tracks.js?v=093485a9","./js/weather.js":"./js/weather.js?v=093485a9","./js/xmas.js":"./js/xmas.js?v=093485a9"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -79,12 +79,13 @@
     <circle cx="0" cy="-0.66" r="0.36"/>
   </svg>
   <!-- 낚시 구멍 곁에서는 물고기 그림으로, 낚시하는 동안에는 그만두기(✕) 그림으로 바뀐다 -->
-  <!-- 이글루 문 앞: 들어가기 / 방 안 문 앞: 나가기 / 방석 곁: 앉기 / 앉아 있을 때: 일어나기 -->
+  <!-- 이글루 문 앞: 들어가기 / 방 안 문 앞: 나가기 / 방석 곁: 앉기 / 앉아 있을 때: 일어나기 / 트리 옆 우체통 곁: 엽서 보내기 -->
   <svg class="g enter-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M3.2 19.6a8.8 8.8 0 0 1 17.6 0z"/><path d="M9.2 19.6a2.8 2.8 0 0 1 5.6 0z" fill="#fff" opacity=".85"/></svg>
   <svg class="g exit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M5 12h12M12.5 6.8L17.7 12l-5.2 5.2M20.4 4.6v14.8"/></svg>
   <svg class="g sit-icon" viewBox="0 0 24 24" aria-hidden="true"><ellipse class="f" cx="12" cy="19.4" rx="9.6" ry="2.9" opacity=".55"/><path class="f" d="M12 4.2c2.2 0 3.7 1.7 3.7 3.8 0 .6-.1 1.1-.3 1.6 1.6 1.2 2.6 3.2 2.6 5.4 0 2.4-2.6 3.6-6 3.6s-6-1.2-6-3.6c0-2.2 1-4.2 2.6-5.4-.2-.5-.3-1-.3-1.6 0-2.1 1.5-3.8 3.7-3.8z"/><path d="M12 9.1l1.8.8-1.8.8z" fill="#f2b25a"/><circle cx="10.6" cy="7.6" r=".7" fill="#fff"/><circle cx="13.4" cy="7.6" r=".7" fill="#fff"/><path d="M7.2 13.2c-1.5.7-2.3 1.9-2.4 3.2M16.8 13.2c1.5.7 2.3 1.9 2.4 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
   <svg class="g stand-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M12 19.5V6.5M6.8 11.7L12 6.5l5.2 5.2"/></svg>
   <svg class="g quit-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M7.6 7.6l8.8 8.8M16.4 7.6l-8.8 8.8"/></svg>
+  <svg class="g mail-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M4.6 5.6h14.8c1 0 1.8.8 1.8 1.8v9.2c0 1-.8 1.8-1.8 1.8H4.6c-1 0-1.8-.8-1.8-1.8V7.4c0-1 .8-1.8 1.8-1.8zm.4 2.3v.5l7 4.6 7-4.6v-.5l-7 4.3z"/></svg>
   <svg class="g fish-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="f" fill-rule="evenodd" d="M3 12c2-3.3 5.3-5.4 8.9-5.4 2.6 0 5 1.2 6.8 3.1l1.5-1.6c.6-.6 1.6-.2 1.6.6v6.6c0 .8-1 1.2-1.6.6l-1.5-1.6c-1.8 1.9-4.2 3.1-6.8 3.1-3.6 0-6.9-2.1-8.9-5.4zM8.4 10a1.3 1.3 0 1 0 0 2.6 1.3 1.3 0 0 0 0-2.6z"/></svg>
 </button>
 <button id="flap" class="ui round" type="button" aria-label="파닥파닥">
@@ -100,6 +101,24 @@
 <div id="flash" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- 크리스마스 선물: 눈밭에서 상자에 닿으면 뜬다. 톡톡톡 세 번 두드리면 포장이 뜯어지고 선물이 나온다 -->
+<!-- 트리 옆 우체통의 엽서: 친구에게 같이 걷자고 보낸다 -->
+<div id="postcard" hidden>
+  <div class="card" role="dialog" aria-label="친구에게 엽서 보내기">
+    <div class="art" aria-hidden="true"><span class="stamp">⛄</span><span class="scene">🎄 🐧 ❄️</span></div>
+    <p class="to">To. 친구에게</p>
+    <p class="msg">뽀드득, 같이 걸을래?<br>눈 밟는 소리가 딱 좋은 눈밭을 찾았어!</p>
+    <p class="from">From. <b></b></p>
+    <div class="btns"><button class="send" type="button">친구에게 보내기</button><button class="copy" type="button">주소 복사</button></div>
+    <p class="done" aria-live="polite"></p>
+    <p class="link"></p>
+    <button class="close" type="button">닫기</button>
+  </div>
+</div>
+<!-- 낚아 올린 것: 잠깐 떴다가 사라진다 (누르면 바로 닫힌다) -->
+<div id="catch" hidden role="status" aria-live="polite">
+  <div class="view" aria-hidden="true"></div>
+  <b class="name"></b><span class="say"></span>
+</div>
 <div id="gift" hidden>
   <div class="gift-card">
     <p class="gift-say">선물 상자를 찾았어요!</p>
@@ -111,7 +130,7 @@
           <ellipse cx="46" cy="28" rx="15" ry="9" class="ribbon" transform="rotate(-18 46 28)"/><ellipse cx="74" cy="28" rx="15" ry="9" class="ribbon" transform="rotate(18 74 28)"/><circle cx="60" cy="33" r="6" class="ribbon knot"/></g>
       </svg>
     </button>
-    <div class="gift-item" aria-live="polite"><span class="emoji"></span><b class="name"></b><span class="from">산타가 두고 간 선물이에요</span></div>
+    <div class="gift-item" aria-live="polite"><span class="view" aria-hidden="true"></span><span class="emoji"></span><b class="name"></b><span class="from">산타가 두고 간 선물이에요</span></div>
     <div class="confetti" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
     <p class="gift-hint">톡톡톡 세 번 두드려 봐요</p>
     <button class="gift-close" type="button">고마워요</button>
@@ -119,9 +138,22 @@
 </div>
 <!-- 이글루 안에서 앉았을 때: 지금 하는 일을 고른다 -->
 <div id="status" hidden>
+  <button class="dice-invite" type="button">🎲 같은 방 펭귄들과 주사위 놀이 하기</button>
   <p class="status-say">방석에 앉았어요. 지금 뭐 하고 있어요?</p>
   <div class="status-list"></div>
   <button class="status-close" type="button">그냥 앉아 있을래요</button>
+</div>
+<!-- 주사위 놀이: 같은 방에 앉은 펭귄이 불렀을 때 묻는 쪽지 (원하면 같이 하기, 아니면 그냥 닫는다) -->
+<div id="dice-ask" hidden role="dialog" aria-label="주사위 놀이 초대">
+  <p><span class="die-mini" aria-hidden="true">🎲</span><b class="who"></b><br>같이 주사위 놀이 할래?</p>
+  <div class="btns"><button class="yes" type="button">같이 하기</button><button class="no" type="button">괜찮아요</button></div>
+</div>
+<!-- 주사위 놀이 판: 함께하는 펭귄들과 저마다의 주사위 -->
+<div id="dice" hidden role="dialog" aria-label="주사위 놀이">
+  <p class="title">🎲 주사위 놀이</p>
+  <p class="note" aria-live="polite"></p>
+  <ul class="players"></ul>
+  <div class="btns"><button class="roll" type="button">굴리기</button><button class="again" type="button" hidden>한 판 더</button><button class="quit" type="button">그만하기</button></div>
 </div>
 <!-- 앉아 있는 펭귄 머리 위의 말풍선: 고른 상태 (누르면 다시 고른다) -->
 <button id="me-say" type="button" hidden aria-label="지금 하는 일 바꾸기"></button>
@@ -146,6 +178,7 @@
   <div class="start-card">
     <h1>뽀드득</h1>
     <p class="say" id="say"></p>
+    <p class="what">🎣 연못에선 얼음 낚시, 🛖 이글루에선 불멍.<br>🎁 눈밭엔 산타가 흘린 선물들도 있대?!</p>
     <p class="me-name">오늘의 나는 <b id="my-name"></b> <button id="rename" type="button" aria-label="다른 이름으로 바꾸기"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M19 8.5A7.4 7.4 0 0 0 5.6 7.3M5 15.5a7.4 7.4 0 0 0 13.4 1.2M5.4 3.6v3.9h3.9M18.6 20.4v-3.9h-3.9"/></svg></button></p>
     <script>
       // 제목 아래의 한마디(펭귄의 혼잣말): 올 때마다 넷 가운데 하나가 나온다. 주소에 ?say=1..4 를 붙이면 그 문장이 나온다.
@@ -170,6 +203,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=7e96b145"></script>
+<script type="module" src="js/main.js?v=093485a9"></script>
 </body>
 </html>

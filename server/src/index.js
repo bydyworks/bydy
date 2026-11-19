@@ -11,8 +11,10 @@ const MAX_PEERS = 60;                 // 한 눈밭에 함께 있을 수 있는 
 const MARK_LIFE = 6 * 3600e3;         // 자국을 들고 있는 시간
 const SEND_ON_JOIN = 4000;            // 들어올 때 보내 주는 지난 자국의 최대 수
 const FIELD_R = 112, DEN = { x: 2000, z: 2000, step: 80, r: 7 };      // 펭귄이 있을 수 있는 곳: 들판, 그리고 이글루 셋의 방
+const OUTFIT = [5, 8, 5];            // 패션 아이템의 수: 안경, 모자, 귀마개
 const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 7, STATUSES = 15, SEATS = 6, IGLOOS = 3;
 const MAX_MSG = 4096, MAX_RATE = 12;  // 한 번에 받는 글의 크기, 1초에 받는 글의 수
+const GAME_LIFE = 90e3, INVITE_GAP = 12e3;      // 주사위 놀이: 이만큼 아무 일이 없으면 닫는다, 한 펭귄이 다시 부르려면 이만큼 기다린다
 
 const isName = (s) => typeof s === 'string' && s.length <= 24 && ADJ.some((a) => s.startsWith(a + ' ') && NOUN.includes(s.slice(a.length + 1)));
 const num = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
@@ -49,6 +51,7 @@ export class Field {
     this.sql.exec('CREATE TABLE IF NOT EXISTS marks (kind INTEGER, x REAL, z REAL, yaw REAL, side INTEGER, birth INTEGER, owner TEXT)');      // owner: 남긴 기기 (그 기기에는 다시 보내지 않는다. 다른 펭귄에게는 보이지 않는다)
     this.sql.exec('CREATE INDEX IF NOT EXISTS marks_birth ON marks (birth)');
     this.inserts = 0;
+    this.games = new Map();         // 이글루 번호 → 주사위 놀이 { gid, host, hostName, players: Map(id → name), at }
   }
 
   async fetch(request) {
@@ -87,9 +90,9 @@ export class Field {
     if (!m || typeof m !== 'object') return;
     if (m.t === 's') {
       // 지금의 모습: 자리, 방향, 걷는 정도, 하는 일, 이글루 안(-1 이면 밖), 앉은 방석, 고른 상태
-      const s = { x: m.x, z: m.z, yaw: m.yaw, w: m.w, a: m.a, i: m.i, k: m.k, st: m.st };
-      if (!num(s.x, -3000, 3000) || !num(s.z, -3000, 3000) || !where(s.x, s.z) || !num(s.yaw, -100, 100) || !num(s.w, 0, 1) || !int(s.a, 0, ACTIONS - 1) || !int(s.i, -1, IGLOOS - 1) || !int(s.k, -1, SEATS - 1) || !int(s.st, -1, STATUSES - 1)) return;
-      s.x = r2(s.x); s.z = r2(s.z); s.yaw = r2(s.yaw); s.w = r2(s.w);
+      const s = { x: m.x, z: m.z, yaw: m.yaw, w: m.w, a: m.a, i: m.i, k: m.k, st: m.st, f: m.f === undefined ? [-1, -1, -1] : m.f };      // f: 쓰고 있는 [안경, 모자, 귀마개] (예전 게임은 보내지 않는다)
+      if (!num(s.x, -3000, 3000) || !num(s.z, -3000, 3000) || !where(s.x, s.z) || !num(s.yaw, -100, 100) || !num(s.w, 0, 1) || !int(s.a, 0, ACTIONS - 1) || !int(s.i, -1, IGLOOS - 1) || !int(s.k, -1, SEATS - 1) || !int(s.st, -1, STATUSES - 1) || !Array.isArray(s.f) || s.f.length !== 3 || !s.f.every((v, j) => int(v, -1, OUTFIT[j] - 1))) return;
+      s.x = r2(s.x); s.z = r2(s.z); s.yaw = r2(s.yaw); s.w = r2(s.w); s.f = s.f.slice();
       me.s = s;
       ws.serializeAttachment(me);
       this.broadcast({ t: 's', id: me.id, s }, ws);
@@ -112,7 +115,57 @@ export class Field {
       if ((this.inserts += out.length) > 500) { this.inserts = 0; this.sql.exec('DELETE FROM marks WHERE birth < ?', now - MARK_LIFE); }
       return;
     }
+    if (m.t === 'g') { this.game(ws, me, m, now); ws.serializeAttachment(me); return; }
     ws.serializeAttachment(me);
+  }
+
+  // ---------- 이글루 안의 주사위 놀이 ----------
+  // 방석에 앉은 펭귄이 "같이 하자"고 부르면, 같은 방에 앉아 있는 펭귄들에게만 물어본다 (원하는 펭귄만 "같이 하기").
+  // 부른 펭귄이 굴리면 서버가 저마다의 주사위 눈을 정해 함께하는 펭귄들에게 알린다. 아무도 오지 않으면 조용히 끝난다.
+  sockets(ids) { return this.ctx.getWebSockets().filter((w) => { const a = w.deserializeAttachment(); return a && ids.includes(a.id); }); }
+  tell(ids, msg) { const text = JSON.stringify(msg); for (const w of this.sockets(ids)) { try { w.send(text); } catch { /* 이미 닫혔다 */ } } }
+  seatedIn(igloo, except) { return this.ctx.getWebSockets().map((w) => w.deserializeAttachment()).filter((a) => a && a.id !== except && a.s && a.s.i === igloo && a.s.a === 5); }
+  endGame(igloo, why) {
+    const g = this.games.get(igloo); if (!g) return;
+    this.games.delete(igloo);
+    if (why) this.tell([g.host, ...g.players.keys(), ...g.asked], { t: 'g', op: 'cancel', gid: g.gid, why });
+  }
+  game(ws, me, m, now) {
+    const igloo = me.s ? me.s.i : -1, seated = !!me.s && me.s.a === 5 && igloo >= 0;
+    for (const [i, g] of this.games) if (now - g.at > GAME_LIFE) this.endGame(i, 'late');      // 오래 내버려 둔 놀이는 닫는다
+    const g = igloo >= 0 ? this.games.get(igloo) : null;
+    const list = (x) => [[x.host, x.hostName], ...x.players];
+    if (m.op === 'invite') {
+      if (!seated) return;
+      if (now - (me.inv || 0) < INVITE_GAP) { ws.send(JSON.stringify({ t: 'g', op: 'wait' })); return; }
+      if (g) { ws.send(JSON.stringify({ t: 'g', op: 'busy' })); return; }
+      const others = this.seatedIn(igloo, me.id);
+      if (!others.length) { ws.send(JSON.stringify({ t: 'g', op: 'alone' })); return; }
+      me.inv = now;
+      const ng = { gid: crypto.randomUUID().slice(0, 8), host: me.id, hostName: me.name, players: new Map(), asked: others.map((a) => a.id), at: now };
+      this.games.set(igloo, ng);
+      ws.send(JSON.stringify({ t: 'g', op: 'open', gid: ng.gid, host: me.id, players: list(ng), asked: others.length }));
+      this.tell(ng.asked, { t: 'g', op: 'invite', gid: ng.gid, host: me.id, name: me.name });
+      return;
+    }
+    if (!g || m.gid !== g.gid) return;
+    if (m.op === 'join') {
+      if (!seated || me.id === g.host || g.players.has(me.id) || !g.asked.includes(me.id) || g.players.size >= SEATS - 1) return;
+      g.players.set(me.id, me.name); g.at = now;
+      this.tell([g.host, ...g.players.keys()], { t: 'g', op: 'players', gid: g.gid, host: g.host, players: list(g) });
+      return;
+    }
+    if (m.op === 'roll') {
+      if (me.id !== g.host || !g.players.size) return;
+      const rolls = list(g).map(([id, name]) => [id, name, 1 + (crypto.getRandomValues(new Uint8Array(1))[0] % 6)]);
+      this.games.delete(igloo);
+      this.tell(rolls.map((r) => r[0]), { t: 'g', op: 'result', gid: g.gid, rolls });
+      return;
+    }
+    if (m.op === 'leave') {
+      if (me.id === g.host) this.endGame(igloo, 'host');
+      else if (g.players.delete(me.id)) this.tell([g.host, ...g.players.keys()], { t: 'g', op: 'players', gid: g.gid, host: g.host, players: list(g) });
+    }
   }
 
   async webSocketClose(ws) { this.leave(ws); }
@@ -120,6 +173,9 @@ export class Field {
   leave(ws) {
     const me = ws.deserializeAttachment();
     try { ws.close(1000, 'bye'); } catch { /* 이미 닫혔다 */ }
+    if (me) {
+      for (const [i, g] of this.games) { if (g.host === me.id) this.endGame(i, 'host'); else if (g.players.delete(me.id)) this.tell([g.host, ...g.players.keys()], { t: 'g', op: 'players', gid: g.gid, host: g.host, players: [[g.host, g.hostName], ...g.players] }); }
+    }
     if (me) this.broadcast({ t: 'bye', id: me.id }, ws);
   }
 }

@@ -387,3 +387,81 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #enter { box-shadow: inset 0 -10px 16px rgba(40, 110, 200, 0.35), 0 10px 22px rgba(36, 84, 150, 0.28); }
 .gift-card { box-shadow: 0 18px 44px rgba(36, 64, 110, 0.25); }
 .gift-close { box-shadow: inset 0 -10px 16px rgba(140, 190, 238, 0.4), 0 8px 18px rgba(36, 84, 150, 0.2); }
+/* 처음 화면: 이 눈밭에서 할 수 있는 일 */
+.start-card .what { margin: -6px 0 18px; font-size: 13.5px; line-height: 1.6; font-weight: 700; color: var(--ink-soft); word-break: keep-all; }
+/* 낚아 올린 것을 보여 주는 카드 (화면 위쪽 가운데, 낚시하는 펭귄을 가리지 않게) */
+#catch { position: fixed; left: 50%; top: max(calc(214px + var(--safe-t)), 24%); z-index: 3; width: 210px; padding: 6px 14px 14px; border-radius: 26px; text-align: center; color: var(--ink); cursor: pointer;
+  transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.86), rgba(228, 241, 255, 0.72) 52%, rgba(204, 228, 250, 0.8)); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow: inset 0 -9px 14px rgba(150, 196, 240, 0.24), 0 14px 32px rgba(36, 64, 110, 0.22); }
+#catch[hidden] { display: none; }
+#catch.pop { animation: catch-pop .55s cubic-bezier(.3, 1.7, .6, 1); }
+@keyframes catch-pop { 0% { transform: translateX(-50%) scale(0.3); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+#catch .view { width: 124px; height: 124px; }
+#catch.flat .view { display: none; }
+#catch .name { font-size: 17px; font-weight: 900; }
+#catch .say { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+.showcase-canvas { display: block; }
+/* 선물에서 나온 패션 아이템: 3D 로 빙글 돈다 (WebGL 을 못 쓰면 그림 글자로) */
+.gift-item { top: 34px; }
+.gift-item .view { display: block; width: 150px; height: 150px; }
+.gift-item .emoji { display: none; }
+.gift-item.flat .view { display: none; }
+.gift-item.flat .emoji { display: block; }
+/* 우체통 곁: 엽서 단추 */
+#angel .mail-icon { display: none; width: 22px; height: 22px; }
+#angel.mail .angel-icon { display: none; }
+#angel.mail .mail-icon { display: block; }
+/* 친구에게 보내는 엽서 */
+#postcard { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+#postcard[hidden] { display: none; }
+#postcard .card { position: relative; width: min(100%, 330px); padding: 16px 20px 14px; border-radius: 22px; text-align: center; color: #3b2f2a;
+  background: #fffaf0; box-shadow: 0 18px 44px rgba(36, 64, 110, 0.28); transform: rotate(-1.2deg); }
+#postcard .art { position: relative; height: 92px; margin: 0 -6px 10px; border-radius: 14px; overflow: hidden;
+  background: linear-gradient(#bfe0fb, #e9f4ff 62%, #ffffff 62%); display: flex; align-items: flex-end; justify-content: center; }
+#postcard .scene { font-size: 34px; letter-spacing: 6px; padding-bottom: 6px; }
+#postcard .stamp { position: absolute; right: 8px; top: 8px; width: 40px; height: 46px; display: grid; place-items: center; font-size: 24px; background: #fff; border-radius: 4px;
+  outline: 2px dashed #e8a0a0; outline-offset: -5px; transform: rotate(6deg); }
+#postcard .to { margin: 0; text-align: left; font-size: 13px; font-weight: 800; color: #9a7b62; }
+#postcard .msg { margin: 6px 0 8px; font-size: 17px; line-height: 1.55; font-weight: 900; color: #27405f; word-break: keep-all; }
+#postcard .from { margin: 0 0 12px; text-align: right; font-size: 13px; font-weight: 700; color: #9a7b62; }
+#postcard .from b { color: #27405f; }
+#postcard .btns { display: flex; gap: 8px; }
+#postcard .btns button { flex: 1; height: 44px; border-radius: 22px; font-size: 14.5px; font-weight: 800; }
+#postcard .send { color: #fff; background: linear-gradient(160deg, #f37b6b, #e0503f); box-shadow: inset 0 -8px 12px rgba(150, 30, 20, 0.22), 0 6px 14px rgba(200, 70, 50, 0.3); }
+#postcard .copy { color: #2f5f96; background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(206, 230, 252, 0.9)); box-shadow: inset 0 -8px 12px rgba(140, 190, 238, 0.35), 0 6px 14px rgba(36, 84, 150, 0.16); }
+#postcard .done { min-height: 1.3em; margin: 10px 0 0; font-size: 13px; font-weight: 800; color: #3f8f6a; }
+#postcard .link { margin: 2px 0 0; font-size: 11.5px; color: #9a7b62; word-break: break-all; -webkit-user-select: all; user-select: all; }
+#postcard .close { margin-top: 6px; height: 34px; padding: 0 18px; border-radius: 17px; font-size: 13px; font-weight: 700; color: #7a6a5c; background: none; }
+/* 주사위 놀이: 초대 단추(상태 고르는 창 위), 묻는 쪽지, 놀이 판 */
+#status .dice-invite { display: block; width: 100%; height: 40px; margin: 0 0 10px; border-radius: 20px; font-size: 14px; font-weight: 800; color: #fff;
+  background: linear-gradient(160deg, #8fa9ff, #6f86f0); box-shadow: inset 0 -8px 12px rgba(40, 60, 170, 0.22), 0 6px 14px rgba(60, 80, 180, 0.25); }
+#status .dice-invite[hidden] { display: none; }
+#dice-ask, #dice { position: fixed; left: calc(12px + var(--safe-l)); right: calc(70px + var(--safe-r)); bottom: calc(18px + var(--safe-b)); z-index: 3; max-width: 360px; margin: 0 auto; padding: 14px; border-radius: 22px; text-align: center; color: var(--ink);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(228, 241, 255, 0.78) 52%, rgba(204, 228, 250, 0.84)); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow: inset 0 -9px 14px rgba(150, 196, 240, 0.24), 0 12px 30px rgba(36, 64, 110, 0.22); }
+#dice-ask[hidden], #dice[hidden] { display: none; }
+#dice-ask { animation: catch-pop-in .45s cubic-bezier(.3, 1.6, .6, 1); }
+@keyframes catch-pop-in { 0% { transform: translateY(16px) scale(0.85); opacity: 0; } 100% { transform: none; opacity: 1; } }
+#dice-ask p { margin: 0 0 10px; font-size: 15px; font-weight: 800; line-height: 1.5; }
+#dice-ask .die-mini { margin-right: 4px; }
+#dice-ask .btns, #dice .btns { display: flex; gap: 8px; justify-content: center; }
+#dice-ask button, #dice .btns button { flex: 1; max-width: 150px; height: 40px; border-radius: 20px; font-size: 14px; font-weight: 800; color: #2f5f96;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(206, 230, 252, 0.9)); box-shadow: inset 0 -8px 12px rgba(140, 190, 238, 0.35), 0 4px 10px rgba(36, 84, 150, 0.14); }
+#dice-ask .yes, #dice .roll, #dice .again { color: #fff; background: linear-gradient(160deg, #8fa9ff, #6f86f0); box-shadow: inset 0 -8px 12px rgba(40, 60, 170, 0.22), 0 4px 10px rgba(60, 80, 180, 0.22); }
+#dice .btns button[hidden] { display: none; }
+#dice .btns button:disabled { opacity: 0.45; }
+#dice .title { margin: 0; font-size: 16px; font-weight: 900; }
+#dice .note { margin: 4px 0 10px; font-size: 13px; font-weight: 700; color: var(--ink-soft); min-height: 1.4em; }
+#dice .players { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+#dice .players li { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 84px; font-size: 11.5px; font-weight: 800; line-height: 1.25; word-break: keep-all; }
+#dice .players li.win { color: #d0533f; }
+#dice .players li.win::before { content: '👑'; font-size: 16px; margin-bottom: -4px; }
+.die { width: 42px; height: 42px; padding: 6px; border-radius: 10px; background: #fff; box-shadow: inset 0 -4px 6px rgba(150, 176, 210, 0.35), 0 3px 8px rgba(36, 64, 110, 0.18);
+  display: grid; grid-template: repeat(3, 1fr) / repeat(3, 1fr); }
+.die i { width: 7px; height: 7px; margin: auto; border-radius: 50%; background: transparent; }
+.die i.on { background: #27405f; }
+.die.one i.on { background: #e0503f; width: 9px; height: 9px; }
+.die.wait { opacity: 0.4; }
+.die.spin { animation: die-spin .16s linear infinite; }
+@keyframes die-spin { 0% { transform: rotate(-12deg); } 50% { transform: rotate(12deg) translateY(-3px); } 100% { transform: rotate(-12deg); } }

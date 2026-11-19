@@ -1,0 +1,59 @@
+// 진열대: 창 안의 작은 화면에 물건 하나를 3D 로 빙글빙글 돌려 보여 준다 (낚은 것, 선물에서 나온 아이템).
+// 그림판(WebGL) 하나를 만들어 두고 돌려 쓴다. 보여 줄 곳(div)에 그림판을 옮겨 붙인다.
+import * as THREE from 'three';
+
+export function createShowcase() {
+  let renderer = null, scene = null, camera = null, holder = null, current = null, raf = 0, t = 0, last = 0;
+  function setup() {
+    if (renderer) return true;
+    try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false }); } catch { renderer = null; return false; }
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.domElement.className = 'showcase-canvas';
+    scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight('#ffffff', '#b9d3ee', 2.1));
+    const sun = new THREE.DirectionalLight('#fff4e0', 2.2); sun.position.set(2, 3, 4); scene.add(sun);
+    camera = new THREE.PerspectiveCamera(30, 1, 0.05, 50);
+    return true;
+  }
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    const dt = Math.min(0.05, (now - last) / 1000 || 0); last = now; t += dt;
+    if (current) { current.rotation.y = t * 1.3; current.position.y = current.userData.base + Math.sin(t * 2.4) * 0.04 * current.userData.size; }
+    renderer.render(scene, camera);
+  }
+  return {
+    /**
+     * el 안에 object 를 보여 준다. object 는 그대로 쓴다 (돌려받지 않는다). 크기에 맞춰 카메라를 맞춘다.
+     * @returns {boolean} 보여 줄 수 있었는가 (WebGL 을 못 쓰면 false)
+     */
+    show(el, object, { tilt = 0.25 } = {}) {
+      if (!setup()) return false;
+      this.hide();
+      holder = el;
+      const size = Math.max(10, Math.round(el.clientWidth || 160));
+      renderer.setSize(size, size, false);
+      renderer.domElement.style.width = renderer.domElement.style.height = size + 'px';
+      el.append(renderer.domElement);
+      // 물건을 가운데에 놓고 크기에 맞춰 카메라를 물린다
+      const pivot = new THREE.Group(), inner = new THREE.Group(); inner.add(object); pivot.add(inner);
+      const box = new THREE.Box3().setFromObject(object), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+      object.position.sub(c);
+      inner.rotation.x = tilt;
+      const r = Math.max(s.x, s.y, s.z) || 1;
+      pivot.userData.base = 0; pivot.userData.size = r;
+      scene.add(pivot); current = pivot;
+      camera.position.set(0, r * 0.25, r * 2.6); camera.lookAt(0, 0, 0); camera.near = r * 0.05; camera.far = r * 20; camera.updateProjectionMatrix();
+      t = 0; last = performance.now();
+      if (!raf) raf = requestAnimationFrame(frame);
+      return true;
+    },
+    hide() {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      if (current) { scene.remove(current); current.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); current = null; }
+      if (renderer && renderer.domElement.parentNode) renderer.domElement.remove();
+      holder = null;
+    },
+    get showing() { return !!current; },
+  };
+}

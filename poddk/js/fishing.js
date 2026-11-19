@@ -63,11 +63,15 @@ const MAKERS = {
 
 /**
  * @param {THREE.Scene} scene
- * @param {{ penguin: THREE.Group, audio: { water: Function }, crumble: { puff: Function }, toast: Function, free: (x: number, z: number) => boolean, early?: Function }} o
+ * @param {{ penguin: THREE.Group, audio: { water: Function }, crumble: { puff: Function }, toast: Function, free: (x: number, z: number) => boolean, early?: Function, caught?: (kind: string) => void }} o
+ *   caught: 무엇인가 낚아 올렸을 때 (없으면 알림 글로 알린다)
  *   free: 그 자리에 설 수 있는가 (이글루 같은 것에 막혀 있지 않은가)
  *   early: 가짜 입질에 서둘러 눌렀을 때 부른다
  */
-export function createFishing(scene, { penguin, audio, crumble, toast, free, early = () => {} }) {
+/** 낚인 것의 모형을 새로 하나 만든다 (낚은 것을 보여 주는 창에 쓴다) */
+export function makeCatch(id) { const o = MAKERS[id](); o.visible = true; return o; }
+
+export function createFishing(scene, { penguin, audio, crumble, toast, free, early = () => {}, caught = null }) {
   // 낚싯대는 펭귄에 붙어 다닌다
   const rod = new THREE.Group();
   const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.024, ROD_LEN, 8), mat('#8a5a36', 0.8));
@@ -225,7 +229,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free, ear
         wiggle = 1;
         if (s.t >= T.pull) {
           go('show'); stats.caught++; stats.last = s.kind;
-          toast(CATCHES.find((c) => c.id === s.kind).name + '를 낚았어요', 2200);
+          if (caught) caught(s.kind); else toast(CATCHES.find((c) => c.id === s.kind).name + '를 낚았어요', 2200);
         }
       } else if (s.phase === 'show') {
         s.k = 1; lean = -0.14; lift = -0.3;

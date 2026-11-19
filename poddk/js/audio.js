@@ -255,6 +255,7 @@ export function createAudio(baseUrl = 'audio/') {
         if (Math.random() < 0.16) { puff(0.01, 0.05, 700 + Math.random() * 500, 0.42 * level); puff(0.05, 0.03, 2600, 0.2 * level); }
         return;
       }
+      if (kind === 'dice') { for (let i = 0; i < 4; i++) puff(i * 0.07 + Math.random() * 0.03, 0.03, 2400 + Math.random() * 1600, 0.3 - i * 0.05); return; }      // 주사위가 데굴데굴 달각
       if (kind === 'paper') { puff(0, 0.09, 3200, 0.22); puff(0.05, 0.07, 2200, 0.14); return; }      // 포장지를 톡 두드리는 바스락
       if (kind === 'tear') {                                // 포장지가 쫙 찢어지는 소리
         for (let i = 0; i < 6; i++) puff(i * 0.035, 0.1, 2600 + i * 300, 0.26 - i * 0.025);

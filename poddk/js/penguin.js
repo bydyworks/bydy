@@ -167,7 +167,7 @@ const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3
  */
 export function setSnow(root, hat, pop = 0) {
   const u = root.userData, on = hat > 0.02, snowman = pop >= POP_SWAP;
-  u.cap.visible = on;
+  u.cap.visible = on && !u.hatOn;                       // (모자를 쓰고 있으면 머리 위 눈 더미는 모자 밑으로 들어간다)
   u.cap.scale.set(1, 0.2 + hat * 0.55, 1);               // 눈 모자는 납작하고 둥글게 쌓인다 (뾰족해 보이지 않게)
   u.shoulders.forEach((m) => { m.visible = on && hat > 0.3; m.scale.set(1, 0.3 + hat * 0.6, 1); });
 

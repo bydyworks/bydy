@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, COLORS, ROD_GRIP } from './penguin.js';
 import { STATUSES } from './den.js';
 import { ROD_LEN, ROD_TILT, SEAT as FISH_SEAT, FLOAT_Y } from './fishing.js';
+import { SLOTS, wear } from './outfit.js';
 
 /** 하는 일의 번호 (서버와 같은 약속) */
 export const ACT = { stand: 0, angel: 1, slide: 2, flap: 3, fish: 4, sit: 5, snowman: 6 };
@@ -33,7 +34,7 @@ function deviceId() {
 /**
  * @param {{ url: string, scene: THREE.Scene, camera: THREE.Camera, tracks: object, name: () => string, look: { blanket: boolean, color: string }, onCount: (n: number) => void }} o
  */
-export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {} }) {
+export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {} }) {
   const peers = new Map();                 // id → { root, name, s(받은 모습), x, z, yaw, phase, t(시각), bubble }
   const stats = { connected: false, sent: 0, got: 0, marksIn: 0, marksOut: 0, tries: 0 };
   let ws = null, myId = null, wait = 2, sendIn = 0, beatIn = 0, lastSent = '', outbox = [], closed = !url, time = 0;
@@ -97,6 +98,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     else if (m.t === 'bye') { drop(m.id); onCount(peers.size); }
     else if (m.t === 's') { const p = peers.get(m.id); if (p) { const first = !p.s; p.s = m.s; if (first) { p.x = m.s.x; p.z = m.s.z; p.yaw = m.s.yaw; } } }
     else if (m.t === 'm') for (const q of m.l) mark(q);
+    else if (m.t === 'g') onGame(m);
   }
 
   function send(obj) { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); stats.sent++; } }
@@ -107,8 +109,13 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     stats, peers, device,
     get connected() { return stats.connected && !!myId; },
     get count() { return peers.size; },
+    get id() { return myId; },
+    /** 이글루 안 주사위 놀이: op 'invite'(같은 방에 앉은 펭귄들 부르기) | 'join' | 'roll' | 'leave' */
+    game(op, gid) { send({ t: 'g', op, gid }); },
+    /** 이름으로 다른 펭귄 찾기 (번호 → 이름) */
+    nameOf(id) { const p = peers.get(id); return p ? p.name : null; },
     start() { if (url) connect(); },
-    /** 내 모습: { x, z, yaw, w(걷는 정도 0..1), a(ACT), i(이글루 번호, 밖이면 -1), k(방석, 없으면 -1), st(상태 번호, 없으면 -1) } */
+    /** 내 모습: { x, z, yaw, w(걷는 정도 0..1), a(ACT), i(이글루 번호, 밖이면 -1), k(방석, 없으면 -1), st(상태 번호, 없으면 -1), f([안경, 모자, 귀마개] 번호, 없으면 -1) } */
     me(s) { mine = s; },
     /** 내가 남긴 자국 하나: kind 0 발자국, 1 눈 천사, 2 배 썰매 */
     mark(kind, x, z, yaw, side = 1) { outbox.push([kind, Math.round(x * 100) / 100, Math.round(z * 100) / 100, Math.round(yaw * 100) / 100, side >= 0 ? 1 : -1]); stats.marksOut++; },
@@ -118,8 +125,8 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
       sendIn -= dt; beatIn -= dt;
       if (this.connected && mine && sendIn <= 0) {
         sendIn = SEND_EVERY;
-        const msg = { t: 's', x: mine.x, z: mine.z, yaw: mine.yaw, w: mine.w, a: mine.a, i: mine.i, k: mine.k, st: mine.st };
-        const key = [Math.round(msg.x * 20), Math.round(msg.z * 20), Math.round(msg.yaw * 20), Math.round(msg.w * 4), msg.a, msg.i, msg.k, msg.st].join();
+        const msg = { t: 's', x: mine.x, z: mine.z, yaw: mine.yaw, w: mine.w, a: mine.a, i: mine.i, k: mine.k, st: mine.st, f: mine.f || [-1, -1, -1] };
+        const key = [Math.round(msg.x * 20), Math.round(msg.z * 20), Math.round(msg.yaw * 20), Math.round(msg.w * 4), msg.a, msg.i, msg.k, msg.st, msg.f.join('.')].join();
         if (key !== lastSent || beatIn <= 0) { lastSent = key; beatIn = BEAT; send(msg); }
       }
       if (this.connected && outbox.length) { while (outbox.length) send({ t: 'm', l: outbox.splice(0, 24) }); }
@@ -148,6 +155,9 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
         } else if (POSES[want]) p.k = Math.min(1, p.k + dt / EASE.in);
         const ease = p.k * p.k * (3 - 2 * p.k);
         if (POSES[p.act]) POSES[p.act](r, ease, time);
+        // 쓰고 있는 패션 아이템 (선물에서 나온 안경·모자·귀마개)
+        const f = Array.isArray(s.f) ? s.f.join('.') : '';
+        if (p.wornKey !== f) { p.wornKey = f; SLOTS.forEach((slot, j) => wear(r, slot, Array.isArray(s.f) && Number.isInteger(s.f[j]) ? s.f[j] : -1)); }
         setSnow(r, s.a === ACT.snowman ? 1 : 0, s.a === ACT.snowman ? 1 : 0);
         // 낚시: 낚싯대와 줄과 찌 (펭귄은 구멍을 보고 한 걸음 반 떨어져 앉는다)
         const fishing = p.act === ACT.fish && ease > 0.5;

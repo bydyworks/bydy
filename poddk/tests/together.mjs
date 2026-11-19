@@ -75,6 +75,39 @@ try {
     await a.evaluate(() => { const s = window.__snow; s.fishing.cancel(); s.sim(1); });
     await until(async () => { const q = await peer(); return q.act === 0 && !q.rod; }, { what: '낚시를 그만두면 낚싯대가 사라짐', timeout: 10000 });
   });
+  await test('선물에서 나온 패션 아이템은 다른 화면에서도 보인다', async () => {
+    await a.evaluate(() => { const s = window.__snow; s.outfit.wear('hat', 1); s.outfit.wear('glasses', 0); });
+    await until(async () => (await b.evaluate(() => { const p = [...window.__snow.net.peers.values()][0], o = p.root.userData.outfit || {}; return [o.glasses ? o.glasses.userData.item.n : -1, o.hat ? o.hat.userData.item.n : -1, o.ear ? o.ear.userData.item.n : -1].join(); })) === '0,1,-1', { what: '다른 화면의 모자와 안경', timeout: 10000 });
+    await a.evaluate(() => window.__snow.outfit.wear('hat', 5));
+    await until(async () => (await b.evaluate(() => { const o = [...window.__snow.net.peers.values()][0].root.userData.outfit || {}; return o.hat ? o.hat.userData.item.n : -1; })) === 5, { what: '모자가 갓으로 바뀜', timeout: 10000 });
+  });
+  await test('이글루에서 주사위 놀이: 부르면 같은 방에 앉은 펭귄에게만 쪽지가 가고, 같이 하기를 누르면 함께 굴려 같은 결과를 본다', async () => {
+    for (const [p, k] of [[a, 0], [b, 1]]) {
+      await p.evaluate(() => { const s = window.__snow; if (s.inside === null) { const e = s.entrances[0]; s.teleport(e.x, e.z); s.sim(0.1); s.act(); } });
+    }
+    await until(async () => (await a.evaluate(() => window.__snow.inside)) === 0 && (await b.evaluate(() => window.__snow.inside)) === 0, { what: '둘 다 방 안' });
+    for (const [p, k] of [[a, 0], [b, 1]]) {
+      await p.evaluate((k) => { const s = window.__snow, seat = s.dens.dens[0].seats[k]; s.teleport(seat.x + 0.3, seat.z + 0.3); s.sim(0.1); s.act(); s.sim(0.8); }, k);
+      await until(async () => p.evaluate(() => !document.querySelector('#status').hidden), { what: '상태 고르기' });
+    }
+    await b.click('#status .status-close');
+    await sleep(800);                                              // (앉은 모습이 서버에 닿게)
+    assert(await a.evaluate(() => !document.querySelector('#status .dice-invite').hidden), '주사위 놀이 단추가 없다');
+    await a.click('#status .dice-invite');
+    await until(async () => b.evaluate(() => !document.querySelector('#dice-ask').hidden), { what: '다른 펭귄에게 온 쪽지', timeout: 10000 });
+    const who = await b.evaluate(() => document.querySelector('#dice-ask .who').textContent);
+    assert(who.startsWith(await a.evaluate(() => window.__snow.name)), '쪽지에 부른 펭귄 이름이 없다: ' + who);
+    await b.click('#dice-ask .yes');
+    await until(async () => a.evaluate(() => !!window.__snow.dice && window.__snow.dice.players.length === 2 && !document.querySelector('#dice .roll').disabled), { what: '함께하는 펭귄 둘', timeout: 10000 });
+    await a.click('#dice .roll');
+    const result = (p) => p.evaluate(() => window.__snow.dice && window.__snow.dice.rolled ? JSON.stringify(window.__snow.dice.rolled.map((r) => r[2])) : null);
+    await until(async () => (await result(a)) && (await result(b)), { what: '두 화면의 결과', timeout: 12000 });
+    assert((await result(a)) === (await result(b)), '두 화면의 주사위 눈이 다르다: ' + (await result(a)) + ' / ' + (await result(b)));
+    const note = await a.evaluate(() => document.querySelector('#dice .note').textContent);
+    assert(/승리|비겼어요/.test(note), '결과 글: ' + note);
+    for (const p of [a, b]) await p.click('#dice .quit');
+    for (const p of [a, b]) await p.evaluate(() => { const s = window.__snow; if (s.seat) { s.act(); s.sim(0.8); } });
+  });
   await test('한 펭귄이 나가면 다른 화면에서 사라지고 수가 줄어든다', async () => {
     await a.close();
     await until(async () => (await st(b)).count === 0 && !(await st(b)).row, { what: '사라짐', timeout: 10000 });

@@ -81,6 +81,9 @@ try {
     const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').textContent.trim(), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
     const SAYINGS = ['우연히 뽀드득 명당을 발견했다!오늘 산책은 여기로 정했어.', '뽀드득 소리가 딱 좋은 눈밭이다!조금만 더 놀다 가야지.', '아무도 안 밟은 새하얀 눈밭이잖아?내 발자국부터 남겨봐야지.', '뒤뚱뒤뚱 걷다 보니 눈밭을 찾았네.여기 눈, 소리가 유난히 좋잖아?'];
     assert(card.title === '뽀드득' && card.sub === null && SAYINGS.includes(card.say) && card.button === '눈 밟으러 가기' && card.hint.includes('소리'), '처음 화면의 글: ' + JSON.stringify(card));
+    // 그 아래에는 여기서 무엇을 할 수 있는지: 얼음 낚시, 이글루, 산타가 흘린 선물
+    const what = await p.evaluate(() => document.querySelector('.start-card .what').textContent);
+    assert(what.includes('낚시') && what.includes('이글루') && what.includes('산타가 흘린 선물'), '할 수 있는 일: ' + what);
     // 제목 아래의 한마디는 올 때마다 넷 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
     for (const n of [1, 2, 3, 4]) {
       const q = await page('t=14:00&speed=0&say=' + n, { enter: false });
@@ -1202,7 +1205,11 @@ try {
       await walk(p, 0, 0, 0.6);
       f = await fishLook(p);
       assert(f.phase === 'show' && f.stats.caught === n + 1 && f.stats.last === id && f.item === id && f.floatY === null, id + ': 낚은 것을 들어 보여야 한다: ' + JSON.stringify(f));
-      assert((await p.textContent('#toast')).includes(name + '를 낚았어요'), '낚은 것의 이름: ' + await p.textContent('#toast'));
+      // 낚은 것을 보여 주는 카드가 뿅 뜨고, 그 안에서 낚은 것이 3D 로 돈다 (WebGL 이 되면), 그리고 소리
+      const card = await p.evaluate(() => { const el = document.querySelector('#catch'); return { shown: !el.hidden, kind: el.dataset.kind, name: el.querySelector('.name').textContent, canvas: !!el.querySelector('.view canvas') || el.classList.contains('flat') }; });
+      assert(card.shown && card.kind === id && card.name === name + '를 낚았어요!' && card.canvas, '낚은 것을 보여 주는 카드: ' + JSON.stringify(card));
+      await p.click('#catch');
+      assert(await p.evaluate(() => document.querySelector('#catch').hidden), '누르면 카드가 닫혀야 한다');
       await act();                                                        // 들어 보이는 동안에는 눌러도, 걸으려 해도 그대로 있는다
       await walk(p, 0, 0.9, 0.5);
       f = await fishLook(p);
@@ -1392,8 +1399,11 @@ try {
     assert(b.cls === 'tap2' && b.close === 'hidden', '두 번 두드렸는데 벌써 열렸다: ' + JSON.stringify(b));
     await p.click('#gift .gift-box');
     b = await box();
-    const names = await snow(p, async () => (await import('./js/xmas.js')).PRESENTS.map((x) => x[1]));
+    const names = await snow(p, async () => (await import('./js/outfit.js')).ITEMS.map((x) => x.name));
     assert(b.cls === 'opened' && names.includes(b.item) && b.close === 'visible', '세 번째에 선물이 나와야 한다: ' + JSON.stringify(b));
+    // 선물은 패션 아이템: 나오자마자 펭귄이 쓰고 있다
+    const wore = await snow(p, async () => { const { ITEMS, SLOTS } = await import('./js/outfit.js'); const it = window.__snow.gift.item, w = window.__snow.outfit.worn; return { it: it && it.name, ok: !!it && w[SLOTS.indexOf(it.slot)] === it.n, n: ITEMS.length }; });
+    assert(wore.ok && wore.n === 18 && wore.it === b.item, '나온 아이템을 쓰고 있어야 한다: ' + JSON.stringify(wore));
     const fx = await snow(p, () => window.__snow.audio.snowFx.slice());
     assert(fx.filter((k) => k === 'paper').length === 2 && fx.includes('tear') && fx.includes('ding'), '두드리는 소리, 찢는 소리, 띠링: ' + JSON.stringify(fx));
     await p.click('#gift .gift-close');
@@ -1406,6 +1416,46 @@ try {
     await snow(p, () => { window.__snow.xmas.gifts[0].back = 0; });
     await until(async () => snow(p, () => !window.__snow.xmas.gifts[0].open && window.__snow.xmas.gifts[0].mesh.visible), { what: '새 상자' });
     assert(await snow(p, (a) => Math.hypot(window.__snow.xmas.gifts[0].x - a.x, window.__snow.xmas.gifts[0].z - a.z) > 3, at), '새 상자가 같은 자리에 놓였다');
+  });
+
+  await test('같은 자리(안경·모자·귀마개)의 아이템이 또 나오면 새것으로 바뀌고, 다시 들어오면 맨몸으로 시작한다', async () => {
+    const p = await page('t=14:20&speed=0');
+    await byHand(p);
+    const open = async (i) => {
+      await snow(p, (i) => { const s = window.__snow, x = s.xmas.gifts.find((g) => !g.open); s.outfit.force(i); s.teleport(x.x, x.z + 3); s.me.yaw = s.me.camYaw = Math.PI; s.controls.debugMove(0, 1); for (let k = 0; k < 300 && !s.gift; k++) s.sim(1 / 60); s.controls.debugMove(0, 0); }, i);
+      for (let k = 0; k < 3; k++) await p.click('#gift .gift-box');
+      await p.click('#gift .gift-close');
+      return snow(p, () => window.__snow.outfit.worn);
+    };
+    const ITEMS = await snow(p, async () => (await import('./js/outfit.js')).ITEMS.map((x) => [x.slot, x.n]));
+    const at = (slot, n) => ITEMS.findIndex((x) => x[0] === slot && x[1] === n);
+    let w = await open(at('glasses', 0));
+    assert(w.join() === '0,-1,-1', '선글라스: ' + w);
+    w = await open(at('hat', 5));
+    assert(w.join() === '0,5,-1', '갓을 더 썼다: ' + w);
+    w = await open(at('glasses', 3));
+    assert(w.join() === '3,5,-1', '안경이 새것으로 바뀌어야 한다: ' + w);
+    const q = await page('t=14:20&speed=0');
+    assert((await snow(q, () => window.__snow.outfit.worn)).join() === '-1,-1,-1', '다시 들어오면 맨몸이어야 한다');
+  });
+
+  await test('트리 옆 우체통에 다가가면 엽서 단추가 되고, 누르면 친구에게 보낼 엽서가 뜬다 (공유 창이 없으면 주소 복사)', async () => {
+    const p = await page('t=14:20&speed=0');
+    await byHand(p);
+    const label = () => p.evaluate(() => document.querySelector('#angel').getAttribute('aria-label'));
+    const POSTBOX = await snow(p, async () => ({ ...(await import('./js/postbox.js')).POSTBOX }));
+    await snow(p, (b) => { const s = window.__snow; s.teleport(b.x, b.z + 1.2); s.sim(0.1); }, POSTBOX);
+    await until(async () => (await label()) === '친구에게 엽서 보내기', { what: '엽서 단추' });
+    const inside = await snow(p, (b) => { const s = window.__snow; s.teleport(b.x, b.z); return Math.hypot(s.me.x - b.x, s.me.z - b.z); }, POSTBOX);
+    assert(inside >= POSTBOX.r - 0.01, '우체통 속으로 들어갔다: ' + inside);
+    await snow(p, (b) => { const s = window.__snow; s.teleport(b.x, b.z + 1.2); s.sim(0.1); s.act(); }, POSTBOX);
+    const card = await p.evaluate(() => { const el = document.querySelector('#postcard'); return { shown: !el.hidden, from: el.querySelector('.from b').textContent, link: el.querySelector('.link').textContent, name: window.__snow.name }; });
+    assert(card.shown && card.from === card.name && /\/poddk\/$/.test(card.link) && !card.link.includes('?'), '엽서: ' + JSON.stringify(card));
+    await p.evaluate(() => { Object.defineProperty(navigator, 'share', { value: undefined, configurable: true }); });
+    await p.click('#postcard .copy');
+    await until(async () => (await p.textContent('#postcard .done')).length > 0, { what: '복사했다는 글' });
+    await p.click('#postcard .close');
+    assert(await p.evaluate(() => document.querySelector('#postcard').hidden), '닫히지 않는다');
   });
 
   await test('매시 정각부터 5분 동안 산타가 트리 옆에 나와 "허허허" 웃고, 머리 위에 "메리 크리스마스~" 말풍선이 뜬다', async () => {
