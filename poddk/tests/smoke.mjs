@@ -698,7 +698,7 @@ try {
     const s = window.__snow, f = s.fishing, u = s.penguin.userData, h = s.place.hole;
     return { active: f.active, phase: f.phase, stats: { ...f.stats }, sitY: u.body.position.y, footZ: u.feet[0].position.z, dist: Math.hypot(s.me.x - h.x, s.me.z - h.z),
       facing: Math.abs(Math.atan2(Math.sin(s.me.yaw - Math.atan2(h.x - s.me.x, h.z - s.me.z)), Math.cos(s.me.yaw - Math.atan2(h.x - s.me.x, h.z - s.me.z)))),
-      floatY: f.floatY, item: f.shown, rod: f.rodShown, water: s.audio.water, snow: s.me.snow, pop: s.me.pop, shell: u.shell.visible, angels: s.tracks.angelCount };
+      floatY: f.floatY, item: f.shown, rod: f.rodShown, water: s.audio.water, snow: s.me.snow, pop: s.me.pop, shell: u.shell.visible, hat: u.cap.visible, angels: s.tracks.angelCount };
   });
 
   await test('이글루와 언 연못은 트리에서 먼 곳에 있다. 이글루 속으로는 못 들어가고, 얼음 위에는 발자국이 남지 않는다', async () => {
@@ -802,11 +802,15 @@ try {
       f = await fishLook(p);
       assert(f.phase === 'wait' && f.water === w + 3 && f.item === null && f.floatY !== null, id + ': 놓아주고 다시 기다려야 한다 (퐁, 첨벙, 퐁): ' + JSON.stringify(f));
     }
-    // 오래 낚시해도 눈은 머리와 어깨에만 쌓이고 눈사람이 되지는 않는다
+    // 눈은 서 있을 때만 쌓인다: 오래 앉아 낚시해도 쌓이지 않고, 일어나 서 있으면 다시 쌓인다
     await snow(p, () => window.__snow.fishing.debug.biteIn(9999));
     await walk(p, 0, 0, 60);
     f = await fishLook(p);
-    assert(f.active && f.snow === 1 && f.pop === 0 && !f.shell, '낚시 중에는 눈 모자까지만: ' + JSON.stringify(f));
+    assert(f.active && f.snow === 0 && f.pop === 0 && !f.shell && !f.hat, '앉아서 낚시하는 동안에는 눈이 쌓이지 않아야 한다: ' + JSON.stringify(f));
+    await walk(p, 0, 1, 1.2);
+    await walk(p, 0, 0, 20);
+    f = await fishLook(p);
+    assert(!f.active && f.snow === 1 && f.hat, '일어나 서 있으면 다시 쌓여야 한다: ' + JSON.stringify(f));
     // 무엇이 낚일지: 빙어가 절반을 넘고, 장화는 드물다
     const draws = await snow(p, () => { const n = {}; for (let i = 0; i < 6000; i++) { const k = window.__snow.fishing.debug.draw(); n[k] = (n[k] || 0) + 1; } return n; });
     assert(draws.smelt / 6000 > 0.5 && draws.smelt / 6000 < 0.64 && draws.boot / 6000 > 0.03 && draws.boot / 6000 < 0.09 && draws.cherry > draws.trout && draws.trout > draws.boot, '낚이는 비율: ' + JSON.stringify(draws));

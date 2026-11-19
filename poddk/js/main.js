@@ -212,13 +212,12 @@ function walk(dt, now) {
   if (me.angel) { stepAngel(dt, now); setSnow(penguin, me.snow, me.pop); return; }      // 누울 때 털린 눈이 모습에도 바로 드러나게
 
   if (fishing.active) {
-    // 낚시하는 동안: 걷지 않는다. 가만히 앉아 있으니 머리와 어깨에 눈은 쌓이지만, 눈사람이 되지는 않는다
+    // 낚시하는 동안: 걷지 않는다. 눈은 서 있을 때만 쌓이므로, 앉아 있는 동안에는 쌓이지 않는다
     me.walk = 0;
     pose(penguin, me.phase, 0);
     fishing.step(dt, me, mag > 0.3);
-    me.idle += dt;
-    if (me.idle > IDLE_BEFORE_SNOW && me.snow < 1) me.snow = Math.min(1, me.snow + dt / SNOW_FILL_SEC * (1 + 3 * Math.max(0, snowfallAt(now) - 0.35)));
-    setSnow(penguin, me.snow, 0);
+    me.idle = 0; me.snow = 0;
+    setSnow(penguin, 0, 0);
     return;
   }
   fishing.step(dt, me, false);                           // (물결이 마저 퍼지게)
