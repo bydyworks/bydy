@@ -5,7 +5,9 @@ const MARK = '뽀드득 · poddk';
 
 /**
  * @param {{ canvas: HTMLCanvasElement, draw: () => void, touch: boolean }} o draw: 지금 장면을 한 번 더 그리는 함수
- * @returns {() => Promise<{ how: 'share' | 'download' | 'cancel', width: number, height: number, bytes: number, name: string }>}
+ * @returns {() => Promise<{ how: 'share' | 'download' | 'show' | 'cancel', width: number, height: number, bytes: number, name: string, url?: string }>}
+ *   how 'show': 손가락으로 쓰는 기기인데 공유 창을 띄울 수 없었다 (메신저 속 브라우저 등 — 그런 곳은 내려받기도 대개 막혀 있다).
+ *   이때는 저장하지 않고 사진의 주소(url)를 돌려준다: 부른 쪽이 화면에 띄워 길게 눌러 저장하게 한다
  */
 export function createCapture({ canvas, draw, touch }) {
   let busy = false;
@@ -47,6 +49,7 @@ export function createCapture({ canvas, draw, touch }) {
           catch (e) { if (e && e.name === 'AbortError') { info.how = 'cancel'; return info; } }      // 공유를 못 하면 아래에서 내려받는다
         }
       }
+      if (touch) { info.how = 'show'; info.url = URL.createObjectURL(blob); return info; }
       download(blob, name);
       return info;
     } finally { busy = false; }

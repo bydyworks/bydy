@@ -137,7 +137,7 @@ export function createCamp(scene) {
     // 발치에 쌓인 눈
     const skirt = new THREE.Mesh(G.skirt, plain); skirt.rotation.x = Math.PI / 2; skirt.scale.z = 0.55; skirt.position.y = 0.02; igloo.add(skirt);
     // 밤에 문 앞 눈 위로 번지는 불빛 (빛을 하나 더 켜지 않고 그림으로 얹는다)
-    const spill = new THREE.Mesh(G.spill, spillMat); spill.rotation.x = -Math.PI / 2; spill.position.set(0, 0.03, IGLOO_RADIUS + 2.5); spill.renderOrder = 3; igloo.add(spill);
+    const spill = new THREE.Mesh(G.spill, spillMat.clone()); spill.rotation.x = -Math.PI / 2; spill.position.set(0, 0.03, IGLOO_RADIUS + 2.5); spill.renderOrder = 3; igloo.add(spill);
     igloo.traverse((o) => { if (o.isMesh && o !== spill && o !== door) { o.castShadow = true; o.receiveShadow = true; } });
     igloo.userData.spill = spill;
     group.add(igloo);
@@ -162,13 +162,24 @@ export function createCamp(scene) {
 
   return {
     group, igloos, ponds,
-    /** night: 0(낮)..1(밤). 밤이 되면 이글루 문 안에 불이 켜진다 */
-    update(night, time) {
+    /**
+     * night: 0(낮)..1(밤). 밤이 되면 이글루 문 안에 불이 켜진다.
+     * camera, fog: 눈 위로 번지는 불빛은 안개를 타지 않는 그림이라서, 이글루가 안개(눈발)에 묻히는 만큼 손수 흐리게 한다
+     *   (그러지 않으면 폭설의 밤에 이글루는 안 보이는데 불빛만 지평선에 떠 보인다)
+     */
+    update(night, time, camera, fog) {
       const flicker = 0.93 + 0.07 * Math.sin(time * 2.3) * Math.sin(time * 0.7);
       inside.emissiveIntensity = night * 1.15 * flicker;
-      spillMat.opacity = night * 0.5 * flicker;
-      const lit = night > 0.01;
-      for (const g of igloos) g.userData.spill.visible = lit;
+      for (const g of igloos) {
+        const spill = g.userData.spill;
+        let clear = 1;
+        if (camera && fog) {
+          const d = Math.hypot(camera.position.x - g.position.x, camera.position.y, camera.position.z - g.position.z);
+          clear = Math.min(1, Math.max(0, (fog.far - d) / (fog.far - fog.near)));
+        }
+        spill.material.opacity = night * 0.5 * flicker * clear * clear;
+        spill.visible = spill.material.opacity > 0.004;
+      }
     },
   };
 }

@@ -35,7 +35,11 @@ export function createControls(surface, ui) {
     const w = surface.clientWidth, h = surface.clientHeight;
     const touch = e.pointerType !== 'mouse';
     // 손가락: 화면 왼쪽 절반(위쪽 띠 제외)은 조이스틱, 나머지는 둘러보기. 마우스는 언제나 둘러보기.
-    if (touch && stick.id === null && e.clientX < w * 0.5 && e.clientY > h * 0.18) {
+    // 방금 둘러보기로 잡힌 손가락 곁에 다른 손가락이 곧바로 닿았다면, 그것이 화면 왼쪽이어도 조이스틱이 아니라 두 손가락 줌이다
+    const first = fingers.size === 1 ? [...fingers.values()][0] : null;
+    const pinching = touch && first && performance.now() - first.at < PINCH_WITHIN_MS
+      && Math.hypot(first.x - first.ox, first.y - first.oy) < 12 && Math.hypot(e.clientX - first.x, e.clientY - first.y) < 0.5 * Math.min(w, h);
+    if (touch && !pinching && stick.id === null && e.clientX < w * 0.5 && e.clientY > h * 0.18) {
       stick.id = e.pointerId; stick.ox = stick.px = e.clientX; stick.oy = stick.py = e.clientY; stick.x = 0; stick.y = 0; stick.at = performance.now();
       showStick(true);
     } else if (fingers.size < 2) {
@@ -43,10 +47,10 @@ export function createControls(surface, ui) {
       // (양손 엄지로 걷고 둘러볼 때는 두 손가락이 멀리 떨어져 있거나, 먼저 닿은 엄지가 이미 움직이고 있다)
       if (touch && stick.id !== null && fingers.size === 0 && performance.now() - stick.at < PINCH_WITHIN_MS
         && Math.hypot(stick.px - stick.ox, stick.py - stick.oy) < 12 && Math.hypot(e.clientX - stick.px, e.clientY - stick.py) < 0.5 * Math.min(w, h)) {
-        fingers.set(stick.id, { x: stick.px, y: stick.py });
+        fingers.set(stick.id, { x: stick.px, y: stick.py, ox: stick.ox, oy: stick.oy, at: stick.at });
         stick.id = null; stick.x = 0; stick.y = 0; showStick(false);
       }
-      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY, ox: e.clientX, oy: e.clientY, at: performance.now() });      // (ox, oy, at: 처음 닿은 자리와 때)
       if (fingers.size === 2) pinch = spread();
     } else return;
     try { surface.setPointerCapture(e.pointerId); } catch { /* 일부 브라우저는 지원하지 않는다 */ }

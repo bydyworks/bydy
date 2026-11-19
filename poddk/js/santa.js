@@ -133,7 +133,8 @@ export function createSanta(scene) {
       if (!current) return;
       const p = pass.p;
       place(pass, p, here); place(pass, Math.min(1, p + 0.004), ahead);
-      here.y += Math.sin(now / 900) * 1.6;        // 살짝 출렁이며 난다
+      const bob = Math.sin(now / 900) * 1.6;      // 살짝 출렁이며 난다 (기울기는 길을 따라가야 하므로, 앞을 보는 점도 똑같이 출렁인다)
+      here.y += bob; ahead.y += bob;
       sprite.position.copy(here);
       sprite.material.opacity = 0.9 * dark * smooth(p / 0.07) * smooth((1 - p) / 0.07);
       // 화면에서 어느 쪽으로 가는지에 맞춰 그림을 뒤집고, 오르내리는 만큼 기울인다

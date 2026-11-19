@@ -83,7 +83,7 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
   const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.09, 6), mat('#d8362f', 0.5)); pin.position.y = 0.09; float.add(pin);
   float.visible = false; scene.add(float);
   const rings = [0, 1].map(() => {
-    const m = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false }));
+    const m = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 32), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 }));      // 물(-3)보다 앞으로 당겨 그린다
     m.rotation.x = -Math.PI / 2; m.renderOrder = 4; m.visible = false; m.userData.t = 9;
     scene.add(m); return m;
   });
@@ -124,6 +124,10 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free }) {
     get rodShown() { return rod.visible && line.visible; },
     /** 지금 단계: 'sit' | 'wait' | 'bite' | 'pull' | 'show' | 'release' | 'stand' | null */
     get phase() { return state ? state.phase : null; },
+    /** 점검용: 물결 고리들의 모습 */
+    get ripples() { return rings.map((m) => ({ visible: m.visible, opacity: m.material.opacity, offset: m.material.polygonOffset ? m.material.polygonOffsetFactor : 0 })); },
+    /** 점검용: 지금 기다리는 중이면 입질까지 정해진 시간(초) */
+    get waitFor() { return state && state.phase === 'wait' ? state.wait : null; },
     /** 점검·시안용: 다음 입질까지의 시간(초)과 다음에 낚일 것을 정해 둔다 */
     debug: { biteIn(sec) { forcedWait = sec; if (state && state.phase === 'wait') { state.wait = state.t + sec; forcedWait = null; } }, next(id) { forcedKind = id; }, draw: () => pick() },
 

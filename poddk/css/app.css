@@ -98,11 +98,19 @@ body.in #start { opacity: 0; pointer-events: none; }
 #enter:active { transform: scale(0.98); }
 .start-card .hint { margin: 12px 0 0; font-size: 12px; opacity: 0.65; }
 
+/* 찍은 사진을 보여 주는 자리: 어둑한 바탕 위에 사진 한 장과 안내 한 줄, 닫기 */
+#photo { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; background: rgba(28, 34, 66, 0.72); }
+#photo[hidden] { display: none; }
+#photo figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 0; }
+#photo img { display: block; max-width: 100%; max-height: 68vh; border-radius: 12px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35); -webkit-touch-callout: default; -webkit-user-select: auto; user-select: auto; }
+#photo figcaption { color: #fff; font-size: 14px; font-weight: 600; }
+#photo button { height: 44px; padding: 0 26px; border-radius: 22px; background: rgba(255, 255, 255, 0.92); color: var(--ink); font-size: 15px; font-weight: 700; }
+
 /* 낮은 화면(휴대폰 가로): 버튼을 조금 작게 */
 @media (max-height: 430px) {
   :root { --btn: 46px; --gap: 8px; --col-b: calc(12px + var(--safe-b)); }
   #angel .angel-icon { width: 29px; height: 26px; }
-  #toast { top: calc(60px + var(--safe-t)); }
+  #toast { top: calc(12px + var(--safe-t)); left: calc(50% + 72px); max-width: min(48vw, 400px); }      /* 왼쪽 위의 시각 표시와 오른쪽 위의 소리 버튼 사이에 */
   .start-card { padding: 16px 20px 14px; }
   .start-card h1 { font-size: 26px; margin-bottom: 0; }
   .start-card .sub { margin-bottom: 6px; font-size: 12px; }

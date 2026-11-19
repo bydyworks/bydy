@@ -197,6 +197,21 @@ try {
     const b = await state(p);
     assert(b.camDist < a.camDist * 0.75, '벌리면 가까워져야 한다: ' + a.camDist.toFixed(2) + ' → ' + b.camDist.toFixed(2));
     assert(Math.hypot(b.x - a.x, b.z - a.z) < 0.01 && Math.abs(b.camYaw - a.camYaw) < 0.01, '줌하는 동안 걷거나 화면이 돌았다');
+    // 같은 두 자리에 오른쪽 손가락이 먼저 닿아도 똑같이 줌이다 (어느 손가락이 먼저 닿는지는 그때그때 다르다)
+    await snow(p, () => {
+      const el = document.querySelector('#touch');
+      const send = (t, id, x, y) => el.dispatchEvent(new PointerEvent(t, { pointerId: id, pointerType: 'touch', clientX: x, clientY: y, bubbles: true, cancelable: true, isPrimary: id === 3 }));
+      send('pointerdown', 3, 250, 400); send('pointerdown', 4, 150, 480);
+    });
+    assert(!(await stickShown()), '오른쪽 손가락이 먼저 닿았더니 조이스틱이 나타났다');
+    await pointer(p, 'pointermove', 3, 220, 425);                       // 오므린다 → 멀리
+    await pointer(p, 'pointermove', 4, 180, 455);
+    await pointer(p, 'pointerup', 3, 220, 425); await pointer(p, 'pointerup', 4, 180, 455);
+    await walk(p, 0, 0, 0.1);
+    const b2 = await state(p);
+    assert(b2.camDist > b.camDist * 1.3, '오므리면 멀어져야 한다: ' + b.camDist.toFixed(2) + ' → ' + b2.camDist.toFixed(2));
+    assert(Math.hypot(b2.x - b.x, b2.z - b.z) < 0.01 && Math.abs(b2.camYaw - b.camYaw) < 0.01, '오른쪽 손가락이 먼저 닿은 줌에서 걷거나 화면이 돌았다');
+    Object.assign(b, b2);                                                // (아래의 비교는 지금 모습에서 이어 간다)
     // 양손 엄지: 멀리 떨어진 두 손가락은 함께 닿아도 왼쪽은 조이스틱, 오른쪽은 둘러보기
     await snow(p, () => {
       const el = document.querySelector('#touch');
@@ -255,7 +270,7 @@ try {
 
   await test('캡쳐 버튼: 버튼 없이 눈밭만 담긴 사진이 저장되고, 구석에 작게 이름이 적힌다', async () => {
     const fs = await import('node:fs');
-    const init = () => { const fill = CanvasRenderingContext2D.prototype.fillText; window.__texts = []; CanvasRenderingContext2D.prototype.fillText = function (t, ...rest) { window.__texts.push(String(t)); return fill.call(this, t, ...rest); }; };
+    const init = () => { const fill = CanvasRenderingContext2D.prototype.fillText; window.__texts = []; window.__marks = []; CanvasRenderingContext2D.prototype.fillText = function (t, ...rest) { window.__texts.push(String(t)); window.__marks.push({ t: String(t), x: rest[0], y: rest[1], w: this.canvas.width, h: this.canvas.height, size: parseFloat(this.font.match(/(\d+(\.\d+)?)px/)[1]) }); return fill.call(this, t, ...rest); }; };
     const p = await page(undefined, { mobile: false, viewport: { width: 900, height: 600 }, init });
     await walk(p, 0.3, 1, 2);
     const [file] = await Promise.all([p.waitForEvent('download', { timeout: 30000 }), p.click('#shot')]);
@@ -266,6 +281,9 @@ try {
     const info = await p.evaluate(() => ({ shot: window.__snow.lastShot, canvas: [document.querySelector('#view').width, document.querySelector('#view').height], texts: window.__texts }));
     assert(info.shot.how === 'download' && info.shot.width === info.canvas[0] && info.shot.height === info.canvas[1] && info.shot.bytes === bytes.length, '사진 크기: ' + JSON.stringify(info));
     assert(info.texts.includes('뽀드득 · poddk'), '사진 구석에 이름이 없다: ' + JSON.stringify(info.texts));
+    const mark = await p.evaluate(() => window.__marks.find((m) => m.t === '뽀드득 · poddk'));
+    assert(mark.x > 0 && mark.x < mark.w * 0.06 && mark.y < mark.h - 2 && mark.y > mark.h * 0.93 && mark.y - mark.size > mark.h * 0.88, '이름은 사진 안 왼쪽 아래 구석에 적혀야 한다: ' + JSON.stringify(mark));
+    assert(mark.size < mark.h * 0.05, '이름이 너무 크다: ' + JSON.stringify(mark));
     await until(async () => (await p.textContent('#toast')).includes('사진을 저장했어요'), { what: '저장했다는 안내' });
     // 사진 속 그림이 실제 화면과 같은지: 가운데 한 줄의 색이 한 가지가 아니다 (까맣거나 하얗게 빈 그림이 아니다)
     const varied = await p.evaluate(async (b64) => {
@@ -287,6 +305,48 @@ try {
     assert(/^poddk-\d{8}-\d{6}\.jpg\|image\/jpeg\|true$/.test(shared), '넘긴 사진: ' + shared);
     assert((await p.evaluate(() => window.__snow.lastShot.how)) === 'share', '공유로 넘기지 않았다');
     assert(!(await p.textContent('#toast')).includes('저장했어요'), '공유했는데 저장했다고 안내했다');
+  });
+
+  await test('공유 창이 없는 휴대폰 브라우저에서는 저장했다고 하지 않고, 찍은 사진을 띄워 길게 눌러 저장하게 한다', async () => {
+    const init = () => { try { Object.defineProperty(Navigator.prototype, 'canShare', { value: undefined, configurable: true }); } catch { /* 이미 없다 */ } };
+    const p = await page(undefined, { init });
+    const box = () => p.evaluate(() => { const el = document.querySelector('#photo'), img = el.querySelector('img'); return { shown: !el.hidden && getComputedStyle(el).display !== 'none', src: (img.getAttribute('src') || '').slice(0, 5), text: el.querySelector('figcaption').textContent, wide: img.naturalWidth }; });
+    assert(!(await box()).shown, '찍기도 전에 사진 자리가 보인다');
+    await p.click('#shot');
+    await until(async () => (await box()).shown && (await box()).wide > 100, { what: '찍은 사진' });
+    const b = await box();
+    assert(b.src === 'blob:' && b.text.includes('길게 눌러'), '사진과 안내: ' + JSON.stringify(b));
+    assert((await p.evaluate(() => window.__snow.lastShot.how)) === 'show', '사진을 띄우는 길로 가지 않았다');
+    assert(!(await p.textContent('#toast')).includes('저장했어요'), '저장하지 못했는데 저장했다고 안내했다');
+    await p.click('#photo button');
+    assert(!(await box()).shown, '닫기를 눌렀는데 사진이 남았다');
+    await walk(p, 0, 1, 1);
+    assert((await state(p)).prints >= 2, '사진을 닫은 뒤에 걸을 수 없다');
+  });
+
+  await test('확대·축소 단추를 누르고 있는 동안에는 손가락이 조금 미끄러져도 계속 움직이고, 떼면 멈춘다', async () => {
+    const p = await page();
+    const dist = async () => (await state(p)).camDist;
+    const send = (type) => p.evaluate((t) => document.querySelector('#zoom-out').dispatchEvent(new PointerEvent(t, { pointerId: 9, pointerType: 'touch', bubbles: t !== 'pointerleave', cancelable: true })), type);
+    await send('pointerdown');
+    await until(async () => (await dist()) > 9.5, { what: '누르고 있는 동안 멀어짐' });
+    await send('pointerleave');                                         // 손가락이 단추 밖으로 살짝 나갔다
+    const d1 = await dist();
+    await until(async () => (await dist()) > d1 * 1.08, { what: '손가락이 미끄러진 뒤에도 계속 멀어짐' });
+    await send('pointerup');
+    const d2 = await dist();
+    await sleep(300);
+    assert(Math.abs((await dist()) - d2) < 1e-6, '손가락을 뗐는데 계속 움직인다');
+  });
+
+  await test('시각을 멈춰 두어도 화면의 시각이 1분 모자라지 않는다', async () => {
+    const p = await page('t=13:40&speed=0');
+    await until(async () => (await p.textContent('#clock')).includes(':'), { what: '시각' });
+    assert((await p.textContent('#clock')) === '오후 1:40', '13:40 → ' + await p.textContent('#clock'));
+    for (const [time, text] of [['15:10', '오후 3:10'], ['00:00', '오전 12:00'], ['09:05', '오전 9:05'], ['23:59', '오후 11:59']]) {
+      await snow(p, (t) => window.__snow.clock.setTime(t), time);
+      await until(async () => (await p.textContent('#clock')) === text, { what: time + ' → ' + text });
+    }
   });
 
   console.log('\n■ 눈 천사와 쌓이는 눈');
@@ -502,6 +562,11 @@ try {
     const a0 = (await snow(p, () => window.__snow.tracks.alphas()))[n - 1];
     await snow(p, () => window.__snow.clock.skip(12.5 * 60e3));               // 15시 2분 30초: 눈발이 굵어지는 중
     await until(async () => (await snow(p, () => window.__snow.tracks.alphas()))[n - 1] < a0 * 0.6, { what: '덮이는 중' });
+    // 눈발이 굵어지는 첫 5분에도 새 발자국은 남지 않는다 (폭설 30분 내내): 밟는 순간엔 보이지만 몇 초 만에 덮인다
+    await walk(p, 1, 0, 2);
+    await until(async () => (await state(p)).alive > n, { what: '굵어지는 눈 속에서 방금 밟은 자국' });
+    await snow(p, () => window.__snow.clock.skip(7000));
+    await until(async () => (await state(p)).alive === n, { what: '굵어지는 눈에도 금방 덮임' });
     let s = await state(p);
     assert(s.alive === n, '폭설이 시작되고 2분 반 만에 다 지워졌다');
     assert(s.snowfall > 0.58 && s.snowfall < 0.72, '폭설이 시작되고 2분 반의 눈발: ' + s.snowfall.toFixed(2));
@@ -597,7 +662,8 @@ try {
     assert(paws.oldest <= 12 * 60e3 && paws.oldest > 8 * 60e3, '지난 12분치 발자국이 있어야 한다 (가장 오래된 것 ' + (paws.oldest / 60e3).toFixed(1) + '분 전)');
     assert(paws.prints === 0, '여우 발자국이 내 발자국으로 세어졌다');
     // 발자국의 끝에 여우가 있다
-    const end = await snow(p, () => { const s = window.__snow; let t = s.clock.now(); for (let i = 0; i < 300 && s.fox.at(t).move < 0.9; i++) t += 1000; s.clock.skip(t - s.clock.now() + 3000); return t; });
+    const end = await snow(p, () => { const s = window.__snow; let t = s.clock.now(); const walking = (at) => { const f = s.fox.at(at); return f.move >= 0.9 && !s.place.onIce(f.x, f.z); };      // (얼음 위를 걷는 동안에는 발자국이 남지 않으므로 그때는 피한다)
+      for (let i = 0; i < 900 && !(walking(t) && walking(t + 3000)); i++) t += 1000; s.clock.skip(t - s.clock.now() + 3000); return t; });
     await sleep(900);
     const tail = await snow(p, () => { const s = window.__snow, f = s.fox.at(s.clock.now()), list = s.tracks.paws(), last = list.reduce((a, b) => (b.birth > a.birth ? b : a), list[0]); return Math.hypot(last.x - f.x, last.z - f.z); });
     assert(tail < 0.4, '걷고 있는 여우 바로 뒤에 발자국이 있어야 한다: ' + tail.toFixed(2));
@@ -646,13 +712,18 @@ try {
         out.nights++;
       }
       out.day = !!s.santa.passAt(now);
-      out.same = JSON.stringify(s.santa.passesOf(first)) === JSON.stringify(s.santa.passesOf(first));
+      out.first = first;
+      out.passes = JSON.stringify(s.santa.passesOf(first).map((x) => [Math.round(x.start), Math.round(x.azimuth * 1e4), x.dir]));
       out.differ = new Set(Array.from({ length: 10 }, (_, k) => Math.round(s.santa.passesOf(first + k)[0].start % 86400e3))).size;
       return out;
     });
     assert(plan.nights === 40 && plan.bad.length === 0, '지나가는 때가 잘못됐다: ' + [...new Set(plan.bad)].join(', '));
     assert(plan.gaps.every((g) => g > 1.3 && g < 4.7), '세 번이 밤새 고루 흩어져 있어야 한다: ' + plan.gaps.slice(0, 6).map((g) => g.toFixed(1)));
-    assert(!plan.day && plan.same && plan.differ >= 8, '낮에는 없고, 날마다 시각이 달라야 한다: ' + JSON.stringify({ day: plan.day, differ: plan.differ }));
+    assert(!plan.day && plan.differ >= 8, '낮에는 없고, 날마다 시각이 달라야 한다: ' + JSON.stringify({ day: plan.day, differ: plan.differ }));
+    // 누가 보든 같은 때에 같은 하늘을 지나간다: 따로 연 다른 화면(다른 펭귄, 다른 시각에 들어옴)에서도 그 밤의 세 번이 똑같다
+    const q = await page('t=03:20&speed=0&look=blanket&color=6');
+    const other = await snow(q, (night) => JSON.stringify(window.__snow.santa.passesOf(night).map((x) => [Math.round(x.start), Math.round(x.azimuth * 1e4), x.dir])), plan.first);
+    assert(other === plan.passes && JSON.parse(other).length === 3, '화면마다 썰매가 지나가는 때가 다르다: ' + plan.passes + ' / ' + other);
     // 낮에는 보이지 않는다
     await sleep(500);
     assert(!(await snow(p, () => window.__snow.santa.sprite.visible)), '낮인데 썰매가 보인다');
@@ -879,16 +950,135 @@ try {
     assert(draws.smelt / 6000 > 0.5 && draws.smelt / 6000 < 0.64 && draws.boot / 6000 > 0.03 && draws.boot / 6000 < 0.09 && draws.cherry > draws.trout && draws.trout > draws.boot, '낚이는 비율: ' + JSON.stringify(draws));
   });
 
+  await test('이글루 벽 곁이나 연못 가에서 눈 천사를 만들면 조금 비켜나서 눕고, 얼음 위에서는 만들지 않는다', async () => {
+    const p = await page();
+    await byHand(p);
+    // 이글루 벽으로 걸어 들어가 선 채로: 누운 몸의 어느 곳도 이글루에 파묻히지 않는다
+    const wall = await snow(p, () => {
+      const s = window.__snow, g = s.place.igloos[1], away = Math.hypot(g.x, g.z);
+      s.teleport(g.x + g.z / away * 6, g.z - g.x / away * 6);            // 이글루 옆(문이 없는 쪽)에서
+      s.me.yaw = s.me.camYaw = Math.atan2(g.x - s.me.x, g.z - s.me.z);
+      s.controls.debugMove(0, 1); s.sim(4); s.controls.debugMove(0, 0);
+      const stood = Math.hypot(s.me.x - g.x, s.me.z - g.z), n0 = s.tracks.angelCount;
+      s.act(); s.sim(1.5);
+      const c = Math.cos(s.me.yaw), sn = Math.sin(s.me.yaw);
+      const reach = [[0, -1.0], [0, 0.6], [-1.0, -0.38], [1.0, -0.38]].map(([lx, lz]) => Math.hypot(s.me.x + lx * c + lz * sn - g.x, s.me.z - lx * sn + lz * c - g.z));
+      return { stood, lying: !!s.me.angel, nearest: Math.min(...reach), made: s.tracks.angelCount - n0 };
+    });
+    assert(wall.stood < 2.9, '이글루 벽까지 가지 못했다: ' + wall.stood.toFixed(2));
+    assert(wall.lying && wall.made === 1, '벽 곁에서 눈 천사를 만들지 못했다: ' + JSON.stringify(wall));
+    assert(wall.nearest >= 2.75, '누운 몸이 이글루 벽에 파묻힌다 (이글루 가운데에서 ' + wall.nearest.toFixed(2) + ', 벽은 2.5)');
+    // 얼음 한가운데: 눈이 없으니 만들지 않고, 그렇다고 알려 준다
+    const ice = await snow(p, () => {
+      const s = window.__snow; s.sim(12);                                // 앞의 눈 천사를 마저 하고 일어난다
+      const pond = s.place.ponds[1], away = Math.hypot(pond.x, pond.z), n0 = s.tracks.angelCount;
+      s.teleport(pond.x + pond.x / away * 3.4, pond.z + pond.z / away * 3.4);      // 구멍의 반대쪽 얼음 위
+      s.sim(0.1); s.act(); s.sim(0.5);
+      return { onIce: s.place.onIce(s.me.x, s.me.z), nearHole: !!s.place.holeNear(s.me.x, s.me.z), lying: !!s.me.angel, fishing: s.fishing.active, made: s.tracks.angelCount - n0 };
+    });
+    assert(ice.onIce && !ice.nearHole, '얼음 위에 서지 못했다: ' + JSON.stringify(ice));
+    assert(!ice.lying && !ice.fishing && ice.made === 0, '얼음 위에서 눈 천사를 만들었다: ' + JSON.stringify(ice));
+    assert((await p.textContent('#toast')).includes('얼음 위'), '얼음 위라서 안 된다는 말이 없다: ' + await p.textContent('#toast'));
+    // 연못 가의 눈 위: 자국이 얼음에 걸치지 않게 조금 물러나서 눕는다
+    const edge = await snow(p, () => {
+      const s = window.__snow, pond = s.place.ponds[1], away = Math.hypot(pond.x, pond.z), n0 = s.tracks.angelCount;
+      s.teleport(pond.x + pond.x / away * (pond.radius + 0.2), pond.z + pond.z / away * (pond.radius + 0.2));
+      s.sim(0.1); s.act(); s.sim(1.5);
+      return { lying: !!s.me.angel, made: s.tracks.angelCount - n0, from: Math.hypot(s.me.x - pond.x, s.me.z - pond.z), radius: pond.radius };
+    });
+    assert(edge.lying && edge.made === 1 && edge.from >= edge.radius + 1.05, '연못 가에서는 자국이 얼음에 걸치지 않게 물러나 누워야 한다: ' + JSON.stringify(edge));
+  });
+
+  await test('밤이면 이글루 문에 불이 켜진다. 문은 트리 쪽을 보고, 문 앞의 불빛은 눈발에 묻힌 먼 이글루에서는 보이지 않는다', async () => {
+    const p = await page('t=22:00&speed=0');
+    const look = (i, d) => snow(p, async ([n, far]) => {
+      const s = window.__snow, g = s.place.igloos[n], r = Math.hypot(g.x, g.z);
+      s.teleport(g.x - g.x / r * far, g.z - g.z / r * far);              // 트리 쪽으로 far 만큼 떨어진 자리에서 이글루를 본다
+      s.me.yaw = s.me.camYaw = Math.atan2(g.x - s.me.x, g.z - s.me.z);
+      await new Promise((done) => setTimeout(done, 900));
+      const ig = s.camp.igloos[n], spill = ig.userData.spill;
+      let lit = 0; ig.traverse((o) => { if (o.isMesh && o.material.emissive && o.material.emissive.getHex() !== 0) lit = Math.max(lit, o.material.emissiveIntensity); });      // 문 안쪽(불빛을 내는 재질)
+      const door = [Math.sin(ig.rotation.y), Math.cos(ig.rotation.y)];   // 문이 난 쪽
+      return { lit, spill: spill.visible ? spill.material.opacity : 0, toTree: -(door[0] * g.x + door[1] * g.z) / r };
+    }, [i, d]);
+    for (const i of [0, 1, 2]) {
+      const near = await look(i, 12);
+      assert(near.lit > 0.9 && near.spill > 0.3, `맑은 밤, 이글루 ${i + 1} 가까이: 문 안과 문 앞에 불빛이 있어야 한다 ` + JSON.stringify(near));
+      assert(near.toTree > 0.97, `이글루 ${i + 1} 의 문이 트리 쪽을 보지 않는다: ` + near.toTree.toFixed(2));
+    }
+    // 폭설의 밤: 가까이에서는 보이고, 눈발에 이글루가 묻히는 먼 곳에서는 불빛도 보이지 않는다
+    await snow(p, () => window.__snow.clock.setTime('21:10'));
+    await until(async () => (await state(p)).snowfall === 1, { what: '폭설' });
+    const close = await look(2, 10), far = await look(2, 60);
+    assert(close.spill > 0.15, '폭설의 밤, 가까이에서는 문 앞 불빛이 보여야 한다: ' + JSON.stringify(close));
+    assert(far.spill === 0, '눈발에 묻힌 먼 이글루의 불빛이 떠 보인다: ' + JSON.stringify(far));
+    // 낮에는 꺼져 있다
+    await snow(p, () => window.__snow.clock.setTime('13:00'));
+    await until(async () => (await p.evaluate(() => window.__snow.palette.elev)) > 10, { what: '낮' });
+    const day = await look(0, 12);
+    assert(day.lit === 0 && day.spill === 0, '낮인데 이글루에 불이 켜져 있다: ' + JSON.stringify(day));
+  });
+
+  await test('카메라가 등 뒤에 있는 채로 낚시를 시작하면 옆으로 비켜서서 구멍과 찌가 보이고, 물결이 그려진다', async () => {
+    const p = await page();
+    await byHand(p);
+    const rel = () => snow(p, () => { const s = window.__snow; return Math.atan2(Math.sin(s.me.camYaw - s.me.yaw), Math.cos(s.me.camYaw - s.me.yaw)); });
+    // 구멍으로 곧장 걸어와서(카메라는 등 뒤) 버튼을 누른다
+    await snow(p, () => { const s = window.__snow, h = s.place.hole, d = Math.hypot(h.x, h.z); s.teleport(h.x - h.x / d * 1.8, h.z - h.z / d * 1.8); s.me.yaw = s.me.camYaw = Math.atan2(h.x - s.me.x, h.z - s.me.z); s.me.idle = 0; s.sim(0.1); s.fishing.debug.biteIn(60); s.act(); s.sim(2.5); });
+    const side = await rel();
+    assert(Math.abs(Math.abs(side) - 1.05) < 0.03, '등 뒤에서 옆으로 비켜서야 한다 (등 뒤가 0): ' + side.toFixed(2));
+    // 낚시를 그만둬도 카메라는 그 자리에 있고, 이미 옆에서 보고 있었다면 다시 돌지 않는다
+    await snow(p, () => { const s = window.__snow; s.act(); s.sim(0.8); s.fishing.debug.biteIn(60); s.act(); s.sim(2.5); });
+    assert(Math.abs((await rel()) - side) < 0.03, '이미 옆에서 보고 있는데 카메라가 또 돌았다: ' + (await rel()).toFixed(2));
+    // 직접 둘러보기 시작하면 더 돌리지 않는다
+    await snow(p, () => { const s = window.__snow; s.act(); s.sim(0.8); s.me.camYaw = s.me.yaw; s.fishing.debug.biteIn(60); s.act(); s.sim(0.15); });
+    await pointer(p, 'pointerdown', 7, 300, 300); await pointer(p, 'pointermove', 7, 296, 300);
+    await snow(p, () => window.__snow.sim(2));
+    await pointer(p, 'pointerup', 7, 296, 300);
+    const held = await rel();
+    assert(Math.abs(held) < 0.6, '둘러보는 중에도 카메라가 마저 돌았다: ' + held.toFixed(2));
+    // 입질의 물결 고리는 물보다 앞에 그려진다 (전에는 물에 가려 한 번도 보이지 않았다)
+    const rings = await snow(p, () => { const s = window.__snow; s.fishing.debug.biteIn(0.05); s.sim(0.3); return s.fishing.ripples; });
+    assert(rings.some((r) => r.visible && r.opacity > 0.2), '입질인데 물결이 없다: ' + JSON.stringify(rings));
+    assert(rings.every((r) => r.offset <= -4), '물결이 물(-3)보다 앞에 그려지지 않는다: ' + JSON.stringify(rings));
+  });
+
+  await test('입질은 4초에서 12초 사이에 오고, 물고기를 놓아준 바로 뒤에 한 박자 늦게 누른 것은 그만두기로 치지 않는다', async () => {
+    const p = await page();
+    await byHand(p);
+    await toHole(p);
+    const waits = await snow(p, () => {
+      const s = window.__snow, out = [];
+      s.sim(0.1);
+      for (let i = 0; i < 14; i++) { s.act(); s.sim(0.7); out.push(s.fishing.waitFor); s.sim(0.6); s.act(); s.sim(0.6); }      // 앉았다 일어나기를 되풀이하며 정해진 기다림을 모은다
+      return out;
+    });
+    assert(waits.every((w) => w >= 4 && w <= 12), '입질까지의 기다림이 4~12초를 벗어난다: ' + waits.map((w) => w && w.toFixed(1)));
+    assert(Math.max(...waits) - Math.min(...waits) > 2, '기다림이 늘 같다: ' + waits.map((w) => w.toFixed(1)));
+    // 낚아서 놓아준 바로 뒤
+    await snow(p, () => { const s = window.__snow; s.fishing.debug.biteIn(0.2); s.fishing.debug.next('smelt'); s.act(); s.sim(0.6 + 0.2 + 0.2); s.act(); });
+    await snow(p, () => { const s = window.__snow; for (let i = 0; i < 600 && s.fishing.phase !== 'release'; i++) s.sim(1 / 60); for (let i = 0; i < 600 && s.fishing.phase === 'release'; i++) s.sim(1 / 60); s.fishing.debug.biteIn(60); });
+    let f = await fishLook(p);
+    assert(f.phase === 'wait' && f.stats.caught === 1, '낚아서 놓아주지 못했다: ' + JSON.stringify(f.stats) + ' ' + f.phase);
+    await snow(p, () => { const s = window.__snow; s.sim(0.3); s.act(); s.sim(0.6); });
+    f = await fishLook(p);
+    assert(f.active && f.phase === 'wait', '놓아준 바로 뒤의 누름에 낚시가 풀렸다: ' + f.phase);
+    await snow(p, () => { const s = window.__snow; s.sim(0.4); s.act(); s.sim(0.6); });
+    assert(!(await fishLook(p)).active, '한숨 돌린 뒤에는 그만둘 수 있어야 한다');
+  });
+
   await test('여우는 이글루들을 돌아서 다니고, 얼음 위에는 여우 발자국도 남지 않는다', async () => {
     const p = await page();
     const r = await snow(p, async () => {
       const { IGLOOS, onIce } = await import('./js/igloo.js');
+      const { sinceStorm, STORM_LENGTH_MS } = await import('./js/clock.js');
+      const settled = (ms) => sinceStorm(ms) > STORM_LENGTH_MS + 4 * 60e3;      // 폭설 중이거나 막 그친 때에는 여우 발자국이 거의 없다: 그런 때는 피해서 본다
       const s = window.__snow, t0 = s.clock.now();
       let near = 1e9, jump = 0, prev = s.fox.at(t0);
       for (let i = 1; i <= 12 * 3600 * 2; i++) { const f = s.fox.at(t0 + i * 500); for (const g of IGLOOS) near = Math.min(near, Math.hypot(f.x - g.x, f.z - g.z)); jump = Math.max(jump, Math.hypot(f.x - prev.x, f.z - prev.z)); prev = f; }
       // 여우가 연못을 지나간 때를 찾아 그 무렵의 발자국을 본다
       let onPond = null;
-      for (let i = 0; i < 48 * 3600 && onPond === null; i++) { const f = s.fox.at(t0 + i * 1000); if (onIce(f.x, f.z) && f.move > 0.5) onPond = t0 + i * 1000; }
+      for (let i = 0; i < 48 * 3600 && onPond === null; i++) { const f = s.fox.at(t0 + i * 1000); if (onIce(f.x, f.z) && f.move > 0.5 && settled(t0 + i * 1000 + 60e3)) onPond = t0 + i * 1000; }
       let icy = -1, around = -1;
       if (onPond !== null) {
         s.clock.skip(onPond + 60e3 - s.clock.now());

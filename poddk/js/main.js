@@ -132,8 +132,15 @@ const fishing = createFishing(scene, {
 let fishHint = false, holeHint = false;
 /** 지금 낚시를 시작할 수 있는가: 낚시 구멍 곁에 서 있고, 다른 것을 하고 있지 않다 */
 const canFish = () => started && !me.angel && !fishing.active && holeNear(me.x, me.z) !== null;
+const FISH_VIEW = { turn: 1.05, pitch: 0.22, look: 0.9 };      // 낚시하는 동안의 카메라: 등 뒤에서 이만큼(라디안) 옆으로 비켜서고, 조금 더 내려다보며, 펭귄보다 구멍 쪽을 본다
+let fishTurn = 0;                // 낚시를 시작하며 카메라가 마저 돌아야 할 각 (라디안)
+let fishView = 0;                // 0(평소)..1(낚시를 들여다보는 중)
 function startFishing() {
-  if (!canFish() || !fishing.start(me, holeNear(me.x, me.z))) return;
+  const hole = canFish() ? holeNear(me.x, me.z) : null;
+  if (!hole || !fishing.start(me, hole)) return;
+  // 카메라가 등 뒤에 있으면 구멍도 찌도 낚인 물고기도 펭귄 몸에 가려 보이지 않는다: 옆으로 비켜서서 들여다본다 (낚싯대를 든 쪽으로)
+  const rel = angleDiff(me.camYaw, Math.atan2(hole.x - me.x, hole.z - me.z));       // 0 이면 카메라가 정확히 등 뒤
+  fishTurn = Math.abs(rel) >= FISH_VIEW.turn ? 0 : (Math.abs(rel) < 0.05 ? -1 : Math.sign(rel)) * FISH_VIEW.turn - rel;
   me.walk = 0;
   shakeOff(true); me.snow = 0;                           // 쌓인 눈은 앉으면서 털린다
   me.idle = 0;
@@ -166,9 +173,37 @@ function act() {
 
 // ---------- 눈 천사 ----------
 const ANGEL = { down: 0.6, flap: 7.5, up: 0.8, sweeps: 5, canLeaveAfter: 2 };   // 눕기, 휘젓기, 일어나기 (초). 휘젓는 횟수. 이만큼 지나면 걸으려 할 때 일찍 일어난다
+const LYING = [[0, -1.0], [0, 0.6], [-1.0, -0.38], [1.0, -0.38], [0, 0]];      // 누운 몸이 닿는 곳들 (선 자리 기준 [옆, 앞]): 머리, 발, 휘젓는 두 날개의 끝, 가운데
+const ANGEL_REACH = 1.1;           // 눈 천사 자국이 선 자리에서 퍼지는 거리
+/**
+ * 눈 천사를 만들 자리. 누운 몸이 이글루 벽이나 나무에 파묻히지 않고 자국이 얼음 위로 넘어가지 않게, 필요하면 조금 비켜난 자리를 돌려준다.
+ * 얼음 한가운데처럼 눈이 없는 곳이면 null.
+ */
+function roomToLie() {
+  if (onIce(me.x, me.z)) return null;
+  let x = me.x, z = me.z;
+  const c = Math.cos(me.yaw), s = Math.sin(me.yaw);
+  for (let pass = 0; pass < 5; pass++) {
+    let px = 0, pz = 0;
+    for (const p of PONDS) {                               // 연못 가장자리: 자국이 얼음에 걸치지 않을 만큼 물러난다
+      const dx = x - p.x, dz = z - p.z, d = Math.hypot(dx, dz), need = p.radius + ANGEL_REACH;
+      if (d < need && d > 1e-4) { px = dx / d * (need - d); pz = dz / d * (need - d); }
+    }
+    for (const [lx, lz] of LYING) {                        // 이글루, 나무, 들판 끝: 몸의 어느 곳도 걸리지 않게
+      const wx = x + lx * c + lz * s, wz = z - lx * s + lz * c;
+      const free = field.confine(wx, wz), dx = free.x - wx, dz = free.z - wz;
+      if (Math.hypot(dx, dz) > Math.hypot(px, pz)) { px = dx; pz = dz; }
+    }
+    if (Math.hypot(px, pz) < 1e-3) break;
+    x += px; z += pz;
+  }
+  return { x, z };
+}
 function startAngel() {
   if (!started || me.angel || fishing.active) return;
-  me.angel = { t: 0, item: null, beats: 0, fell: false };
+  const to = roomToLie();
+  if (!to) { toast('얼음 위에서는 눈 천사를 못 만들어요. 눈 위에서 해 봐요'); return; }
+  me.angel = { t: 0, item: null, beats: 0, fell: false, from: { x: me.x, z: me.z }, to };
   me.walk = 0;
   shakeOff(true); me.snow = 0;                           // 쌓인 눈은 누우면서 털린다
   $('#angel').classList.add('busy');
@@ -181,6 +216,8 @@ function stepAngel(dt, now) {
   if (a.t < ANGEL.down) {
     const u = a.t / ANGEL.down;
     k = u * u * (3 - 2 * u);
+    const m = Math.min(1, u / 0.55), e = m * m * (3 - 2 * m);          // 누울 자리가 조금 비켜난 곳이면, 눕는 사이에 그리로 미끄러지듯 옮겨 간다 (자국이 찍히기 전에 다 옮긴다)
+    me.x = a.from.x + (a.to.x - a.from.x) * e; me.z = a.from.z + (a.to.z - a.from.z) * e;
     if (!a.fell && u > 0.6) { a.fell = true; audio.fx('bodyfall', 0.7); a.item = tracks.addAngel(me.x, me.z, me.yaw, now); }
   } else if (a.t < ANGEL.down + ANGEL.flap) {
     k = 1;
@@ -230,6 +267,8 @@ function walk(dt, now) {
 
   if (fishing.active) {
     // 낚시하는 동안: 조이스틱을 밀어도 걷지 않는다 (그만두려면 버튼을 누른다). 눈은 서 있을 때만 쌓이므로, 앉아 있는 동안에는 쌓이지 않는다
+    if (Math.abs(lk.dx) + Math.abs(lk.dy) > 0) fishTurn = 0;          // 직접 둘러보기 시작하면 카메라를 더 돌리지 않는다
+    const turn = fishTurn * (1 - Math.exp(-dt * 3.4)); me.camYaw += turn; fishTurn -= turn;
     me.walk = 0;
     pose(penguin, me.phase, 0);
     fishing.step(dt, me);
@@ -299,14 +338,16 @@ function placeCamera(dt) {
   focus.set(me.x, CAM_TARGET_H, me.z);
   // 눈 천사를 만드는 동안에는 카메라가 위로 올라가 내려다본다 (자국이 그려지는 모습이 보이게)
   angelLift += ((me.angel ? 1 : 0) - angelLift) * (dt > 0 ? 1 - Math.exp(-dt * 3.5) : 1);
-  const pitch = Math.min(1.25, me.camPitch + angelLift * 0.62);
+  fishView += ((fishing.active ? 1 : 0) - fishView) * (dt > 0 ? 1 - Math.exp(-dt * 3) : 1);
+  const pitch = Math.min(1.25, me.camPitch + angelLift * 0.62 + fishView * FISH_VIEW.pitch);
   const dist = me.camDist + angelLift * 1.2;
   camGoal.copy(focus).addScaledVector(fwd, -dist * Math.cos(pitch));
   camGoal.y = CAM_TARGET_H + dist * Math.sin(pitch);
   const k = dt > 0 ? 1 - Math.exp(-dt * 9) : 1;
   camera.position.lerp(camGoal, k);
   // 펭귄보다 조금 앞·위를 본다: 하늘이 화면 위쪽에 넉넉히 들어온다
-  lookAt.copy(focus).addScaledVector(fwd, 2.4 * (1 - angelLift)); lookAt.y += 0.55 * (1 - angelLift);
+  lookAt.copy(focus).addScaledVector(fwd, 2.4 * (1 - angelLift) * (1 - fishView)); lookAt.y += 0.55 * (1 - angelLift) * (1 - fishView * 0.7);
+  if (fishView > 0.001) { lookAt.x += Math.sin(me.yaw) * FISH_VIEW.look * fishView; lookAt.z += Math.cos(me.yaw) * FISH_VIEW.look * fishView; }      // 낚시 중에는 펭귄과 구멍 사이를 본다
   camera.lookAt(lookAt);
 }
 
@@ -337,7 +378,7 @@ function tick(t) {
   // 해가 지평선 가까이 내려오면 나무의 전구에 불이 들어온다
   const night = THREE.MathUtils.clamp((3 - palette.elev) / 9, 0, 1);
   field.tree.update(seconds, night, renderer.domElement.height, camera);
-  camp.update(night, seconds);
+  camp.update(night, seconds, camera, scene.fog);
   fox.update(now, dt, me);
   santa.update(now, camera, palette.elev);
   if (frame % 2 === 0) tracks.update(now);
@@ -384,6 +425,8 @@ $('#mute').addEventListener('click', () => {
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
 for (const el of document.querySelectorAll('#mute, #shot, #angel, #zoom button')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+// (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
+for (const el of document.querySelectorAll('#mute, #shot, #angel')) el.addEventListener('mousedown', (e) => e.preventDefault());
 
 // 가까이·멀리 버튼: 한 번 누르면 한 칸, 누르고 있으면 계속 움직인다
 function zoomButton(el, step, creep) {
@@ -393,10 +436,11 @@ function zoomButton(el, step, creep) {
     if (!started || el.disabled) return;
     e.preventDefault();
     stop();
+    try { el.setPointerCapture(e.pointerId); } catch { /* 일부 브라우저는 지원하지 않는다 */ }      // 누른 손가락이 단추 밖으로 조금 미끄러져도 계속 이 단추의 몫이다
     controls.zoomBy(step);
     wait = setTimeout(() => { hold = setInterval(() => { if (el.disabled) stop(); else controls.zoomBy(creep); }, 40); }, 320);
   });
-  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(type, stop);
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) el.addEventListener(type, stop);
   window.addEventListener('blur', stop);
   el.addEventListener('keydown', (e) => { if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat && started) { e.preventDefault(); e.stopPropagation(); controls.zoomBy(step); } });
 }
@@ -414,6 +458,7 @@ async function takePhoto() {
   try {
     lastShot = await shoot();
     if (lastShot && lastShot.how === 'download') toast('사진을 저장했어요');
+    if (lastShot && lastShot.how === 'show') showPhoto(lastShot.url);
   } catch (e) {
     console.warn('[capture]', e && e.message);
     toast('사진을 저장하지 못했어요');
@@ -421,6 +466,19 @@ async function takePhoto() {
   return lastShot;
 }
 $('#shot').addEventListener('click', takePhoto);
+/** 찍은 사진을 화면에 띄운다 (공유 창도 내려받기도 없는 휴대폰 브라우저에서: 길게 눌러 저장한다). 사진 밖이나 닫기를 누르면 닫힌다 */
+function showPhoto(url) {
+  const box = $('#photo');
+  box.querySelector('img').src = url;
+  box.hidden = false;
+}
+$('#photo').addEventListener('click', (e) => {
+  if (e.target.tagName === 'IMG') return;                 // 사진 자체는 길게 눌러 저장할 수 있게 둔다
+  const box = $('#photo'), img = box.querySelector('img');
+  box.hidden = true;
+  if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+  img.removeAttribute('src');
+});
 
 document.addEventListener('visibilitychange', () => {
   audio.setActive(!document.hidden);

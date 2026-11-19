@@ -110,7 +110,7 @@ export function lastWipe(ms) {
 export function printAlpha(birth, now, life = PRINT_LIFE_MS) {
   if (birth < lastWipe(now)) return 0;
   const bt = sinceStorm(birth);
-  if (bt >= STORM_RISE_MS && bt < STORM_LENGTH_MS) life = Math.min(life, STORM_PRINT_LIFE_MS);      // 폭설 한가운데 찍힌 자국은 몇 초 만에 덮인다
+  if (bt < STORM_LENGTH_MS) life = Math.min(life, STORM_PRINT_LIFE_MS);      // 폭설이 내리는 30분 동안 찍힌 자국은 몇 초 만에 덮인다 (눈발이 굵어지는 첫 5분도)
   const age = Math.max(0, now - birth);
   if (age >= life) return 0;
   let a = 1 - Math.pow(age / life, 1.5);
@@ -121,8 +121,8 @@ export function printAlpha(birth, now, life = PRINT_LIFE_MS) {
 
 /** 화면에 적을 시각: "오후 5:12" */
 export function clockText(ms) {
-  const h = kst(ms).hour;
-  const hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
+  const minutes = Math.floor(kst(ms).hour * 60 + 1e-6);      // (소수 계산의 끝자리 때문에 40분이 39.999…분이 되지 않게)
+  const hh = Math.floor(minutes / 60) % 24, mm = minutes % 60;
   const ap = hh < 12 ? '오전' : '오후';
   const h12 = hh % 12 === 0 ? 12 : hh % 12;
   return `${ap} ${h12}:${String(mm).padStart(2, '0')}`;
