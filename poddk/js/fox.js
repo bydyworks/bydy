@@ -11,7 +11,7 @@ const ORANGE = '#e8853b', CREAM = '#fbf1e0', SOCK = '#4b342c', INK = '#17181d';
 const BLOCK_MS = 210e3;          // 3분 30초마다 새 목적지를 정한다
 const LEGS = 6;                  // 목적지까지 가는 길을 여섯 토막으로 나눈다. 토막마다 걷고 나서 쉰다
 const LEG_MS = BLOCK_MS / LEGS;  // 한 토막 35초
-const ROAM = 96;                 // 가운데에서 이만큼까지 돌아다닌다 (들판의 반지름은 110)
+const ROAM = 68;                 // 가운데에서 이만큼까지 돌아다닌다 (들판의 반지름은 78)
 const KEEP = 6;                  // 목적지는 나무에서 이만큼은 떨어진 곳에 잡는다
 const CLEAR = 4;                 // 걷는 길은 나무 둥치에서 이만큼은 떨어져 지나간다
 /** 돌아가야 하는 곳들: 나무, 이글루(문간까지), 낚시 구멍 */
@@ -41,27 +41,28 @@ function keepIn(p) {
   return p;
 }
 /** b 번째 목적지 */
-function spot(b) {
-  const ang = rand(b, 1) * Math.PI * 2, r = KEEP + (ROAM - KEEP) * Math.sqrt(rand(b, 2));
+function spot(b, k = 0) {
+  const ang = rand(b, 1 + k * 1000) * Math.PI * 2, r = KEEP + (ROAM - KEEP) * Math.sqrt(rand(b, 2 + k * 1000));
   return keepIn({ x: Math.sin(ang) * r, z: Math.cos(ang) * r });
 }
 
 const cache = new Map();
 /** b 번째 구간의 길: 목적지에서 다음 목적지까지, 살짝 구불구불한 일곱 점 */
-function route(b) {
-  let pts = cache.get(b);
+function route(b, k = 0) {
+  const key = k * 1e9 + b;
+  let pts = cache.get(key);
   if (pts) return pts;
-  const A = spot(b), B = spot(b + 1), dx = B.x - A.x, dz = B.z - A.z, len = Math.hypot(dx, dz) || 1;
+  const A = spot(b, k), B = spot(b + 1, k), dx = B.x - A.x, dz = B.z - A.z, len = Math.hypot(dx, dz) || 1;
   const nx = -dz / len, nz = dx / len, amp = Math.min(14, len * 0.22);
   pts = [A];
   for (let i = 1; i < LEGS; i++) {
-    const t = i / LEGS, side = (rand(b, 10 + i) - 0.5) * 2 * amp, along = (rand(b, 30 + i) - 0.5) * amp * 0.6;
+    const t = i / LEGS, side = (rand(b, 10 + i + k * 1000) - 0.5) * 2 * amp, along = (rand(b, 30 + i + k * 1000) - 0.5) * amp * 0.6;
     pts.push(keepIn({ x: A.x + dx * t + nx * side + (dx / len) * along, z: A.z + dz * t + nz * side + (dz / len) * along }));
   }
   pts.push(B);
   detour(pts);
-  if (cache.size > 24) cache.clear();
-  cache.set(b, pts);
+  if (cache.size > 48) cache.clear();
+  cache.set(key, pts);
   return pts;
 }
 
@@ -92,11 +93,11 @@ function detour(pts) {
 }
 
 /** n 번째 토막 (n = 구간 번호 × 6 + 토막 번호): 어디서 어디로, 언제부터, 걷는 데 얼마나 */
-function leg(n) {
-  const b = Math.floor(n / LEGS), i = n - b * LEGS, pts = route(b);
+function leg(n, k = 0) {
+  const b = Math.floor(n / LEGS), i = n - b * LEGS, pts = route(b, k);
   const P = pts[i], Q = pts[i + 1], dx = Q.x - P.x, dz = Q.z - P.z, len = Math.hypot(dx, dz);
   const walk = clamp(len / WALK * 1000, 2500, LEG_MS - 7000);       // 먼 길은 종종걸음으로, 그래도 적어도 7초는 쉰다
-  return { n, P, Q, len, yaw: len > 1e-6 ? Math.atan2(dx, dz) : 0, start: n * LEG_MS, walk, rest: LEG_MS - walk, seed: rand(n, 77) };
+  return { n, P, Q, len, yaw: len > 1e-6 ? Math.atan2(dx, dz) : 0, start: n * LEG_MS, walk, rest: LEG_MS - walk, seed: rand(n, 77 + k * 1000) };
 }
 const angleDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
 /** 마지막 안전장치: 그래도 나무 둥치나 이글루 안으로 들어가는 자리는 밖으로 밀어낸다 (길을 미리 돌려 두므로 쓰일 일은 거의 없다) */
@@ -112,15 +113,16 @@ function clear(x, z) {
  * 세계 시각 ms 에 여우가 어디서 무엇을 하고 있는가.
  * @returns {{ x: number, z: number, yaw: number, move: number, sit: number, phase: number, look: number, speed: number, resting: boolean }}
  *   move 0..1 걷는 정도, sit 0..1 앉은 정도, phase 걸음 주기, look 혼자 둘러보는 고개 각도(라디안)
+ *   k: 몇 번째 여우인가 (여우마다 다니는 길이 다르다. 0 은 붉은여우, 1 은 북극여우)
  */
-export function foxAt(ms) {
-  const n = Math.floor(ms / LEG_MS), L = leg(n), t = ms - L.start;
+export function foxAt(ms, k = 0) {
+  const n = Math.floor(ms / LEG_MS), L = leg(n, k), t = ms - L.start;
   if (t < L.walk) {
     const p = t / L.walk, at = clear(L.P.x + (L.Q.x - L.P.x) * p, L.P.z + (L.Q.z - L.P.z) * p);
     return { x: at.x, z: at.z, yaw: L.yaw, move: Math.min(1, t / 450, (L.walk - t) / 450), sit: 0, phase: (p * L.len / STRIDE) % 1, look: 0, speed: L.len / L.walk * 1000, resting: false };
   }
   // 쉬는 동안: 멈춰 서서 둘러보고, 넉넉하면 앉았다가, 끝날 무렵 다음에 갈 쪽으로 몸을 돌린다
-  const r = t - L.walk, next = leg(n + 1), turn = smooth((r - (L.rest - 1500)) / 1300);
+  const r = t - L.walk, next = leg(n + 1, k), turn = smooth((r - (L.rest - 1500)) / 1300);
   const at = clear(L.Q.x, L.Q.z);
   const sit = L.rest > 12000 ? smooth((r - 1400) / 900) * (1 - smooth((r - (L.rest - 3300)) / 900)) : 0;
   const settle = smooth(r / 900) * (1 - smooth((r - (L.rest - 2200)) / 700));
@@ -131,10 +133,10 @@ export function foxAt(ms) {
 }
 
 /** (t0, t1] 사이에 찍힌 여우 발자국들: [x, z, 방향, 찍힌 시각] */
-export function pawsBetween(t0, t1) {
+export function pawsBetween(t0, t1, k = 0) {
   const out = [];
   for (let n = Math.floor(t0 / LEG_MS), last = Math.floor(t1 / LEG_MS); n <= last; n++) {
-    const L = leg(n), count = Math.floor(L.len / PAW_STEP);
+    const L = leg(n, k), count = Math.floor(L.len / PAW_STEP);
     const sx = Math.cos(L.yaw), sz = -Math.sin(L.yaw);               // 걷는 방향의 옆쪽
     for (let k = 1; k <= count; k++) {
       const p = k * PAW_STEP / L.len, birth = L.start + p * L.walk;
@@ -147,9 +149,14 @@ export function pawsBetween(t0, t1) {
 }
 
 // ---------- 모습 ----------
-function build() {
+/** 털빛: 붉은여우와 북극여우 */
+export const COATS = {
+  red: { orange: ORANGE, cream: CREAM, sock: SOCK },
+  arctic: { orange: '#f3f6fb', cream: '#ffffff', sock: '#c7d3e6' },      // 북극여우: 온통 하얗고, 발과 귀 끝만 옅은 잿빛
+};
+function build(coat = COATS.red) {
   const mat = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.9 });
-  const M = { orange: mat(ORANGE), cream: mat(CREAM), sock: mat(SOCK), ink: mat(INK) };
+  const M = { orange: mat(coat.orange), cream: mat(coat.cream), sock: mat(coat.sock), ink: mat(INK) };
   const ball = (r, m, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(new THREE.SphereGeometry(r, 22, 16), m); o.scale.set(sx, sy, sz); return o; };
   const root = new THREE.Group();
   const body = new THREE.Group(); root.add(body);                   // 걸을 때 들썩이고, 앉을 때 뒤가 내려가는 몸
@@ -225,10 +232,10 @@ function pose(root, s, headYaw, time) {
  * @param {{ addPaw: Function, clearPaws: Function }} tracks
  * @param {{ skipPaw?: (x: number, z: number) => boolean }} [o] skipPaw: 발자국이 남지 않는 자리 (얼음 위)
  */
-export function createFox(scene, tracks, { skipPaw = () => false } = {}) {
-  const root = build();
+export function createFox(scene, tracks, { skipPaw = () => false, kind = 0, coat = COATS.red, clearsPaws = kind === 0 } = {}) {      // (발자국 지우기는 첫 여우만 한다: 같은 순간에 함께 지우면 서로의 발자국을 지운다)
+  const root = build(coat);
   scene.add(root);
-  let headYaw = 0, time = 0, pawsUntil = null, state = foxAt(0), held = null, startled = 0, startles = 0;
+  let headYaw = 0, time = 0, pawsUntil = null, state = foxAt(0, kind), held = null, startled = 0, startles = 0, greeted = 0, greets = 0;
 
   return {
     root,
@@ -242,7 +249,14 @@ export function createFox(scene, tracks, { skipPaw = () => false } = {}) {
       startled = 1.8; startles++;
       return true;
     },
-    at: foxAt,
+    /** 펭귄이 가까이서 인사하면 쳐다보며 꼬리를 살랑살랑 흔든다. 가까이 있었으면 true */
+    greet(me) {
+      if (Math.hypot(me.x - state.x, me.z - state.z) > NOTICE * 0.6) return false;
+      greeted = 2.6; greets++;
+      return true;
+    },
+    get greets() { return greets; }, get greeted() { return greeted > 0; },
+    at: (ms) => foxAt(ms, kind),
     /** 점검·시안용: 여우를 한 자리에 세워 둔다 ({ x, z, yaw, move, sit, phase, look } 또는 null 로 풀기) */
     hold(s) { held = s ? { x: 0, z: 0, yaw: 0, move: 0, sit: 0, phase: 0, look: 0, speed: 0, resting: true, ...s } : null; },
     /**
@@ -250,23 +264,24 @@ export function createFox(scene, tracks, { skipPaw = () => false } = {}) {
      */
     update(now, dt, me) {
       time += dt;
-      state = held || foxAt(now);
+      state = held || foxAt(now, kind);
       root.position.set(state.x, 0, state.z);
       root.rotation.y = state.yaw;
       // 펭귄이 가까이 오면 그쪽으로 고개를 돌린다 (멀면 혼자 둘러본다)
       const dx = me.x - state.x, dz = me.z - state.z, dist = Math.hypot(dx, dz);
       const notice = dist > 0.4 ? 1 - smooth((dist - NOTICE * 0.55) / (NOTICE * 0.45)) : 0;
       const toward = clamp(angleDiff(Math.atan2(dx, dz), state.yaw), -1.35, 1.35);
-      startled = Math.max(0, startled - dt);
-      const want = startled > 0 ? toward : state.look * (1 - notice) + toward * notice * (state.resting ? 1 : 0.6);      // 놀란 동안에는 펭귄만 본다
+      startled = Math.max(0, startled - dt); greeted = Math.max(0, greeted - dt);
+      const want = startled > 0 || greeted > 0 ? toward : state.look * (1 - notice) + toward * notice * (state.resting ? 1 : 0.6);      // 놀란 동안에는 펭귄만 본다
       headYaw += (want - headYaw) * (dt > 0 ? 1 - Math.exp(-dt * (startled > 0 ? 14 : 5)) : 1);
       pose(root, state, headYaw, time);
+      if (greeted > 0) { const g = Math.min(1, greeted / 0.4, (2.6 - greeted) / 0.3); root.userData.tail.rotation.y += Math.sin(time * 16) * 0.55 * g; root.userData.head.rotation.z = Math.sin(time * 3) * 0.18 * g; }      // 꼬리 살랑, 고개 갸웃
       if (startled > 1.35) { const u = (1.8 - startled) / 0.45; root.position.y = Math.sin(Math.PI * u) * 0.22; }      // 폴짝
       // 지나온 길의 발자국: 처음 들어왔거나 시계가 건너뛰었으면 지난 12분치를 한꺼번에 찍고, 그 뒤로는 새로 생긴 것만 보탠다
       if (held) return;
       let from = pawsUntil;
-      if (from === null || now < from || now - from > PAW_LIFE_MS) { tracks.clearPaws(); from = now - PAW_LIFE_MS; }
-      if (now > from) for (const [x, z, yaw, birth] of pawsBetween(from, now)) if (!skipPaw(x, z) && printAlpha(birth, now, PAW_LIFE_MS) > 0.01) tracks.addPaw(x, z, yaw, birth, PAW_LIFE_MS);
+      if (from === null || now < from || now - from > PAW_LIFE_MS) { if (clearsPaws) tracks.clearPaws(); from = now - PAW_LIFE_MS; }
+      if (now > from) for (const [x, z, yaw, birth] of pawsBetween(from, now, kind)) if (!skipPaw(x, z) && printAlpha(birth, now, PAW_LIFE_MS) > 0.01) tracks.addPaw(x, z, yaw, birth, PAW_LIFE_MS);
       pawsUntil = now;
     },
   };

@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 
 export function createShowcase() {
-  let renderer = null, scene = null, camera = null, holder = null, current = null, raf = 0, t = 0, last = 0, spin = 1.3, onFrame = null;
+  let renderer = null, scene = null, camera = null, holder = null, current = null, raf = 0, t = 0, last = 0, spin = 1.3, onFrame = null, snap = null;
   function setup() {
     if (renderer) return true;
     try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false }); } catch { renderer = null; return false; }
@@ -57,5 +57,24 @@ export function createShowcase() {
       holder = null; onFrame = null;
     },
     get showing() { return !!current; },
+    /** 물건 하나를 작은 그림(PNG 주소)으로 (옷장의 칸에 쓴다). WebGL 을 못 쓰면 null */
+    snapshot(object, size = 112, { tilt = 0.2, yaw = 0.6 } = {}) {
+      try {
+        if (!snap) {
+          snap = { r: new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true }), scene: new THREE.Scene(), cam: new THREE.PerspectiveCamera(30, 1, 0.01, 50) };
+          snap.r.outputColorSpace = THREE.SRGBColorSpace;
+          snap.scene.add(new THREE.HemisphereLight('#ffffff', '#b9d3ee', 2.1));
+          const sun = new THREE.DirectionalLight('#fff4e0', 2.2); sun.position.set(2, 3, 4); snap.scene.add(sun);
+        }
+        snap.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); snap.r.setSize(size, size, false);
+        const g = new THREE.Group(); g.add(object); g.rotation.set(tilt, yaw, 0); snap.scene.add(g);
+        const box = new THREE.Box3().setFromObject(g), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3()), r = Math.max(s.x, s.y, s.z) || 1;
+        snap.cam.position.set(c.x, c.y + r * 0.2, c.z + r * 2.3); snap.cam.lookAt(c); snap.cam.near = r * 0.05; snap.cam.far = r * 20; snap.cam.updateProjectionMatrix();
+        snap.r.render(snap.scene, snap.cam);
+        const url = snap.r.domElement.toDataURL('image/png');
+        snap.scene.remove(g); g.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
+        return url;
+      } catch { return null; }
+    },
   };
 }

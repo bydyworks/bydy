@@ -503,3 +503,34 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #act { transition: opacity .2s, transform .25s cubic-bezier(.3, 1.6, .6, 1), visibility 0s; }
 #act.idle { opacity: 0 !important; transform: scale(0.6); visibility: hidden; pointer-events: none; transition: opacity .15s, transform .15s, visibility 0s .15s; }
 #angel.off { opacity: 0.5 !important; pointer-events: none; }
+/* 상황 단추: 인사(👋), 눈덩이(❄️) */
+#act .emo { display: none; font-size: 21px; line-height: 1; }
+#act.wave .wave-icon, #act.throw .throw-icon { display: block; }
+#act.wave { --c: var(--sun); }
+#act.throw { --c: var(--sky); }
+/* 다른 펭귄 머리 위의 이름 (가까이 다가갔을 때 잠깐) */
+.peer-name { position: fixed; left: 0; top: 0; z-index: 1; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 800; color: #27405f; white-space: nowrap; pointer-events: none;
+  background: rgba(255, 255, 255, 0.82); box-shadow: 0 4px 10px rgba(36, 64, 110, 0.16); transform: translate(-50%, -100%); transition: opacity .5s; }
+.peer-name[hidden] { display: none; }
+.peer-name.fade { opacity: 0; }
+/* 옷장 단추 (캡쳐 단추 아래)와 옷장 */
+#closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px)); width: 40px; height: 40px; }
+#closet[hidden] { display: none; }
+#closet.new { animation: catch-pop .55s cubic-bezier(.3, 1.7, .6, 1); }
+#closet .g { width: 22px; height: 22px; }
+#closet-panel { position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); z-index: 4; width: min(92vw, 400px); max-height: min(70vh, 560px); overflow: auto; transform: translateX(-50%); padding: 14px 14px 10px; border-radius: 24px; text-align: center; color: var(--ink);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.92), rgba(228, 241, 255, 0.82) 52%, rgba(204, 228, 250, 0.88)); -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow: inset 0 -9px 14px rgba(150, 196, 240, 0.24), 0 12px 30px rgba(36, 64, 110, 0.22); }
+#closet-panel[hidden] { display: none; }
+#closet-panel .title { margin: 0; font-size: 16px; font-weight: 900; }
+#closet-panel .note { margin: 2px 0 10px; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
+#closet-panel .shelf { margin: 0 0 10px; text-align: left; }
+#closet-panel .shelf b { display: block; margin: 0 4px 6px; font-size: 13px; font-weight: 900; }
+#closet-panel .items { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; }
+#closet-panel .items button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px 7px; border-radius: 16px; font-size: 11.5px; font-weight: 800; line-height: 1.25; color: #27405f; word-break: keep-all;
+  background: rgba(255, 255, 255, 0.78); box-shadow: 0 2px 6px rgba(36, 64, 110, 0.12); }
+#closet-panel .items img { width: 56px; height: 56px; }
+#closet-panel .items button[aria-pressed="true"] { background: #fff; box-shadow: 0 0 0 2.5px #5a9be6, 0 3px 8px rgba(47, 111, 196, 0.25); }
+#closet-panel .items button[aria-pressed="true"]::after { content: '입는 중'; position: absolute; top: 4px; right: 4px; padding: 1px 6px; border-radius: 8px; font-size: 9.5px; color: #fff; background: #2f6fc4; }
+#closet-panel .empty { margin: 0 4px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+#closet-panel .close { margin-top: 2px; height: 36px; padding: 0 18px; border-radius: 18px; font-size: 13px; font-weight: 700; color: #4a6382; background: none; }

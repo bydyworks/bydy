@@ -125,7 +125,7 @@ export function createXmas(scene, { free, crumble }) {
   const rand = () => { rng = (rng * 16807) % 2147483647; return rng / 2147483647; };
   function spot() {
     for (let k = 0; k < 200; k++) {
-      const a = rand() * Math.PI * 2, r = 9 + Math.sqrt(rand()) * 92;
+      const a = rand() * Math.PI * 2, r = 9 + Math.sqrt(rand()) * 62;
       const x = Math.sin(a) * r, z = Math.cos(a) * r;
       if (!free(x, z)) continue;
       if (gifts.some((g) => !g.open && Math.hypot(g.x - x, g.z - z) < 12)) continue;      // 서로 떨어져 흩어져 있게
@@ -154,6 +154,8 @@ export function createXmas(scene, { free, crumble }) {
     group, gifts, santa,
     get on() { return on; },
     get santaHere() { return santa.visible; },
+    /** 펭귄이 인사하면 산타가 손을 흔들며 허허허 웃는다 (laugh 를 부른다) */
+    greet(laugh) { if (!santa.visible) return false; laughT = 0; laughIn = Math.max(laughIn, 6); if (laugh) laugh(); return true; },
     /** 산타의 머리 위 (말풍선을 띄울 자리) */
     santaHead: new THREE.Vector3(SANTA_AT.x, 2.75, SANTA_AT.z),
     santaAt: SANTA_AT,

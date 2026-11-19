@@ -12,7 +12,7 @@ const MARK_LIFE = 6 * 3600e3;         // 자국을 들고 있는 시간
 const SEND_ON_JOIN = 4000;            // 들어올 때 보내 주는 지난 자국의 최대 수
 const FIELD_R = 112, DEN = { x: 2000, z: 2000, step: 80, r: 7 };      // 펭귄이 있을 수 있는 곳: 들판, 그리고 이글루 셋의 방
 const OUTFIT = [5, 8, 5];            // 패션 아이템의 수: 안경, 모자, 귀마개
-const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 7, STATUSES = 15, SEATS = 6, IGLOOS = 3;
+const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 8, STATUSES = 15, SEATS = 6, IGLOOS = 3;
 const MAX_MSG = 4096, MAX_RATE = 12;  // 한 번에 받는 글의 크기, 1초에 받는 글의 수
 const GAME_LIFE = 90e3, INVITE_GAP = 12e3;      // 주사위 놀이: 이만큼 아무 일이 없으면 닫는다, 한 펭귄이 다시 부르려면 이만큼 기다린다
 
@@ -117,6 +117,12 @@ export class Field {
       return;
     }
     if (m.t === 'g') { this.game(ws, me, m, now); ws.serializeAttachment(me); return; }
+    if (m.t === 'b') {
+      // 눈덩이: 던진 자리와 떨어질 자리 (들판 안, 14 걸음 안), 맞힐 펭귄의 번호. 같은 곳(들판)에 있는 펭귄들에게 전한다
+      const ok = me.s && me.s.i === -1 && [m.x, m.z, m.tx, m.tz].every((v) => num(v, -FIELD_R, FIELD_R)) && Math.hypot(m.x - me.s.x, m.z - me.s.z) < 3 && Math.hypot(m.tx - m.x, m.tz - m.z) <= 16 && typeof m.to === 'string' && m.to.length <= 8;
+      if (ok) this.broadcast({ t: 'b', id: me.id, x: r2(m.x), z: r2(m.z), tx: r2(m.tx), tz: r2(m.tz), to: m.to }, ws);
+      ws.serializeAttachment(me); return;
+    }
     ws.serializeAttachment(me);
   }
 

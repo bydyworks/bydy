@@ -5,13 +5,13 @@
 //   · 다른 펭귄이 남긴 발자국·눈 천사·배 썰매 자국도 내 눈밭에 남는다 (서버가 6시간 들고 있다가 들어올 때 보내 준다).
 // 서버 주소가 없거나 이어지지 않으면 혼자 걷는 눈밭 그대로다 (게임은 아무 일 없이 돌아간다).
 import * as THREE from 'three';
-import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, COLORS, ROD_GRIP } from './penguin.js';
+import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, COLORS, ROD_GRIP } from './penguin.js';
 import { STATUSES } from './den.js';
 import { ROD_LEN, ROD_TILT, SEAT as FISH_SEAT, FLOAT_Y } from './fishing.js';
 import { SLOTS, wear } from './outfit.js';
 
 /** 하는 일의 번호 (서버와 같은 약속) */
-export const ACT = { stand: 0, angel: 1, slide: 2, flap: 3, fish: 4, sit: 5, snowman: 6 };
+export const ACT = { stand: 0, angel: 1, slide: 2, flap: 3, fish: 4, sit: 5, snowman: 6, wave: 7 };
 const SEND_EVERY = 0.2, BEAT = 2;          // 바뀌었으면 0.2초마다, 안 바뀌어도 2초마다 한 번 보낸다
 const DEVICE_KEY = 'poddk.device.v1';
 const EASE = { in: 0.32, out: 0.45 };      // 자세가 바뀔 때: 새 자세로 들어가는 시간, 하던 자세에서 빠져나오는 시간(초)
@@ -22,7 +22,9 @@ const POSES = {
   [ACT.flap]: (r, k, t) => flap(r, k, t * 27),
   [ACT.fish]: (r, k, t) => sit(r, k, Math.sin(t * 1.3) * 0.012),
   [ACT.sit]: (r, k) => sit(r, k),
+  [ACT.wave]: (r, k, t) => wave(r, k, t * 11),
 };
+const NAME_NEAR = 4.5, NAME_FAR = 7, NAME_SHOW = 3.2;      // 다른 펭귄에게 이만큼 다가가면 머리 위에 이름이 이만큼(초) 떴다가 사라진다. 이만큼 멀어졌다 다시 오면 또 뜬다
 
 function deviceId() {
   try { const d = localStorage.getItem(DEVICE_KEY); if (d && /^[a-f0-9]{12}$/.test(d)) return d; } catch { /* 막혀 있다 */ }
@@ -34,7 +36,7 @@ function deviceId() {
 /**
  * @param {{ url: string, scene: THREE.Scene, camera: THREE.Camera, tracks: object, name: () => string, look: { blanket: boolean, color: string }, onCount: (n: number) => void }} o
  */
-export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {} }) {
+export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {}, onBall = () => {} }) {
   const peers = new Map();                 // id → { root, name, s(받은 모습), x, z, yaw, phase, t(시각), bubble }
   const stats = { connected: false, sent: 0, got: 0, marksIn: 0, marksOut: 0, tries: 0 };
   let ws = null, myId = null, wait = 2, sendIn = 0, beatIn = 0, lastSent = '', outbox = [], closed = !url, time = 0;
@@ -71,7 +73,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.057, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#d8362f', roughness: 0.5 })); float.add(cap);
     float.scale.setScalar(1.5); float.visible = false;      // (낚싯대와 찌는 멀리서도 보이게 내 것보다 조금 크게)
     scene.add(line, float);
-    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float };
+    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, tag: null, tagT: -1, near: false, threw: 9 };
     peers.set(id, p);
     return p;
   }
@@ -80,6 +82,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     scene.remove(p.root, p.line, p.float);
     for (const o of [p.root, p.line, p.float]) o.traverse((x) => { if (x.isMesh || x.isLine) x.geometry.dispose(); });
     if (p.bubble) p.bubble.remove();
+    if (p.tag) p.tag.remove();
     peers.delete(id);
   }
   function mark([kind, x, z, yaw, side, birth]) {
@@ -99,6 +102,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     else if (m.t === 's') { const p = peers.get(m.id); if (p) { const first = !p.s; p.s = m.s; if (first) { p.x = m.s.x; p.z = m.s.z; p.yaw = m.s.yaw; } } }
     else if (m.t === 'm') for (const q of m.l) mark(q);
     else if (m.t === 'g') onGame(m);
+    else if (m.t === 'b') { const p = peers.get(m.id); if (p) { p.threw = 0; onBall({ ...m, name: p.name }); } }
   }
 
   function send(obj) { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); stats.sent++; } }
@@ -112,6 +116,8 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     get id() { return myId; },
     /** 이글루 안 주사위 놀이: op 'invite'(같은 방에 앉은 펭귄들 부르기) | 'join' | 'roll' | 'leave' */
     game(op, gid) { send({ t: 'g', op, gid }); },
+    /** 눈덩이를 던졌다: 내 자리(x, z)에서 (tx, tz)로, to: 맞힐 펭귄의 번호 */
+    ball(x, z, tx, tz, to) { send({ t: 'b', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, tx: Math.round(tx * 100) / 100, tz: Math.round(tz * 100) / 100, to: to || '' }); },
     /** 이름으로 다른 펭귄 찾기 (번호 → 이름) */
     nameOf(id) { const p = peers.get(id); return p ? p.name : null; },
     start() { if (url) connect(); },
@@ -120,7 +126,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     /** 내가 남긴 자국 하나: kind 0 발자국, 1 눈 천사, 2 배 썰매 */
     mark(kind, x, z, yaw, side = 1) { outbox.push([kind, Math.round(x * 100) / 100, Math.round(z * 100) / 100, Math.round(yaw * 100) / 100, side >= 0 ? 1 : -1]); stats.marksOut++; },
     /** 한 박자: 보낼 것을 보내고, 다른 펭귄들을 움직인다. inside: 내가 있는 이글루 번호 (밖이면 -1) */
-    update(dt, inside) {
+    update(dt, inside, at = null) {
       time += dt;
       sendIn -= dt; beatIn -= dt;
       if (this.connected && mine && sendIn <= 0) {
@@ -134,7 +140,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
       for (const p of peers.values()) {
         const s = p.s;
         p.root.visible = !!s && s.i === inside;
-        if (!p.root.visible) { if (p.bubble) p.bubble.hidden = true; p.line.visible = p.float.visible = false; continue; }
+        if (!p.root.visible) { if (p.bubble) p.bubble.hidden = true; if (p.tag) p.tag.hidden = true; p.near = false; p.line.visible = p.float.visible = false; continue; }
         const k = 1 - Math.exp(-dt * 8);
         const ox = p.x, oz = p.z;
         p.x += (s.x - p.x) * k; p.z += (s.z - p.z) * k;
@@ -158,7 +164,28 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
         // 쓰고 있는 패션 아이템 (선물에서 나온 안경·모자·귀마개)
         const f = Array.isArray(s.f) ? s.f.join('.') : '';
         if (p.wornKey !== f) { p.wornKey = f; SLOTS.forEach((slot, j) => wear(r, slot, Array.isArray(s.f) && Number.isInteger(s.f[j]) ? s.f[j] : -1)); }
+        p.threw += dt;
+        if (p.threw < 0.45 && p.act !== ACT.wave) wave(r, Math.sin(Math.PI * p.threw / 0.45), 1.5 - p.threw * 9);      // 눈덩이를 던지는 날갯짓
         setSnow(r, s.a === ACT.snowman ? 1 : 0, s.a === ACT.snowman ? 1 : 0);
+        // 가까이 다가가면 머리 위에 이름이 잠깐 (멀어졌다 다시 오면 또). 인사하는 동안에는 👋
+        if (at) {
+          const d = Math.hypot(p.x - at.x, p.z - at.z);
+          if (!p.near && d < NAME_NEAR) { p.near = true; p.tagT = 0; } else if (p.near && d > NAME_FAR) p.near = false;
+        }
+        p.tagT = p.tagT >= 0 ? p.tagT + dt : -1;
+        const waving = s.a === ACT.wave, showName = p.tagT >= 0 && p.tagT < NAME_SHOW;
+        const tagText = waving ? '👋 ' + p.name : showName ? p.name : '';
+        if (tagText && !p.tag) { p.tag = document.createElement('div'); p.tag.className = 'peer-name'; document.body.append(p.tag); }
+        if (p.tag) {
+          const sayOn = !!(p.bubble && !p.bubble.hidden);
+          let on = !!tagText && !sayOn;
+          if (on) {
+            head.set(p.x, 1.95, p.z).project(camera);
+            on = head.z < 1 && Math.abs(head.x) < 1.1 && Math.abs(head.y) < 1.1;
+            if (on) { if (p.tag.textContent !== tagText) p.tag.textContent = tagText; p.tag.style.left = ((head.x + 1) / 2 * innerWidth) + 'px'; p.tag.style.top = ((1 - head.y) / 2 * innerHeight) + 'px'; p.tag.classList.toggle('fade', !waving && p.tagT > NAME_SHOW - 0.5); }
+          }
+          p.tag.hidden = !on;
+        }
         // 낚시: 낚싯대와 줄과 찌 (펭귄은 구멍을 보고 한 걸음 반 떨어져 앉는다)
         const fishing = p.act === ACT.fish && ease > 0.5;
         p.rod.visible = p.line.visible = p.float.visible = fishing;
