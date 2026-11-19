@@ -573,7 +573,7 @@ try {
   });
 
   await test('[배 썰매] 버튼을 누르면 엎드려 미끄러지다 멈추고 일어난다. 눈 위에는 배 자국이 남고, 얼음 위에서는 훨씬 멀리 간다', async () => {
-    const p = await page();
+    const p = await page('t=14:00&speed=0&look=scarf&color=0&xmas=0');      // (오밀조밀한 눈밭에서 미끄러진 끝에 선물 상자가 있으면 선물 창이 떠서 걷지 못한다)
     await byHand(p);
     // 눈 위: 바라보던 쪽으로 미끄러지고, 그동안은 걷지 않으며, 자국과 소리가 남는다
     const a = await snow(p, () => {
@@ -1087,7 +1087,7 @@ try {
       return { label: el.getAttribute('aria-label'), shown: !el.classList.contains('idle') && getComputedStyle(el).visibility === 'visible', fish: show('.fish-icon'), quit: show('.quit-icon'), at: r('#act'), angelAt: r('#angel'), angelOff: a.classList.contains('off'), angelLabel: a.getAttribute('aria-label') }; });
     let b = await button();
     const home = b.at.join(), angelHome = b.angelAt.join();
-    assert(!b.shown && !b.angelOff && b.angelLabel === '눈 천사 만들기', '평소에는 상황 단추가 숨고 눈 천사 단추만: ' + JSON.stringify(b));
+    assert(b.label === '눈 굴리기' && !b.fish && !b.angelOff && b.angelLabel === '눈 천사 만들기', '평소 눈 위에서는 상황 단추가 눈 굴리기, 눈 천사 단추는 그대로: ' + JSON.stringify(b));
     await toHole(p);
     await until(async () => { const v = await button(); return v.fish && v.shown; }, { what: '낚시 버튼' });      // (뿅 나타나는 동안을 기다린다)
     b = await button();
@@ -1122,7 +1122,7 @@ try {
     assert(Math.hypot(after.x - before.x, after.z - before.z) > 1, '일어난 뒤에 걸을 수 없다');
     // 구멍에서 멀어지면 다시 눈 천사 버튼
     await snow(p, () => window.__snow.teleport(0, 20));
-    await until(async () => !(await button()).shown, { what: '상황 단추가 숨음' });
+    await until(async () => (await button()).label === '눈 굴리기', { what: '상황 단추가 눈 굴리기로 돌아옴' });
     await p.click('#angel');
     assert((await state(p)).angel, '구멍에서 먼 곳에서는 눈 천사를 해야 한다');
   });
@@ -1737,7 +1737,7 @@ try {
       const p = await page(undefined, { viewport: { width: w, height: h }, mobile });
       await sleep(900);
       const r = await p.evaluate(() => {
-        const box = (sel) => { const b = document.querySelector(sel).getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
+        const box = (sel) => { const e = document.querySelector(sel), b = e.getBoundingClientRect(); if (sel === '#act') return { l: e.offsetLeft, t: e.offsetTop, r: e.offsetLeft + e.offsetWidth, b: e.offsetTop + e.offsetHeight }; return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };      // (뿅 나타나는 상황 단추는 놓인 자리로 잰다)
         const c = document.querySelector('#view').getBoundingClientRect();
         return { hud: box('#hud'), mute: box('#mute'), flap: box('#flap'), shot: box('#shot'), act: box('#act'), slide: box('#slide'), angel: box('#angel'), canvas: [c.width, c.height], view: [innerWidth, innerHeight], scroll: [document.documentElement.scrollWidth, document.documentElement.scrollHeight] };
       });
