@@ -86,7 +86,7 @@ export function makeItem(slot, n, R = 0.33) {
       lens.position.y = EY; g.add(lens);
       for (const dy of [-0.08, 0.08]) {           // 렌즈 위아래의 까만 테
         const edge = new THREE.Mesh(new THREE.TorusGeometry(R + 0.034, 0.014, 6, 24, 1.9), mat('#26324a', { roughness: 0.5 }));
-        edge.rotation.set(Math.PI / 2, 0, Math.PI / 2 - 0.95 - 1.9); edge.position.y = EY + dy; g.add(edge);
+        edge.rotation.set(Math.PI / 2, 0, Math.PI / 2 - 0.95); edge.position.y = EY + dy; g.add(edge);
       }
       const strap = new THREE.Mesh(new THREE.TorusGeometry(R + 0.012, 0.022, 6, 36), mat('#26324a', { roughness: 0.7 })); strap.rotation.x = Math.PI / 2; strap.position.y = EY; g.add(strap);
     }
@@ -201,6 +201,7 @@ export function makeItem(slot, n, R = 0.33) {
   }
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
   g.userData.item = { slot, n };
+  g.userData.wide = slot === 'hat' && (n === 5 || n === 6);      // 챙이 넓은 모자 (갓, 마법사 모자): 누우면 챙을 오므린다 (땅에 박히지 않게)
   return g;
 }
 

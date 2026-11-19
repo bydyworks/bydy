@@ -48,7 +48,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     try { ws = new WebSocket(url + (url.includes('?') ? '&' : '?') + q); } catch { retry(); return; }
     ws.onmessage = (e) => { stats.got++; let m; try { m = JSON.parse(e.data); } catch { return; } receive(m); };
     ws.onopen = () => { stats.connected = true; wait = 2; lastSent = ''; };
-    ws.onclose = () => { stats.connected = false; myId = null; for (const id of [...peers.keys()]) drop(id); onCount(0); retry(); };
+    ws.onclose = () => { stats.connected = false; myId = null; for (const id of [...peers.keys()]) drop(id); onCount(0); onGame({ t: 'g', op: 'lost' }); retry(); };
     ws.onerror = () => { /* onclose 에서 다시 잇는다 */ };
   }
   function retry() { if (closed) return; setTimeout(connect, wait * 1000); wait = Math.min(30, wait * 2); }

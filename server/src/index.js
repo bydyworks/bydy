@@ -91,10 +91,11 @@ export class Field {
     if (m.t === 's') {
       // 지금의 모습: 자리, 방향, 걷는 정도, 하는 일, 이글루 안(-1 이면 밖), 앉은 방석, 고른 상태
       const s = { x: m.x, z: m.z, yaw: m.yaw, w: m.w, a: m.a, i: m.i, k: m.k, st: m.st, f: m.f === undefined ? [-1, -1, -1] : m.f };      // f: 쓰고 있는 [안경, 모자, 귀마개] (예전 게임은 보내지 않는다)
-      if (!num(s.x, -3000, 3000) || !num(s.z, -3000, 3000) || !where(s.x, s.z) || !num(s.yaw, -100, 100) || !num(s.w, 0, 1) || !int(s.a, 0, ACTIONS - 1) || !int(s.i, -1, IGLOOS - 1) || !int(s.k, -1, SEATS - 1) || !int(s.st, -1, STATUSES - 1) || !Array.isArray(s.f) || s.f.length !== 3 || !s.f.every((v, j) => int(v, -1, OUTFIT[j] - 1))) return;
+      if (!num(s.x, -3000, 3000) || !num(s.z, -3000, 3000) || !where(s.x, s.z) || !num(s.yaw, -100, 100) || !num(s.w, 0, 1) || !int(s.a, 0, ACTIONS - 1) || !int(s.i, -1, IGLOOS - 1) || !int(s.k, -1, SEATS - 1) || !int(s.st, -1, STATUSES - 1) || !(s.i < 0 ? Math.hypot(s.x, s.z) <= FIELD_R : Math.hypot(s.x - (DEN.x + s.i * DEN.step), s.z - DEN.z) <= DEN.r) || !Array.isArray(s.f) || s.f.length !== 3 || !s.f.every((v, j) => int(v, -1, OUTFIT[j] - 1))) return;
       s.x = r2(s.x); s.z = r2(s.z); s.yaw = r2(s.yaw); s.w = r2(s.w); s.f = s.f.slice();
       me.s = s;
       ws.serializeAttachment(me);
+      for (const [i, g] of this.games) if (g.host === me.id && (s.i !== i || s.a !== 5)) this.endGame(i, 'host');      // 부른 펭귄이 일어나거나 방을 나가면 놀이를 닫는다
       this.broadcast({ t: 's', id: me.id, s }, ws);
       return;
     }
@@ -148,9 +149,10 @@ export class Field {
       this.tell(ng.asked, { t: 'g', op: 'invite', gid: ng.gid, host: me.id, name: me.name });
       return;
     }
-    if (!g || m.gid !== g.gid) return;
+    const gone = () => { if (typeof m.gid === 'string' && /^[a-f0-9-]{1,8}$/.test(m.gid)) ws.send(JSON.stringify({ t: 'g', op: 'cancel', gid: m.gid, why: 'late' })); };      // 없는 놀이에 대한 말에는 "닫혔다"고 답한다 (기다리던 창이 남지 않게)
+    if (!g || m.gid !== g.gid) { if (m.op !== 'leave') gone(); return; }
     if (m.op === 'join') {
-      if (!seated || me.id === g.host || g.players.has(me.id) || !g.asked.includes(me.id) || g.players.size >= SEATS - 1) return;
+      if (!seated || me.id === g.host || g.players.has(me.id) || !g.asked.includes(me.id) || g.players.size >= SEATS - 1) { gone(); return; }
       g.players.set(me.id, me.name); g.at = now;
       this.tell([g.host, ...g.players.keys()], { t: 'g', op: 'players', gid: g.gid, host: g.host, players: list(g) });
       return;
@@ -160,6 +162,8 @@ export class Field {
       const rolls = list(g).map(([id, name]) => [id, name, 1 + (crypto.getRandomValues(new Uint8Array(1))[0] % 6)]);
       this.games.delete(igloo);
       this.tell(rolls.map((r) => r[0]), { t: 'g', op: 'result', gid: g.gid, rolls });
+      const late = g.asked.filter((id) => !g.players.has(id));      // 묻기만 하고 아직 답하지 않은 펭귄의 쪽지는 거둔다
+      if (late.length) this.tell(late, { t: 'g', op: 'cancel', gid: g.gid, why: 'started' });
       return;
     }
     if (m.op === 'leave') {

@@ -329,7 +329,7 @@ const SLIDE = {
   up: 0.55,              // 일어나기 (초)
 };
 function startSlide() {
-  if (!started || giftOpen || me.inside !== null || me.seat || me.angel || me.slide || me.flap || fishing.active) return;
+  if (!started || giftOpen || postOpen || busyDoor || me.inside !== null || me.seat || me.angel || me.slide || me.flap || fishing.active) return;
   me.slide = { t: 0, v: 0, phase: 'down', mark: 0, spray: 0, wiggle: 0, dist: 0, top: SLIDE.push };
   me.walk = 0;
   shakeOff(true); me.snow = 0; me.idle = 0;              // 엎드리면서 쌓인 눈이 털린다
@@ -389,7 +389,7 @@ $('#slide').addEventListener('click', startSlide);
 // 제자리에서 양 날개를 빠르게 퍼덕인다. 머리와 어깨에 쌓인 눈은 털려 흩날리고(눈사람이었으면 부서지고), 가까이 있던 여우는 깜짝 놀라 쳐다본다
 const FLAP = { len: 1.4, beats: 6 };
 function startFlap() {
-  if (!started || giftOpen || me.seat || me.angel || me.slide || me.flap || fishing.active) return;
+  if (!started || giftOpen || postOpen || busyDoor || me.seat || me.angel || me.slide || me.flap || fishing.active) return;
   me.flap = { t: 0 };
   me.walk = 0;
   const hadSnow = me.snow > 0.35 || me.pop >= POP_SWAP;
@@ -533,6 +533,7 @@ function drawDice(rolls = null) {
 }
 function diceNote(text) { $('#dice .note').textContent = text; }
 function closeDice(tell = true) {
+  if (dice && dice.rolling) clearInterval(dice.rolling);
   if (dice && tell && !dice.done) net.game('leave', dice.gid);
   dice = null; $('#dice').hidden = true;
 }
@@ -544,6 +545,7 @@ function inviteDice() {
 }
 function diceMessage(m) {
   const seated = !!(me.seat && me.seat.phase === 'sat');
+  if (m.op === 'lost') { if (dice) closeDice(false); hideDiceAsk(); return; }      // 서버와 끊겼다
   if (m.op === 'alone') { toast('같은 방에 앉아 있는 펭귄이 없어요. 누가 방석에 앉으면 불러 봐요!', 3200); return; }
   if (m.op === 'busy') { toast('이 방에서는 벌써 주사위 놀이가 열려 있어요', 2600); return; }
   if (m.op === 'wait') { toast('조금 있다가 다시 불러 봐요', 2200); return; }
@@ -554,7 +556,7 @@ function diceMessage(m) {
     return;
   }
   if (m.op === 'invite') {
-    if (!seated || dice) return;                       // 앉아 있지 않거나 이미 놀이 중이면 묻지 않는다
+    if (!seated || (dice && !dice.done)) return;       // 앉아 있지 않거나 놀이 중이면 묻지 않는다 (끝난 판을 보고 있으면 묻는다)
     diceAskGid = m.gid;
     $('#dice-ask .who').textContent = subject(m.name);
     $('#dice-ask').hidden = false;
@@ -583,7 +585,9 @@ function diceMessage(m) {
     const faces = [...$('#dice .players').querySelectorAll('.die')];
     faces.forEach((d) => d.classList.add('spin'));
     let n = 0;
+    const game = dice;
     const tick = setInterval(() => {
+      if (dice !== game) { clearInterval(tick); return; }      // (그사이 닫았거나 새 판이 열렸다)
       n++;
       if (n % 2) audio.snowFx('dice');
       faces.forEach((d) => { dieFace(d, 1 + Math.floor(Math.random() * 6)); d.classList.add('spin'); });
@@ -604,6 +608,7 @@ $('#status .dice-invite').addEventListener('click', inviteDice);
 $('#dice-ask .yes').addEventListener('click', () => {
   const gid = diceAskGid, host = $('#dice-ask').dataset.host; hideDiceAsk();
   if (!gid || !(me.seat && me.seat.phase === 'sat')) return;
+  if (dice) closeDice(false);                         // (끝난 판이 떠 있었으면 닫는다)
   dice = { gid, host, mine: false, players: [], done: false };
   net.game('join', gid);
   drawDice(); diceNote('함께하기로 했어요. 부른 펭귄이 굴릴 때까지 기다려요');
@@ -686,7 +691,9 @@ async function sendPostcard() {
   const done = $('#postcard .done');
   const data = { title: '뽀드득', text: inviteText(), url: inviteUrl() };
   if (navigator.share) {
-    try { await navigator.share(data); done.textContent = '엽서를 보냈어요! 💌'; audio.snowFx('ding'); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    // (공유가 실패한 뒤에 바로 복사하면, 누른 손길이 이미 쓰여 휴대폰이 복사를 막는다: 복사 단추를 다시 누르게 한다)
+    try { await navigator.share(data); done.textContent = '엽서를 보냈어요! 💌'; audio.snowFx('ding'); } catch (e) { if (!e || e.name !== 'AbortError') done.textContent = "'주소 복사'를 눌러 보내 봐요"; }
+    return;
   }
   copyInvite();
 }

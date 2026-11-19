@@ -235,8 +235,11 @@ export function flap(root, k, beat = 0) {
  * 배 썰매: 앞으로 엎드려 배를 깔고, 날개는 몸에 붙여 뒤로 뻗는다 (펭귄이 눈 위를 미끄러질 때의 자세).
  * @param {number} k 0(서 있음)..1(완전히 엎드림)  @param {number} wiggle 미끄러지는 동안 발을 살랑이는 위상(라디안)
  */
+/** 챙이 넓은 모자를 쓰고 엎드리거나 누우면 챙을 오므린다 (k: 누운 정도) */
+function tuckBrim(u, k) { const h = u.outfit && u.outfit.hat; if (h && h.userData.wide) h.scale.set(1 - 0.5 * k, 1, 1 - 0.5 * k); }
 export function belly(root, k, wiggle = 0) {
   const u = root.userData, g = u.body;
+  tuckBrim(u, k);
   g.rotation.x = k * Math.PI / 2 * 0.94;           // 머리가 앞(+Z)으로 숙여지고 배가 땅에 닿는다 (고개는 살짝 든다)
   g.position.y = k * 0.4;
   g.position.z = -k * 0.5;                         // 엎드린 몸의 가운데가 서 있던 자리에 오도록
@@ -256,6 +259,7 @@ export function belly(root, k, wiggle = 0) {
  */
 export function lie(root, k, flap = 0) {
   const u = root.userData, g = u.body;
+  tuckBrim(u, k);
   g.rotation.x = -k * Math.PI / 2;                 // 머리가 뒤(-Z)로 넘어가고 배가 하늘을 본다
   g.position.y = k * 0.44;                         // 등이 땅에 닿는 높이
   g.position.z = k * 0.55;                         // 누운 몸의 가운데가 서 있던 자리에 오도록
