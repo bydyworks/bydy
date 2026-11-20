@@ -33,13 +33,13 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=b637bd5d">
-<link rel="stylesheet" href="css/app.css?v=b637bd5d">
+<link rel="stylesheet" href="css/fonts.css?v=4bb95325">
+<link rel="stylesheet" href="css/app.css?v=4bb95325">
 <script>
       // 이 게임은 poddk.pages.dev 에서만 한다: 예전 주소(GitHub Pages)로 오면 그리로 옮겨 간다 (주소 뒤의 ?… 는 그대로)
       if (/(^|\.)github\.io$/.test(location.hostname)) location.replace('https://poddk.pages.dev/' + location.search + location.hash);
     </script>
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=b637bd5d","./js/aurora.js":"./js/aurora.js?v=b637bd5d","./js/campfire.js":"./js/campfire.js?v=b637bd5d","./js/capture.js":"./js/capture.js?v=b637bd5d","./js/carols.js":"./js/carols.js?v=b637bd5d","./js/clock.js":"./js/clock.js?v=b637bd5d","./js/controls.js":"./js/controls.js?v=b637bd5d","./js/critters.js":"./js/critters.js?v=b637bd5d","./js/crumble.js":"./js/crumble.js?v=b637bd5d","./js/den.js":"./js/den.js?v=b637bd5d","./js/field.js":"./js/field.js?v=b637bd5d","./js/fishing.js":"./js/fishing.js?v=b637bd5d","./js/flakes.js":"./js/flakes.js?v=b637bd5d","./js/fox.js":"./js/fox.js?v=b637bd5d","./js/hill.js":"./js/hill.js?v=b637bd5d","./js/igloo.js":"./js/igloo.js?v=b637bd5d","./js/install.js":"./js/install.js?v=b637bd5d","./js/main.js":"./js/main.js?v=b637bd5d","./js/map.js":"./js/map.js?v=b637bd5d","./js/names.js":"./js/names.js?v=b637bd5d","./js/net.js":"./js/net.js?v=b637bd5d","./js/outfit.js":"./js/outfit.js?v=b637bd5d","./js/penguin.js":"./js/penguin.js?v=b637bd5d","./js/postbox.js":"./js/postbox.js?v=b637bd5d","./js/santa.js":"./js/santa.js?v=b637bd5d","./js/showcase.js":"./js/showcase.js?v=b637bd5d","./js/sky.js":"./js/sky.js?v=b637bd5d","./js/sled.js":"./js/sled.js?v=b637bd5d","./js/snowball.js":"./js/snowball.js?v=b637bd5d","./js/snowman.js":"./js/snowman.js?v=b637bd5d","./js/tracks.js":"./js/tracks.js?v=b637bd5d","./js/weather.js":"./js/weather.js?v=b637bd5d","./js/wishboard.js":"./js/wishboard.js?v=b637bd5d","./js/xmas.js":"./js/xmas.js?v=b637bd5d"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=4bb95325","./js/aurora.js":"./js/aurora.js?v=4bb95325","./js/campfire.js":"./js/campfire.js?v=4bb95325","./js/capture.js":"./js/capture.js?v=4bb95325","./js/carols.js":"./js/carols.js?v=4bb95325","./js/clock.js":"./js/clock.js?v=4bb95325","./js/controls.js":"./js/controls.js?v=4bb95325","./js/critters.js":"./js/critters.js?v=4bb95325","./js/crumble.js":"./js/crumble.js?v=4bb95325","./js/den.js":"./js/den.js?v=4bb95325","./js/field.js":"./js/field.js?v=4bb95325","./js/fishing.js":"./js/fishing.js?v=4bb95325","./js/flakes.js":"./js/flakes.js?v=4bb95325","./js/fox.js":"./js/fox.js?v=4bb95325","./js/hill.js":"./js/hill.js?v=4bb95325","./js/igloo.js":"./js/igloo.js?v=4bb95325","./js/install.js":"./js/install.js?v=4bb95325","./js/main.js":"./js/main.js?v=4bb95325","./js/map.js":"./js/map.js?v=4bb95325","./js/names.js":"./js/names.js?v=4bb95325","./js/net.js":"./js/net.js?v=4bb95325","./js/outfit.js":"./js/outfit.js?v=4bb95325","./js/penguin.js":"./js/penguin.js?v=4bb95325","./js/postbox.js":"./js/postbox.js?v=4bb95325","./js/santa.js":"./js/santa.js?v=4bb95325","./js/showcase.js":"./js/showcase.js?v=4bb95325","./js/sky.js":"./js/sky.js?v=4bb95325","./js/sled.js":"./js/sled.js?v=4bb95325","./js/snowball.js":"./js/snowball.js?v=4bb95325","./js/snowman.js":"./js/snowman.js?v=4bb95325","./js/tracks.js":"./js/tracks.js?v=4bb95325","./js/weather.js":"./js/weather.js?v=4bb95325","./js/wishboard.js":"./js/wishboard.js?v=4bb95325","./js/xmas.js":"./js/xmas.js?v=4bb95325"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -283,8 +283,9 @@
     <button id="enter" type="button">눈 밟으러 가기</button>
     <p class="hint"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4.6 9.6h2.8l4-3.3c.7-.6 1.7-.1 1.7.8v9.8c0 .9-1 1.4-1.7.8l-4-3.3H4.6c-.6 0-1.1-.5-1.1-1.1v-2.6c0-.6.5-1.1 1.1-1.1z"/><path class="s" d="M16.3 9.3c1.2 1.6 1.2 3.8 0 5.4M18.9 6.9c2.4 3 2.4 7.2 0 10.2"/></svg>소리를 켜면 뽀드득 소리가 들려요</p>
     <button id="install" type="button" hidden>📲 홈 화면에 추가하기</button>
-    <p class="copy">© 2026 이드 · <button id="credits-open" type="button">만든 이와 쓰인 것</button></p>
   </div>
+  <!-- 타이틀 화면 맨 아래의 작은 저작권 한 줄 -->
+  <p class="copy">© 2026 이드 · <button id="credits-open" type="button">만든 이와 쓰인 것</button></p>
 </div>
 
 <!-- 만든 이와 쓰인 것 (저작권과 출처) -->
@@ -322,6 +323,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=b637bd5d"></script>
+<script type="module" src="js/main.js?v=4bb95325"></script>
 </body>
 </html>

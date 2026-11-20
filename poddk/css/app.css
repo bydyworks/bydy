@@ -184,8 +184,8 @@ body.in #start { opacity: 0; pointer-events: none; }
 #install[hidden] { display: none; }
 #install:active { transform: scale(0.94); transition-duration: .08s; }
 /* 첫 화면 맨 아래의 저작권 한 줄과 "만든 이와 쓰인 것" */
-.start-card .copy { margin: 12px 0 0; font-size: 11px; font-weight: 700; color: var(--brown-soft); opacity: 0.85; }
-.start-card .copy button { padding: 0; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 2px; background: none; }
+#start .copy { position: absolute; left: 0; right: 0; bottom: calc(10px + var(--safe-b, env(safe-area-inset-bottom, 0px))); margin: 0; text-align: center; font-size: 11px; font-weight: 700; color: rgba(60, 78, 110, 0.75); text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7); }
+#start .copy button { padding: 0; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 2px; background: none; }
 #credits { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 #credits[hidden] { display: none; }
 #credits .card { width: min(100%, 360px); max-height: 84vh; overflow: auto; padding: 18px 18px 12px; border-radius: 24px; text-align: left; color: var(--ink); background: var(--cream); box-shadow: 0 14px 34px rgba(36, 64, 110, 0.25); }
