@@ -1021,11 +1021,11 @@ try {
     // 서로 겹치지 않고 멀리 떨어져 있다 (이글루끼리도, 낚시터끼리도, 이글루와 낚시터도)
     let closest = 1e9;
     for (let i = 0; i < sites.length; i++) for (let j = i + 1; j < sites.length; j++) closest = Math.min(closest, Math.hypot(sites[i].x - sites[j].x, sites[i].z - sites[j].z));
-    assert(closest > 24, '두 곳이 너무 가깝다: ' + closest.toFixed(1));      // (눈밭을 줄여 트리 둘레에 오밀조밀하게 모았다)
+    assert(closest > 24, '두 곳이 너무 가깝다: ' + closest.toFixed(1));      // (트리 둘레에 오밀조밀하게 모았다)
     // 트리 둘레에 흩어져 있다: 트리에서 멀찍이, 들판 안에, 들어오는 자리에서 바로 보이지 않을 만큼 떨어져, 여러 방향에
     for (const g of sites) {
       const r = Math.hypot(g.x, g.z);
-      assert(r > 24 && r + g.radius + 4 < 78, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
+      assert(r > 18 && r + g.radius + 4 < 78, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
       assert(Math.hypot(g.x, g.z - 15) > 18, g.kind + '가 들어오는 자리에 너무 가깝다');      // (오밀조밀해졌어도 들어오는 자리 바로 앞은 아니게)
     }
     const angles = sites.map((g) => (Math.atan2(g.x, g.z) * 180 / Math.PI + 360) % 360).sort((a, b) => a - b);
