@@ -242,16 +242,17 @@
     </script>
     <p class="me-name">오늘의 나는 <b id="my-name"></b> <button id="rename" type="button" aria-label="다른 이름으로 바꾸기"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="s" d="M19 8.5A7.4 7.4 0 0 0 5.6 7.3M5 15.5a7.4 7.4 0 0 0 13.4 1.2M5.4 3.6v3.9h3.9M18.6 20.4v-3.9h-3.9"/></svg></button></p>
     <script>
-      // 제목 아래의 한마디(펭귄의 혼잣말): 올 때마다 넷 가운데 하나가 나온다. 주소에 ?say=1..4 를 붙이면 그 문장이 나온다.
+      // 제목 아래의 한마디(펭귄의 혼잣말): 올 때마다 다섯 가운데 하나가 나온다. 주소에 ?say=1..5 를 붙이면 그 문장이 나온다.
       // (화면이 처음 그려지기 전에 정해야 글이 바뀌어 보이지 않으므로, 게임 코드보다 먼저 여기서 고른다)
       (function () {
         var lines = [
           ['뒤뚱뒤뚱 걷다 보니 재밌는 곳을 찾았네?', '저기 반짝이는 건 뭘까?'],
           ['우연히 뽀드득 명당을 발견했다!', '오늘은 여기서 실컷 놀다 가야지.'],
           ['어? 처음 와 보는 곳인데…', '구석구석 궁금한 게 너무 많잖아!'],
-          ['눈 밟는 소리를 따라왔더니', '신기한 겨울 마을이 나타났다!']
+          ['눈 밟는 소리를 따라왔더니', '신기한 겨울 마을이 나타났다!'],
+          ['발밑에서 뽀드득, 뽀드득!', '여기 뽀드득 소리가 유난히 좋잖아?']
         ];
-        var asked = /[?&]say=([1-4])(&|$)/.exec(location.search);
+        var asked = /[?&]say=([1-5])(&|$)/.exec(location.search);
         var n = asked ? Number(asked[1]) : 1 + Math.floor(Math.random() * lines.length);
         var el = document.getElementById('say');
         el.dataset.n = n;

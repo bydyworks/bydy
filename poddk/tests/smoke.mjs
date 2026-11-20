@@ -79,12 +79,12 @@ try {
   await test('처음 화면은 무엇을 하는 곳인지 알려 주고, 들어가면 걷는 법과 둘러보는 법이 화면에 잠깐 보였다가 해 보면 사라진다', async () => {
     const p = await page(undefined, { enter: false });
     const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').textContent.trim(), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
-    const SAYINGS = ['뒤뚱뒤뚱 걷다 보니 재밌는 곳을 찾았네?저기 반짝이는 건 뭘까?', '우연히 뽀드득 명당을 발견했다!오늘은 여기서 실컷 놀다 가야지.', '어? 처음 와 보는 곳인데…구석구석 궁금한 게 너무 많잖아!', '눈 밟는 소리를 따라왔더니신기한 겨울 마을이 나타났다!'];
+    const SAYINGS = ['뒤뚱뒤뚱 걷다 보니 재밌는 곳을 찾았네?저기 반짝이는 건 뭘까?', '우연히 뽀드득 명당을 발견했다!오늘은 여기서 실컷 놀다 가야지.', '어? 처음 와 보는 곳인데…구석구석 궁금한 게 너무 많잖아!', '눈 밟는 소리를 따라왔더니신기한 겨울 마을이 나타났다!', '발밑에서 뽀드득, 뽀드득!여기 뽀드득 소리가 유난히 좋잖아?'];
     assert(card.title === '뽀드득' && card.sub === null && SAYINGS.includes(card.say) && card.button === '눈 밟으러 가기' && card.hint.includes('소리'), '처음 화면의 글: ' + JSON.stringify(card));
     // 할 일은 알려 주지 않는다 (들어가서 스스로 찾는다)
     assert(await p.evaluate(() => document.querySelector('.start-card .what') === null), '처음 화면에 할 일 목록이 남아 있다');
-    // 제목 아래의 한마디는 올 때마다 넷 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
-    for (const n of [1, 2, 3, 4]) {
+    // 제목 아래의 한마디는 올 때마다 다섯 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
+    for (const n of [1, 2, 3, 4, 5]) {
       const q = await page('t=14:00&speed=0&say=' + n, { enter: false });
       const say = await q.evaluate(() => { const el = document.querySelector('.start-card .say'); return { text: el.textContent, n: el.dataset.n, br: el.querySelectorAll('br').length, lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)) }; });
       await q.close();                                                    // (화면을 여럿 열어 두면 그리는 일이 겹쳐 느려진다)
