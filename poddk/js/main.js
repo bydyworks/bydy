@@ -334,7 +334,7 @@ function showAction() {
   if ($('#flap').classList.contains('off') !== flapOff) $('#flap').classList.toggle('off', flapOff);
   const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : fishing.nibbling ? 'nib' : 'wait')
     : me.inside !== null ? (me.seat ? (me.seat.phase === 'sat' ? 'standup' : 'none') : dens.seatNear(me.inside, me.x, me.z) >= 0 ? 'sitdown' : dens.nearDoor(me.inside, me.x, me.z) ? 'exit' : 'none')
-    : me.roast ? (me.roast.phase === 'cook' ? 'eat' : me.roast.phase === 'seated' ? 'roast' : 'eatwait')
+    : me.roast ? (me.roast.phase === 'cook' ? 'eat' : me.roast.phase === 'seated' ? 'roast' : me.roast.phase === 'eat' ? 'eatwait' : 'none')
     : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'stump' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : greetTarget() ? 'wave' : throwTarget() ? 'throw' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
   // 눈 천사 단추: 눈 천사를 할 수 없을 때(이글루 안, 낚시·썰매·파닥 중, 방석) 흐려진다
   const angelOff = me.inside !== null || (fishing.active || !!me.roast) || !!me.slide || !!me.flap || !!me.seat || !!me.roll;
@@ -751,9 +751,10 @@ $('#sculpt .make').addEventListener('click', () => {
   toast('눈사람을 만들었어요! ⛄', 2400);
 });
 /** 이글루·연못·언덕·썰매 길·모닥불 자리인가 (자리를 옮기기 전에 세운 눈사람이 그 안에 파묻혀 보이지 않게) */
+const MOVED_AT = Date.UTC(2026, 10, 21, 0, 0, 0);      // 놀 거리를 트리 쪽으로 모은 때: 이보다 먼저 세운 눈사람만 살핀다 (새로 세운 것은 늘 보인다)
 const snowmanBuried = (x, z) => IGLOOS.some((g) => Math.hypot(x - g.x, z - g.z) < g.radius + 3.2) || PONDS.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius + 0.6) || onHill(x, z) || onLane(x, z) || campfire.dist(x, z) < 3.3;
 function placeSnowman(s) {
-  if (hiddenSnowmen.has(s.id) || snowmanBuried(s.x, s.z)) return;
+  if (hiddenSnowmen.has(s.id) || (!(s.birth >= MOVED_AT) && snowmanBuried(s.x, s.z))) return;
   if (s.mine) { const mine = [...snowmen.values()].filter((o) => o.mine && o.id !== s.id).sort((a, b) => a.birth - b.birth); while (mine.length >= MY_SNOWMEN) removeSnowman(mine.shift().id); }      // (내 눈사람은 셋까지: 넷째를 세우면 가장 오래된 것이 녹는다)
   if (snowmen.has(s.id)) removeSnowman(s.id);
   const mesh = buildSnowman(s.d, s.f); mesh.position.set(s.x, 0, s.z); mesh.rotation.y = s.yaw; scene.add(mesh);
@@ -1047,7 +1048,7 @@ $('#dice .again').addEventListener('click', () => { closeDice(false); inviteDice
 $('#dice .quit').addEventListener('click', () => closeDice());
 /** 내 모습을 서버에 보낼 꼴로 */
 function myState() {
-  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? (me.roast.phase === 'cook' ? ACT.roast : ACT.sit) : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
+  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? (me.roast.phase === 'cook' ? ACT.roast : me.roast.phase === 'seated' || me.roast.phase === 'eat' ? ACT.sit : ACT.stand) : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
   const st = me.seat && me.seat.phase === 'sat' && me.status ? STATUSES.findIndex((x) => x[1] === me.status[1]) : -1;
   return { x: me.x, z: me.z, yaw: me.yaw, w: Math.min(1, Math.max(0, me.walk)), a, i: me.inside === null ? -1 : me.inside, k: me.seat ? me.seat.k : -1, st, f: worn(penguin) };
 }
@@ -1562,7 +1563,7 @@ camera.position.copy(camGoal);
 
 setupInstall();                       // 첫 화면의 '홈 화면에 추가하기' 단추
 $('#enter').addEventListener('click', () => {
-  if (started) return;
+  if (started || !$('#credits').hidden || !$('#install-help').hidden) return;      // (만든 이·홈 화면 안내 창이 떠 있으면 들어가지 않는다)
   started = true;
   $('#enter').blur();                 // 누른 버튼에 초점이 남아 있으면 스페이스(눈 천사)가 이 버튼의 몫이 된다
   audio.start();

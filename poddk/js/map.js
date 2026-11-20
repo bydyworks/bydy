@@ -86,7 +86,7 @@ IGLOOS.forEach((g0, i) => {
 // 모닥불과 그루터기 의자
 {
   const g = el('g', { 'data-kind': 'campfire' });
-  g.append(el('circle', { cx: CAMPFIRE.x, cy: CAMPFIRE.z, r: 2.2, fill: '#ffb35c', stroke: '#e0503f', 'stroke-width': 0.6 }), ...STUMP_BLOCKS.map((b) => el('circle', { cx: b.x, cy: b.z, r: 0.9, fill: '#8a5a36' })), label(CAMPFIRE.x - 2, CAMPFIRE.z - 4.6, '모닥불'));
+  g.append(el('circle', { cx: CAMPFIRE.x, cy: CAMPFIRE.z, r: 2.2, fill: '#ffb35c', stroke: '#e0503f', 'stroke-width': 0.6 }), ...STUMP_BLOCKS.map((b) => el('circle', { cx: b.x, cy: b.z, r: 0.9, fill: '#8a5a36' })), label(CAMPFIRE.x - 9.5, CAMPFIRE.z + 1.6, '모닥불'));
   base.append(g);
 }
 // 우체통과 소원판 (트리 곁)

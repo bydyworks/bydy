@@ -171,6 +171,8 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
         // 자세는 한 번에 하나만 그린다 (자세마다 몸의 높이와 기울기를 저마다 정하므로, 여럿을 잇달아 부르면 나중 것이 앞의 것을 덮는다).
         // 하는 일이 바뀌면 하던 자세에서 천천히 빠져나온 다음 새 자세로 들어간다
         const want = POSES[s.a] ? s.a : ACT.stand;
+        const seatFamily = (a) => a === ACT.sit || a === ACT.roast;
+        if (s.i === -1 && p.act !== want && seatFamily(p.act) && seatFamily(want)) p.act = want;      // 그루터기에 앉은 채 굽기 ⇄ 먹기: 일어났다 다시 앉지 않고 바로 바꾼다
         if (p.act !== want) {
           p.k = Math.max(0, p.k - dt / EASE.out);
           if (p.k <= 0) { if (POSES[p.act]) POSES[p.act](r, 0, time); p.act = want; }
