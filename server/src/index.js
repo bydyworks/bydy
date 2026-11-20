@@ -17,7 +17,7 @@ const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 8, STATUSES = 15, SEAT
 const MAX_MSG = 8192, MAX_RATE = 12;  // 한 번에 받는 글의 크기, 1초에 받는 글의 수
 const GAME_LIFE = 90e3, INVITE_GAP = 12e3;
 const WISH_LEN = 30, WISHES_SHOWN = 40;          // 소원: 길이, 소원판에 붙여 보여 주는 수 (한 기기에 한 철 한 번)
-const SNOWMEN = 40, SNOWMAN_LIFE = 6 * 3600e3, SNOWMAN_POINTS = 900, REPORTS_TO_HIDE = 2;      // 눈사람: 눈밭에 서 있는 최대 수, 녹기까지, 그림의 점 수 상한, 이만큼 신고되면 치운다
+const MY_SNOWMEN = 3, SNOWMEN = 40, SNOWMAN_LIFE = 6 * 3600e3, SNOWMAN_POINTS = 900, REPORTS_TO_HIDE = 2;      // 눈사람: 눈밭에 서 있는 최대 수, 녹기까지, 그림의 점 수 상한, 이만큼 신고되면 치운다
 /** 소원의 철: 한국 시각으로 그해 (1~2월은 지난해 겨울로 친다) */
 const season = (ms) => { const d = new Date(ms + 9 * 3600e3); return d.getUTCMonth() < 2 ? d.getUTCFullYear() - 1 : d.getUTCFullYear(); };      // 주사위 놀이: 이만큼 아무 일이 없으면 닫는다, 한 펭귄이 다시 부르려면 이만큼 기다린다
 
@@ -43,6 +43,9 @@ export default {
     }
     if (url.pathname === '/ws') {
       if (request.headers.get('Upgrade') !== 'websocket') return new Response('웹소켓으로 이어 주세요', { status: 426 });
+      // 게임은 poddk.pages.dev (와 그 미리보기 주소, 이 컴퓨터에서의 점검)에서만 이어진다
+      const origin = request.headers.get('Origin');
+      if (origin && !/^https:\/\/([a-z0-9-]+\.)?poddk\.pages\.dev$|^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin)) return new Response('poddk.pages.dev 에서 놀러 와 주세요', { status: 403 });
       return env.FIELD.get(env.FIELD.idFromName('field')).fetch(request);
     }
     return new Response('없는 곳이에요', { status: 404 });
@@ -167,8 +170,9 @@ export class Field {
       }
       if (points > SNOWMAN_POINTS) return;
       const id = crypto.randomUUID().slice(0, 8), row = { id, x: r2(m.x), z: r2(m.z), yaw: r2(m.yaw), d: m.d, birth: now };
-      const old = this.sql.exec('SELECT id FROM snowmen WHERE device = ?', me.device).toArray();
-      this.sql.exec('DELETE FROM snowmen WHERE device = ? OR birth < ?', me.device, now - SNOWMAN_LIFE);
+      const old = this.sql.exec('SELECT id FROM snowmen WHERE device = ? ORDER BY birth DESC LIMIT -1 OFFSET ?', me.device, MY_SNOWMEN - 1).toArray();      // (한 기기에 셋까지: 넷째를 세우면 가장 오래된 것부터 녹는다)
+      for (const o of old) this.sql.exec('DELETE FROM snowmen WHERE id = ?', o.id);
+      this.sql.exec('DELETE FROM snowmen WHERE birth < ?', now - SNOWMAN_LIFE);
       for (const o of old) this.broadcast({ t: 'smx', id: o.id });
       this.sql.exec('INSERT INTO snowmen (id, x, z, yaw, d, device, birth) VALUES (?, ?, ?, ?, ?, ?, ?)', id, row.x, row.z, row.yaw, JSON.stringify(m.d), me.device, now);
       const extra = this.sql.exec('SELECT id FROM snowmen ORDER BY birth DESC LIMIT -1 OFFSET ?', SNOWMEN).toArray();      // 너무 많으면 오래된 것부터

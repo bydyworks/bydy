@@ -81,9 +81,8 @@ try {
     const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').textContent.trim(), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
     const SAYINGS = ['우연히 뽀드득 명당을 발견했다!오늘 산책은 여기로 정했어.', '뽀드득 소리가 딱 좋은 눈밭이다!조금만 더 놀다 가야지.', '아무도 안 밟은 새하얀 눈밭이잖아?내 발자국부터 남겨봐야지.', '뒤뚱뒤뚱 걷다 보니 눈밭을 찾았네.여기 눈, 소리가 유난히 좋잖아?'];
     assert(card.title === '뽀드득' && card.sub === null && SAYINGS.includes(card.say) && card.button === '눈 밟으러 가기' && card.hint.includes('소리'), '처음 화면의 글: ' + JSON.stringify(card));
-    // 그 아래에는 여기서 무엇을 할 수 있는지 세 칸: 얼음 낚시, 이글루 불멍, 산타 선물
-    const what = await p.evaluate(() => document.querySelector('.start-card .what').textContent);
-    assert(what.includes('낚시') && what.includes('이글루') && what.includes('산타 선물'), '할 수 있는 일: ' + what);
+    // 할 일은 알려 주지 않는다 (들어가서 스스로 찾는다)
+    assert(await p.evaluate(() => document.querySelector('.start-card .what') === null), '처음 화면에 할 일 목록이 남아 있다');
     // 제목 아래의 한마디는 올 때마다 넷 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
     for (const n of [1, 2, 3, 4]) {
       const q = await page('t=14:00&speed=0&say=' + n, { enter: false });
@@ -205,20 +204,24 @@ try {
     assert(Math.hypot(c.x - b.x, c.z - b.z) < 0.2, '손을 뗐는데 계속 걷는다');
   });
 
-  await test('PC: 방향키로 걷고, 스페이스로 눈 천사를 만든다', async () => {
+  await test('PC: 방향키로 걷고, 스페이스로 배 썰매, 시프트로 눈 천사', async () => {
     const p = await page(undefined, { mobile: false, viewport: { width: 1000, height: 640 } });
     const a = await state(p);
     await p.keyboard.down('ArrowUp');
     await until(async () => { const b = await state(p); return Math.hypot(b.x - a.x, b.z - a.z) > 0.4; }, { what: '걷기', timeout: 30000 });
     await p.keyboard.up('ArrowUp');
     await p.keyboard.press('Space');
-    assert((await state(p)).angel, '스페이스를 눌러도 눈 천사가 시작되지 않았다');
-    // 마우스로 버튼을 누른 뒤의 스페이스도 눈 천사다 (방금 누른 버튼이 다시 눌리지 않는다)
+    assert(await p.evaluate(() => !!window.__snow.me.slide), '스페이스를 눌러도 배 썰매가 시작되지 않았다');
+    await walk(p, 0, 0, 5);
+    await p.keyboard.press('Shift');
+    assert((await state(p)).angel, '시프트를 눌러도 눈 천사가 시작되지 않았다');
+    // 마우스로 버튼을 누른 뒤의 스페이스도 배 썰매다 (방금 누른 버튼이 다시 눌리지 않는다)
     await walk(p, 0, 0, 9.5);
     assert(!(await state(p)).angel, '눈 천사가 끝나지 않았다');
     await p.click('#mute'); await p.click('#mute');
     await p.keyboard.press('Space');
-    assert((await state(p)).angel && (await p.getAttribute('#mute', 'aria-pressed')) === 'false', '버튼을 누른 뒤의 스페이스가 눈 천사로 가지 않았다');
+    assert(await p.evaluate(() => !!window.__snow.me.slide) && (await p.getAttribute('#mute', 'aria-pressed')) === 'false', '버튼을 누른 뒤의 스페이스가 배 썰매로 가지 않았다');
+    await walk(p, 0, 0, 5);
     // 키보드로 고른 버튼에서는 스페이스가 그 버튼만 누른다
     await walk(p, 0, 0, 9.5);
     await p.focus('#mute');
