@@ -3,7 +3,7 @@
 // 너무 오래 두면 갈색을 지나 까맣게 탄다. 다시 누르면 냠 먹는다 (얼마나 구웠는지에 따라 한마디).
 import * as THREE from 'three';
 
-const DEG = 215, FAR = 17;                       // 트리에서 본 방향(도)과 거리
+const DEG = 215, FAR = 14;                       // 트리에서 본 방향(도)과 거리
 export const CAMPFIRE = { x: Math.sin(DEG * Math.PI / 180) * FAR, z: Math.cos(DEG * Math.PI / 180) * FAR, r: 0.95 };      // r: 지나갈 수 없는 불 둘레
 export const ROAST_REACH = 3.4;                  // 불에서 이만큼 안이면 "그루터기에 앉기" 단추가 된다
 export const STUMP_RING = 2.25, STUMPS = 4;      // 그루터기 의자: 불에서 떨어진 거리와 수

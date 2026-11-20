@@ -750,8 +750,10 @@ $('#sculpt .make').addEventListener('click', () => {
   stats.built++;
   toast('눈사람을 만들었어요! ⛄', 2400);
 });
+/** 이글루·연못·언덕·썰매 길·모닥불 자리인가 (자리를 옮기기 전에 세운 눈사람이 그 안에 파묻혀 보이지 않게) */
+const snowmanBuried = (x, z) => IGLOOS.some((g) => Math.hypot(x - g.x, z - g.z) < g.radius + 3.2) || PONDS.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius + 0.6) || onHill(x, z) || onLane(x, z) || campfire.dist(x, z) < 3.3;
 function placeSnowman(s) {
-  if (hiddenSnowmen.has(s.id)) return;
+  if (hiddenSnowmen.has(s.id) || snowmanBuried(s.x, s.z)) return;
   if (s.mine) { const mine = [...snowmen.values()].filter((o) => o.mine && o.id !== s.id).sort((a, b) => a.birth - b.birth); while (mine.length >= MY_SNOWMEN) removeSnowman(mine.shift().id); }      // (내 눈사람은 셋까지: 넷째를 세우면 가장 오래된 것이 녹는다)
   if (snowmen.has(s.id)) removeSnowman(s.id);
   const mesh = buildSnowman(s.d, s.f); mesh.position.set(s.x, 0, s.z); mesh.rotation.y = s.yaw; scene.add(mesh);

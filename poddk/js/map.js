@@ -71,8 +71,8 @@ IGLOOS.forEach((g0, i) => {
   const g = el('g', { 'data-kind': 'hill' }), sx = Math.sin(STAIR_DIR), sz = Math.cos(STAIR_DIR), w = STAIR_HALF * 2;
   g.append(el('circle', { cx: HILL.x, cy: HILL.z, r: HILL.r, fill: '#f1f5fc', stroke: '#9fb2d4', 'stroke-width': 0.9 }), el('circle', { cx: HILL.x, cy: HILL.z, r: HILL.top, fill: '#e3ebf7', stroke: '#9fb2d4', 'stroke-width': 0.5 }));
   for (let k = 0; k < 7; k++) { const a = HILL.top + (HILL.r + 0.6 - HILL.top) * (k + 0.5) / 7; g.append(el('line', { x1: HILL.x + sx * a + sz * w / 2, y1: HILL.z + sz * a - sx * w / 2, x2: HILL.x + sx * a - sz * w / 2, y2: HILL.z + sz * a + sx * w / 2, stroke: '#8a5a36', 'stroke-width': 0.6 })); }
-  g.append(label(HILL.x, HILL.z + HILL.r + 6.4, '슬라이딩 언덕'), label(HILL.x + sx * (HILL.r + 1) + 6.5, HILL.z + sz * (HILL.r + 1) + 1.2, '계단', 3.6, 600));
-  base.append(g);
+  g.append(label(HILL.x + HILL.r + 13, HILL.z + 1.8, '슬라이딩 언덕'), label(HILL.x + sx * (HILL.r + 1) + 6.5, HILL.z + sz * (HILL.r + 1) + 1.2, '계단', 3.6, 600));
+  base.insertBefore(g, base.children[3]);      // (넓은 언덕이 옆 이글루의 이름을 덮지 않게 먼저 그린다)
 }
 // 썰매 길: 출발 자리부터 곧게 뻗은 얼음 길
 {
