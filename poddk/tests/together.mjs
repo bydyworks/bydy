@@ -121,16 +121,16 @@ try {
     const nm = await a.evaluate(() => document.querySelector('.peer-name').textContent), bname = await b.evaluate(() => window.__snow.name);
     assert(nm === bname, '이름이 다르다: ' + nm + ' / ' + bname);
     // 인사
-    await until(async () => (await a.getAttribute('#act', 'aria-label')) === '인사하기', { what: '인사 단추' });
-    await a.click('#act');
+    await until(async () => (await a.getAttribute('#social', 'aria-label')) === '인사하기', { what: '인사 단추' });
+    await a.click('#social');
     await until(async () => b.evaluate(() => { const p = [...window.__snow.net.peers.values()][0]; return p.act === 7 && p.k > 0.5; }), { what: '다른 화면에서 인사하는 모습', timeout: 10000 });
     await until(async () => b.evaluate(() => { const el = document.querySelector('.peer-name'); return !!el && !el.hidden && el.textContent.startsWith('👋'); }), { what: '👋 표시', timeout: 6000 });
     await a.evaluate(() => window.__snow.sim(2));
     // 눈덩이: 7 걸음 떨어져서
     await a.evaluate(() => { const s = window.__snow; s.teleport(0, 37); s.me.yaw = Math.PI; s.sim(0.3); });
     await sleep(1200);
-    await until(async () => (await a.getAttribute('#act', 'aria-label')) === '눈덩이 던지기', { what: '눈덩이 단추', timeout: 8000 });
-    await a.click('#act');
+    await until(async () => (await a.getAttribute('#social', 'aria-label')) === '눈덩이 던지기', { what: '눈덩이 단추', timeout: 8000 });
+    await a.click('#social');
     await until(async () => b.evaluate(() => window.__snow.social.hits === 1), { what: '맞은 펭귄', timeout: 10000 });
     const hit = await b.evaluate(() => ({ snow: window.__snow.me.snow, toast: document.querySelector('#toast').textContent }));
     assert(hit.snow >= 0.4 && hit.toast.includes('눈덩이'), '맞은 펭귄: ' + JSON.stringify(hit));

@@ -1544,6 +1544,22 @@ try {
     assert(how.ios.includes('공유') && how.android.includes('⋮') && how.naver.includes('네이버'), '기기별 안내: ' + JSON.stringify(how));
   });
 
+  await test('상대 단추는 상황 단추 위에 따로 있다: 곁에 상대가 있어도 상황 단추는 그대로 눈 굴리기이고, 위의 단추로 👋 인사한다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await snow(p, () => { const s = window.__snow, f = s.fox.at(s.clock.now()); s.teleport(f.x + 2.2, f.z); s.sim(0.1); });      // (시각이 멈춰 있어 여우도 제자리에 있다)
+    await until(async () => (await p.getAttribute('#social', 'aria-label')) === '인사하기', { what: '상대 단추' });
+    assert((await p.getAttribute('#act', 'aria-label')) === '눈 굴리기', '상대가 곁에 있어도 상황 단추는 눈 굴리기여야 한다: ' + await p.getAttribute('#act', 'aria-label'));
+    const [a, b] = await p.evaluate(() => [document.querySelector('#act'), document.querySelector('#social')].map((e) => ({ top: e.offsetTop, bottom: e.offsetTop + e.offsetHeight, left: e.offsetLeft })));      // (뿅 커지는 중에도 놓인 자리로 잰다)
+    assert(b.bottom <= a.top + 1 && Math.abs(a.left - b.left) < 2, '상대 단추가 상황 단추 바로 위에 있어야 한다: ' + JSON.stringify({ a, b }));
+    await p.click('#social');
+    assert(await snow(p, () => !!window.__snow.me.wave), '상대 단추를 눌렀는데 인사하지 않는다');
+    await snow(p, () => window.__snow.sim(3));
+    await snow(p, () => { const s = window.__snow; s.teleport(15, -10); s.sim(0.1); });
+    await until(async () => (await p.getAttribute('#social', 'aria-label')) === '함께 할 상대가 없어요', { what: '상대가 없으면 숨기' });
+    await sleep(400);      // (숨는 동안의 짧은 움직임이 끝나기를)
+    assert(!(await p.isVisible('#social')) || (await p.evaluate(() => getComputedStyle(document.querySelector('#social')).visibility)) === 'hidden', '상대가 없는데 상대 단추가 보인다');
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);

@@ -84,7 +84,7 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
   border-radius: 50%; box-shadow: 0 0 0 3px var(--cream), 0 5px 12px rgba(80, 58, 36, 0.16);
 }
 .round:active { transform: scale(0.92); transition-duration: .6s, .08s, .2s; }
-#act, #slide, #angel, #flap { right: var(--col-r); width: var(--btn); }
+#act, #social, #slide, #angel, #flap { right: var(--col-r); width: var(--btn); }
 
 #mute { --c: var(--mint); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t)); width: 40px; height: 40px; }
 #mute .g { width: 22px; height: 22px; }
@@ -94,6 +94,8 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 
 #shot { --c: var(--coral); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 40px + 10px); width: 40px; height: 40px; }      /* 소리 단추 바로 아래 */
 #act { bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); height: var(--btn); }      /* 상황 단추: 오른쪽 단추 줄의 맨 위 */
+#social { bottom: calc(var(--col-b) + 4 * var(--btn) + 4 * var(--gap)); height: var(--btn); }      /* 상대 단추: 상황 단추 바로 위 (다른 펭귄·동물에게 하는 일) */
+@media (max-height: 520px) { #social { right: calc(var(--col-r) + var(--btn) + var(--gap)); bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); } }      /* 낮은 화면: 상황 단추 왼쪽 옆에 (위의 옷장 단추와 겹치지 않게) */
 /* 배 썰매: 사진과 눈 천사 사이 */
 #slide { --c: var(--sky); bottom: calc(var(--col-b) + 2 * var(--btn) + 2 * var(--gap)); height: var(--btn); }
 #slide .slide-icon { width: 34px; height: 26px; }
@@ -527,14 +529,14 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #catch.rare { background: linear-gradient(150deg, #fff8dc, #ffe9a6 55%, #ffd76a); box-shadow: inset 0 -9px 14px rgba(230, 170, 40, 0.3), 0 14px 32px rgba(180, 120, 20, 0.3); }
 #catch.rare .say { color: #8a5a12; }
 /* 상황 단추는 할 수 있는 것이 있을 때만 뿅 나타난다. 눈 천사 단추는 눈 천사를 할 수 없을 때 흐려진다 */
-#act { transition: opacity .2s, transform .25s cubic-bezier(.3, 1.6, .6, 1), visibility 0s; }
-#act.idle { opacity: 0 !important; transform: scale(0.6); visibility: hidden; pointer-events: none; transition: opacity .15s, transform .15s, visibility 0s .15s; }
+#act, #social { transition: opacity .2s, transform .25s cubic-bezier(.3, 1.6, .6, 1), visibility 0s; }
+#social.idle, #act.idle { opacity: 0 !important; transform: scale(0.6); visibility: hidden; pointer-events: none; transition: opacity .15s, transform .15s, visibility 0s .15s; }
 #angel.off { opacity: 0.5 !important; pointer-events: none; }
 /* 상황 단추: 인사(👋), 눈덩이(❄️) */
-#act .emo { display: none; font-size: 21px; line-height: 1; }
-#act.wave .wave-icon, #act.throw .throw-icon { display: block; }
-#act.wave { --c: var(--sun); }
-#act.throw { --c: var(--sky); }
+#act .emo, #social .emo { display: none; font-size: 21px; line-height: 1; }
+#social.wave .wave-icon, #social.throw .throw-icon { display: block; }
+#social.wave { --c: var(--sun); }
+#social.throw { --c: var(--sky); }
 /* 다른 펭귄 머리 위의 이름 (가까이 다가갔을 때 잠깐) */
 .peer-name { position: fixed; left: 0; top: 0; z-index: 1; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 800; color: #27405f; white-space: nowrap; pointer-events: none;
   background: rgba(255, 255, 255, 0.82); box-shadow: 0 4px 10px rgba(36, 64, 110, 0.16); transform: translate(-50%, -100%); transition: opacity .5s; }

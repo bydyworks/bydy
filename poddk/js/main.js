@@ -327,7 +327,7 @@ function stepRoast(dt, wantWalk, looked = false) {
  * 가운데 버튼의 모습을 지금 할 수 있는 일에 맞춘다:
  *   평소 눈 천사 → 낚시 구멍 곁에서는 물고기(낚시하기) → 낚시 중에는 ✕(그만두기) → 입질이 오면 두근거리는 물고기(낚아 올리기)
  */
-let actionShown = '';
+let actionShown = '', socialShown = '';
 function showAction() {
   const slideOff = (fishing.active || !!me.roast) || !!me.angel || !!me.flap || !!me.roll || me.inside !== null;          // 낚시나 눈 천사를 하는 동안에는 미끄러질 수 없다
   if ($('#slide').classList.contains('off') !== slideOff) $('#slide').classList.toggle('off', slideOff);
@@ -336,10 +336,18 @@ function showAction() {
   const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : fishing.nibbling ? 'nib' : 'wait')
     : me.inside !== null ? (me.seat ? (me.seat.phase === 'sat' ? 'standup' : 'none') : dens.seatNear(me.inside, me.x, me.z) >= 0 ? 'sitdown' : dens.nearDoor(me.inside, me.x, me.z) ? 'exit' : 'none')
     : me.roast ? (me.roast.phase === 'cook' ? 'eat' : me.roast.phase === 'seated' ? 'roast' : me.roast.phase === 'eat' ? 'eatwait' : 'none')
-    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'stump' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : greetTarget() ? 'wave' : throwTarget() ? 'throw' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
+    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'stump' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
   // 눈 천사 단추: 눈 천사를 할 수 없을 때(이글루 안, 낚시·썰매·파닥 중, 방석) 흐려진다
   const angelOff = me.inside !== null || (fishing.active || !!me.roast) || !!me.slide || !!me.flap || !!me.seat || !!me.roll;
   if ($('#angel').classList.contains('off') !== angelOff) $('#angel').classList.toggle('off', angelOff);
+  // 상대 단추 (상황 단추 위): 다른 펭귄·동물에게 하는 일만 — 가까우면 👋 인사, 조금 떨어진 펭귄에게는 ❄️ 눈덩이
+  const soc = greetTarget() ? 'wave' : throwTarget() ? 'throw' : 'idle';
+  if (soc !== socialShown) {
+    socialShown = soc;
+    const b = $('#social');
+    b.classList.toggle('idle', soc === 'idle'); b.classList.toggle('wave', soc === 'wave'); b.classList.toggle('throw', soc === 'throw');
+    b.setAttribute('aria-label', { wave: '인사하기', throw: '눈덩이 던지기', idle: '함께 할 상대가 없어요' }[soc]);
+  }
   if (now === actionShown) return;
   actionShown = now;
   const el = $('#act');
@@ -378,8 +386,6 @@ function act(how = 'button') {
   else if (canMail()) openPostcard();
   else if (canWish()) openWishes();
   else if (snowmanNear()) openSnowcard();
-  else if (greetTarget()) startWave();
-  else if (throwTarget()) throwBall();
   else if (me.roll) stopRoll();
   else if (canRoll() && !key) startRoll();
   else if (how === 'key') startSlide();
@@ -458,7 +464,15 @@ function stepAngel(dt, now) {
   }
 }
 controls.onAction(() => act('key'));      // PC 스페이스: 상황 단추가 있으면 그것, 없으면 배 썰매
-$('#act').addEventListener('click', () => act('button'));      // (클릭 이벤트가 key 자리로 들어가지 않게)
+$('#act').addEventListener('click', () => act('button'));
+/** 상대 단추를 눌렀다: 가까운 상대에게 인사, 조금 떨어진 펭귄에게는 눈덩이 */
+function pressSocial() {
+  if (!started || giftOpen || busyDoor || postOpen || modal()) return;
+  if (greetTarget()) startWave();
+  else if (throwTarget()) throwBall();
+}
+$('#social').addEventListener('click', () => pressSocial());
+window.addEventListener('keydown', (e) => { if (e.code === 'KeyE' && !e.repeat && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) pressSocial(); });      // PC: E 키로 인사·눈덩이      // (클릭 이벤트가 key 자리로 들어가지 않게)
 $('#angel').addEventListener('click', () => { if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.slide || me.flap || me.inside !== null || me.seat || (fishing.active || !!me.roast)) return; startAngel(); });
 
 // ---------- 배 썰매 ----------
@@ -1587,12 +1601,12 @@ $('#mute').addEventListener('click', () => {
 });
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
-for (const el of document.querySelectorAll('#mute, #shot, #closet, #act, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+for (const el of document.querySelectorAll('#mute, #shot, #closet, #act, #social, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
 // (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
-for (const el of document.querySelectorAll('#mute, #shot, #act, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
+for (const el of document.querySelectorAll('#mute, #shot, #act, #social, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
 
 // 누른 단추는 살짝 커졌다가 제자리로 돌아온다 (0.2초쯤)
-for (const el of document.querySelectorAll('#mute, #shot, #act, #slide, #angel, #flap, #enter')) {
+for (const el of document.querySelectorAll('#mute, #shot, #act, #social, #slide, #angel, #flap, #enter')) {
   el.addEventListener('click', () => { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); });
   el.addEventListener('animationend', (e) => { if (e.animationName === 'pop') el.classList.remove('pop'); });
 }
@@ -1655,7 +1669,7 @@ window.__snow = {
   closet: { add: (i) => addToCloset(ITEMS[i]), get owned() { return owned.map((it) => it.name); }, open: openCloset, close: closeCloset },
   arctic, foxes, snowballs, social: stats, wave: startWave, throwBall, greetTarget, throwTarget,
   outfit: { force(i) { forcedItem = i; }, wear: (slot, n) => wear(penguin, slot, n), get worn() { return worn(penguin); } }, showCatch, hideCatch,
-  net, angel: startAngel, slide: startSlide, flap: startFlap, act: () => act('test'), fishing, xmas, dens, entrances: ENTRANCES, goIn, goOut, get inside() { return me.inside; }, get seat() { return me.seat; }, get status() { return me.status; }, get name() { return name; }, get gift() { return giftOpen; }, tapGift, closeGift,
+  net, angel: startAngel, slide: startSlide, flap: startFlap, act: () => act('test'), pressSocial: () => pressSocial(), fishing, xmas, dens, entrances: ENTRANCES, goIn, goOut, get inside() { return me.inside; }, get seat() { return me.seat; }, get status() { return me.status; }, get name() { return name; }, get gift() { return giftOpen; }, tapGift, closeGift,
   photo: takePhoto, get lastShot() { return lastShot; },
   teleport(x, z) { const c = me.inside !== null ? dens.confine(me.inside, x, z) : field.confine(x, z); me.x = c.x; me.z = c.z; },
   /** 지금의 조작 상태로 sec 초를 한꺼번에 흘려보낸다 (화면을 그리지 않고 걷기만 — 느린 기기에서도 같은 결과) */
