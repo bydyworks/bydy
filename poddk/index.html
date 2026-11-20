@@ -12,9 +12,13 @@
 <meta name="theme-color" content="#e8f1fb">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=1b54ac90">
-<link rel="stylesheet" href="css/app.css?v=1b54ac90">
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=1b54ac90","./js/capture.js":"./js/capture.js?v=1b54ac90","./js/carols.js":"./js/carols.js?v=1b54ac90","./js/clock.js":"./js/clock.js?v=1b54ac90","./js/controls.js":"./js/controls.js?v=1b54ac90","./js/crumble.js":"./js/crumble.js?v=1b54ac90","./js/den.js":"./js/den.js?v=1b54ac90","./js/field.js":"./js/field.js?v=1b54ac90","./js/fishing.js":"./js/fishing.js?v=1b54ac90","./js/fox.js":"./js/fox.js?v=1b54ac90","./js/igloo.js":"./js/igloo.js?v=1b54ac90","./js/main.js":"./js/main.js?v=1b54ac90","./js/map.js":"./js/map.js?v=1b54ac90","./js/names.js":"./js/names.js?v=1b54ac90","./js/net.js":"./js/net.js?v=1b54ac90","./js/outfit.js":"./js/outfit.js?v=1b54ac90","./js/penguin.js":"./js/penguin.js?v=1b54ac90","./js/postbox.js":"./js/postbox.js?v=1b54ac90","./js/santa.js":"./js/santa.js?v=1b54ac90","./js/showcase.js":"./js/showcase.js?v=1b54ac90","./js/sky.js":"./js/sky.js?v=1b54ac90","./js/snowball.js":"./js/snowball.js?v=1b54ac90","./js/snowman.js":"./js/snowman.js?v=1b54ac90","./js/tracks.js":"./js/tracks.js?v=1b54ac90","./js/weather.js":"./js/weather.js?v=1b54ac90","./js/wishboard.js":"./js/wishboard.js?v=1b54ac90","./js/xmas.js":"./js/xmas.js?v=1b54ac90"}}</script>
+<link rel="stylesheet" href="css/fonts.css?v=b233c1d0">
+<link rel="stylesheet" href="css/app.css?v=b233c1d0">
+<script>
+      // 이 게임은 poddk.pages.dev 에서만 한다: 예전 주소(GitHub Pages)로 오면 그리로 옮겨 간다 (주소 뒤의 ?… 는 그대로)
+      if (/(^|\.)github\.io$/.test(location.hostname)) location.replace('https://poddk.pages.dev/' + location.search + location.hash);
+    </script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=b233c1d0","./js/capture.js":"./js/capture.js?v=b233c1d0","./js/carols.js":"./js/carols.js?v=b233c1d0","./js/clock.js":"./js/clock.js?v=b233c1d0","./js/controls.js":"./js/controls.js?v=b233c1d0","./js/crumble.js":"./js/crumble.js?v=b233c1d0","./js/den.js":"./js/den.js?v=b233c1d0","./js/field.js":"./js/field.js?v=b233c1d0","./js/fishing.js":"./js/fishing.js?v=b233c1d0","./js/fox.js":"./js/fox.js?v=b233c1d0","./js/igloo.js":"./js/igloo.js?v=b233c1d0","./js/main.js":"./js/main.js?v=b233c1d0","./js/map.js":"./js/map.js?v=b233c1d0","./js/names.js":"./js/names.js?v=b233c1d0","./js/net.js":"./js/net.js?v=b233c1d0","./js/outfit.js":"./js/outfit.js?v=b233c1d0","./js/penguin.js":"./js/penguin.js?v=b233c1d0","./js/postbox.js":"./js/postbox.js?v=b233c1d0","./js/santa.js":"./js/santa.js?v=b233c1d0","./js/showcase.js":"./js/showcase.js?v=b233c1d0","./js/sky.js":"./js/sky.js?v=b233c1d0","./js/snowball.js":"./js/snowball.js?v=b233c1d0","./js/snowman.js":"./js/snowman.js?v=b233c1d0","./js/tracks.js":"./js/tracks.js?v=b233c1d0","./js/weather.js":"./js/weather.js?v=b233c1d0","./js/wishboard.js":"./js/wishboard.js?v=b233c1d0","./js/xmas.js":"./js/xmas.js?v=b233c1d0"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -174,14 +178,14 @@
     <canvas class="pad" width="240" height="300"></canvas>
     <div class="inks"></div>
     <div class="widths"></div>
-    <div class="btns"><button class="undo" type="button">되돌리기</button><button class="clear" type="button">지우기</button><button class="make" type="button">세우기</button></div>
+    <div class="btns"><button class="undo" type="button">되돌리기</button><button class="clear" type="button">지우기</button><button class="make" type="button">만들기</button></div>
     <button class="cancel" type="button">그만두기</button>
   </div>
 </div>
-<!-- 눈사람 곁에서: 누가 만든 눈사람인지 (이름은 없다), 내 것은 허물기, 남의 것은 이상한 그림 신고 -->
+<!-- 눈사람 곁에서: 누가 만든 눈사람인지 (이름은 없다), 내 것은 허물기 -->
 <div id="snowcard" hidden role="dialog" aria-label="눈사람">
   <p class="what"></p>
-  <div class="btns"><button class="report" type="button">🚩 이상한 그림이에요</button><button class="remove" type="button">허물기</button><button class="close" type="button">닫기</button></div>
+  <div class="btns"><button class="remove" type="button">허물기</button><button class="close" type="button">닫기</button></div>
 </div>
 <!-- 옷장: 이번 산책에서 받은 아이템을 골라 입고 벗는다 (다시 들어오면 비어 있다) -->
 <div id="closet-panel" hidden role="dialog" aria-label="옷장">
@@ -231,10 +235,6 @@
     </div>
     <h1>뽀드득</h1>
     <p class="say" id="say"></p>
-    <!-- 여기서 할 수 있는 일 -->
-    <div class="what">
-      <ul class="tiles"><li><b aria-hidden="true">🎣</b>얼음 낚시</li><li><b aria-hidden="true">🔥</b>이글루 불멍</li><li><b aria-hidden="true">🎁</b>산타 선물</li></ul>
-    </div>
     <script>
       // 소인의 해: 1~2월은 지난해 겨울로 친다
       (function () { var d = new Date(); document.getElementById('mark-year').textContent = d.getMonth() < 2 ? d.getFullYear() - 1 : d.getFullYear(); })();
@@ -263,6 +263,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=1b54ac90"></script>
+<script type="module" src="js/main.js?v=b233c1d0"></script>
 </body>
 </html>

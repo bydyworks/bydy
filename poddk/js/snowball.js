@@ -5,7 +5,7 @@ const FLIGHT = 0.75;             // 날아가는 시간(초)
 const ARC = 1.6;                 // 가장 높이 뜨는 정도 (거리에 따라 조금 더)
 
 export function createSnowballs(scene, { puff = () => {} } = {}) {
-  const geo = new THREE.SphereGeometry(0.11, 14, 10), mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 });
+  const geo = new THREE.SphereGeometry(0.22, 16, 12), mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 });
   const live = [];
   return {
     /** from → to 로 하나 던진다. land(x, z): 떨어졌을 때 */

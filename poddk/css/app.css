@@ -577,12 +577,12 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #snowcard .btns button[hidden] { display: none; }
 #snowcard .report { color: #b0412f !important; }
 /* 시각 아래의 전광판: 칸의 너비는 늘 같고, 칸보다 긴 글은 전광판처럼 오른쪽에서 왼쪽으로 끊임없이 흘러간다 */
-#hud .ticker { display: block; flex: none; width: 176px; overflow: hidden; white-space: nowrap; -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 92%, transparent); }
+#hud .ticker { display: block; flex: none; width: 176px; overflow: hidden; white-space: nowrap; }
 #hud .ticker .track { display: inline-block; white-space: nowrap; }
 #hud .ticker .track.in { animation: tick-in .45s ease-out; }
-#hud .ticker .track.scroll { padding-left: 176px; animation: tick-run var(--run) linear infinite; }
+#hud .ticker .track.scroll { animation: tick-run var(--run) ease-in-out infinite; }
 #hud .ticker #storm, #hud .ticker #tip { white-space: nowrap; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); }
 #hud .ticker #tip { color: #4f6fa8; }
 #hud .ticker [hidden] { display: none; }
 @keyframes tick-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes tick-run { from { transform: translateX(0); } to { transform: translateX(var(--over)); } }
+@keyframes tick-run { 0%, 20% { transform: translateX(0); } 80%, 100% { transform: translateX(var(--over)); } }      /* 처음 잠깐 멈춤 → 천천히 흐름 → 끝에서 잠깐 멈춤 */
