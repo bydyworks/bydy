@@ -1380,6 +1380,72 @@ try {
     assert(!r.onPond || (r.icy === 0 && r.around > 50), '얼음 위에 여우 발자국이 남았다: ' + JSON.stringify(r));
   });
 
+  console.log('\n■ 눈송이 도감, 썰매 길, 동물 친구들');
+  await test('눈밭의 특별한 눈송이를 주우면 도감에 모이고 (다시 들어와도 남는다), 밤에는 빛나는 별 눈송이가 내려온다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await snow(p, () => { const s = window.__snow; s.flakes.reset(); s.teleport(20, 20); s.sim(0.1); s.flakes.drop('heart', 20, 21.5); });
+    await snow(p, () => { const s = window.__snow; s.teleport(20, 21.3); });
+    await until(async () => (await snow(p, () => window.__snow.flakes.count)) === 1, { what: '주운 눈송이' });
+    assert((await p.textContent('#toast')).includes('하트 눈송이'), '주웠다는 알림: ' + await p.textContent('#toast'));
+    await p.click('#book');
+    const book = await p.evaluate(() => ({ shown: !document.querySelector('#book-panel').hidden, got: document.querySelectorAll('#book-panel .cell.got').length, all: document.querySelectorAll('#book-panel .cell').length, count: document.querySelector('#book-panel .count').textContent }));
+    assert(book.shown && book.got === 1 && book.all === 20 && book.count === '1 / 20', '도감: ' + JSON.stringify(book));
+    await p.reload(); await p.waitForFunction(() => window.__snow && window.__snow.ready);
+    const q2 = p;
+    assert((await snow(q2, () => window.__snow.flakes.count)) === 1, '다시 들어오니 도감이 비었다');
+    // 밤: 별 눈송이가 저절로 내려온다 (낮에는 별 눈송이가 없다)
+    const night = await snow(q2, async () => { const s = window.__snow; s.clock.setTime('21:30'); for (let i = 0; i < 80; i++) await new Promise((r) => requestAnimationFrame(r)); return s.flakes.live; });
+    assert(night.length > 0, '밤인데 눈송이가 없다');
+    await snow(q2, async () => { const s = window.__snow; s.clock.setTime('13:00'); for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r)); });
+    const day = await snow(q2, async () => { const night = (await import('./js/flakes.js')).FLAKES.filter((f) => f.night).map((f) => f.id); return window.__snow.flakes.live.filter((o) => night.includes(o.id)).length; });
+    assert(day === 0, '낮인데 별 눈송이가 남아 있다');
+  });
+
+  await test('썰매 길 출발 자리에서 배 썰매를 타면 미끄러진 거리를 재고, 걸어오던 기세를 살리면 더 멀리 간다. 길 위에는 자국이 남지 않는다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    const run = (runUp) => snow(p, (runUp) => {
+      const s = window.__snow, L = s.lane;
+      s.teleport(L.start.x - L.dir.x * (runUp ? 4.5 : 1), L.start.z - L.dir.z * (runUp ? 4.5 : 1)); s.me.yaw = s.me.camYaw = Math.atan2(L.dir.x, L.dir.z); s.me.recent = 0; s.sim(0.2);
+      if (runUp) { s.controls.debugMove(0, 1); s.sim(3); s.controls.debugMove(0, 0); }
+      const n0 = s.social.races, slides0 = s.tracks.slideCount; s.slide(); for (let i = 0; i < 1500 && s.me.slide; i++) s.sim(1 / 60);
+      const c = { x: s.me.x - L.start.x, z: s.me.z - L.start.z };
+      return { counted: s.social.races - n0, along: c.x * L.dir.x + c.z * L.dir.z, marks: s.tracks.slideCount - slides0, best: s.sled.best };
+    }, runUp);
+    const a = await run(false), b = await run(true);
+    assert(a.counted === 1 && b.counted === 1, '경주로 치지 않았다: ' + JSON.stringify([a, b]));
+    assert(a.along > 8 && b.along > a.along + 2 && b.along < 31, '기세를 살리면 더 멀리: ' + JSON.stringify([a, b]));
+    assert(a.marks === 0 && b.best >= b.along - 0.01, '길 위의 자국, 최고 기록: ' + JSON.stringify([a, b]));
+  });
+
+  await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await sleep(800);
+    assert(!(await snow(p, () => window.__snow.rabbit.visible)), '낮에 토끼가 보인다');
+    await snow(p, () => { const s = window.__snow; s.clock.setTime('21:30'); s.rabbit.place(15, -15); s.teleport(15, -25); });
+    await until(async () => snow(p, () => window.__snow.rabbit.visible), { what: '밤의 토끼' });
+    const before = await snow(p, () => window.__snow.rabbit.pos);
+    await snow(p, (b) => { window.__snow.teleport(b.x, b.z + 2.5); }, before);
+    await until(async () => snow(p, () => window.__snow.rabbit.scared), { what: '깜짝 놀람' });
+    await sleep(1500);
+    const after = await snow(p, () => { const s = window.__snow; return Math.hypot(s.rabbit.pos.x - s.me.x, s.rabbit.pos.z - s.me.z); });
+    assert(after > 3.5, '달아나지 않았다: ' + after.toFixed(2));
+  });
+
+  await test('연못의 아기 물개는 졸다가, 곁에서 무엇을 낚으면 다가와 조른다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    const s0 = await snow(p, () => { const s = window.__snow, sl = s.seals.seals[0]; return { state: sl.state, x: sl.x, z: sl.z }; });
+    assert(s0.state === 'sleep', '처음에 자고 있지 않다: ' + s0.state);
+    await toHole(p);
+    await snow(p, () => window.__snow.showCatch('smelt'));
+    const step = (sec) => snow(p, (sec) => { for (let i = 0; i < sec * 30; i++) window.__snow.seals.update(1 / 30); return window.__snow.seals.seals[0].state; }, sec);      // (그리는 속도와 상관없이 물개의 시간을 흘린다)
+    for (let k = 0; k < 20 && (await step(0.5)) !== 'beg'; k++);
+    const near = await snow(p, () => { const s = window.__snow, sl = s.seals.seals[0]; return Math.hypot(sl.x - s.me.x, sl.z - s.me.z); });
+    assert(near < 2, '펭귄 곁으로 오지 않았다: ' + near.toFixed(2));
+    let st = ''; for (let k = 0; k < 40 && (st = await step(0.5)) !== 'sleep'; k++);
+    assert(st === 'sleep', '받아먹고 돌아가 자지 않는다: ' + st);
+  });
+
   console.log('\n■ 크리스마스');
   await test('눈밭 곳곳에 선물 상자 열 개가 놓여 있고, 닿으면 선물이 나온다. 톡톡톡 세 번 두드리면 포장이 뜯어지고 선물이 나온다', async () => {
     const p = await page('t=14:20&speed=0');

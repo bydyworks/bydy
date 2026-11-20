@@ -12,11 +12,12 @@ const MAP = {
   rustle: [[1.698, 1.01]],
   snowfall: { start: 0.5, length: 20.0 },
   blizzard: { start: 0.5, length: 18.0 },
+  fire: { start: 2.0, length: 24.0 },          // (끝 2초에 처음 2초를 겹쳐 두어, 26초에서 2초로 돌아갈 때 이음매가 없다)
 };
-const FILES = { fresh: 'steps-fresh.mp3', packed: 'steps-packed.mp3', fx: 'fx.mp3', snowfall: 'snowfall.mp3', blizzard: 'blizzard.mp3' };
+const FILES = { fresh: 'steps-fresh.mp3', packed: 'steps-packed.mp3', fx: 'fx.mp3', snowfall: 'snowfall.mp3', blizzard: 'blizzard.mp3', fire: 'fire.mp3' };
 const STEP_MAX = 0.95;        // 한 걸음 소리는 길어야 이만큼 (걸음이 이어지면 겹쳐 뭉개지므로). 빨리 걸을 때는 main.js 가 더 짧게 정해 준다
 const VOLUME = { fresh: 0.5, packed: 0.42, snowfall: 0.55, snowfallInStorm: 0.4, wind: 0.2 };
-const INDOOR = { outside: 0.07, fire: 0.3 };      // 이글루 안: 바깥 눈 소리는 이만큼만(두꺼운 눈벽 너머로 아주 작게), 장작이 타는 웅웅 소리의 세기   // 발소리가 주인공, 배경은 뒤에 깔린다
+const INDOOR = { outside: 0.07, fire: 0.55 };      // 이글루 안: 바깥 눈 소리는 이만큼만(두꺼운 눈벽 너머로 아주 작게), 장작이 타는 웅웅 소리의 세기   // 발소리가 주인공, 배경은 뒤에 깔린다
 
 export function createAudio(baseUrl = 'audio/') {
   /** @type {AudioContext | null} */
@@ -73,21 +74,16 @@ export function createAudio(baseUrl = 'audio/') {
     stats.outside = out;
   }
 
-  /** 장작이 타는 소리: 낮게 웅웅거리는 불의 숨소리 (걸러 낸 잡음을 이어 튼다). 이글루 안에서만 들린다 */
+  /** 장작이 타는 소리: 녹음한 모닥불 소리를 끊김 없이 돌린다 (audio/fire.mp3, 처음 들어갈 때 불러온다). 이글루 안에서만 들린다 */
   function fireBed() {
     if (fire || !ctx) return fire;
-    const len = 4, buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate), d = buffer.getChannelData(0);
-    let b = 0;
-    for (let i = 0; i < d.length; i++) { b = (b + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = b * 3.2; }      // 갈색 잡음 (낮은 소리가 많은 잡음)
-    const n = 2000; for (let i = 0; i < n; i++) { const u = i / n; d[i] = d[i] * u + d[d.length - n + i] * (1 - u); }      // 이음매가 튀지 않게
-    const src = ctx.createBufferSource(), low = ctx.createBiquadFilter(), gain = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain();
-    src.buffer = buffer; src.loop = true; src.loopEnd = len - n / ctx.sampleRate;
-    low.type = 'lowpass'; low.frequency.value = 520; low.Q.value = 0.5;
-    lfo.frequency.value = 0.37; depth.gain.value = 140; lfo.connect(depth).connect(low.frequency);      // 불길이 일렁이듯 소리 결이 천천히 바뀐다
-    gain.gain.value = 0;
-    src.connect(low).connect(gain).connect(master);
-    src.start(); lfo.start();
-    fire = { gain };
+    const gain = ctx.createGain(); gain.gain.value = 0; gain.connect(master);
+    fire = { gain, src: null };
+    load('fire').then(() => {
+      if (!buffers.fire || fire.src) return;
+      const src = ctx.createBufferSource(); src.buffer = buffers.fire; src.loop = true; src.loopStart = MAP.fire.start; src.loopEnd = MAP.fire.start + MAP.fire.length;
+      src.connect(gain); src.start(0, MAP.fire.start + Math.random() * MAP.fire.length * 0.8); fire.src = src;
+    });
     return fire;
   }
 

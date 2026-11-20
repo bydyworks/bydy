@@ -153,9 +153,11 @@ try {
   await test('눈사람: 내가 만든 눈사람은 다른 화면에도 서고(한 사람에 셋까지), 허물면 사라진다. 남의 눈사람은 허물 수 없다', async () => {
     await a.evaluate(() => { const s = window.__snow; s.teleport(-12, 14); s.me.yaw = Math.PI / 2; s.sim(0.2); });
     await sleep(1200);                                             // (옮긴 자리가 서버에 닿게)
-    await a.evaluate(() => { const s = window.__snow; s.snowman.start(); s.snowman.open(); s.snowman.strokes = [[0, 2, [[100, 80]]], [0, 2, [[140, 80]]], [1, 2, [[118, 95], [150, 100]]]]; });
+    await a.evaluate(() => { const s = window.__snow; s.closet.add(6); s.snowman.start(); s.snowman.open(); s.snowman.strokes = [[0, 2, [[100, 80]]], [0, 2, [[140, 80]]], [1, 2, [[118, 95], [150, 100]]]]; });
+    await a.click('#sculpt .dress .items button');      // 옷장의 산타 모자를 눈사람에게
     await a.click('#sculpt .make');
     await until(async () => b.evaluate(() => window.__snow.snowman.list.length === 1 && !window.__snow.snowman.list[0].mine), { what: '다른 화면의 눈사람', timeout: 10000 });
+    assert(JSON.stringify(await b.evaluate(() => window.__snow.snowman.list[0].f)) === '[-1,1,-1]', '눈사람의 모자가 다른 화면에 가지 않았다: ' + JSON.stringify(await b.evaluate(() => window.__snow.snowman.list[0].f)));
     await until(async () => a.evaluate(() => window.__snow.snowman.list.length === 1 && window.__snow.snowman.list[0].id !== 'local'), { what: '내 눈사람의 번호', timeout: 10000 });
     // 남의 눈사람에는 허물기 단추가 없다 (신고도 없다)
     await b.evaluate(() => { const s = window.__snow, o = s.snowman.list[0]; s.teleport(o.x + 1.3, o.z); s.sim(0.2); });

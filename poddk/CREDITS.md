@@ -10,6 +10,7 @@
 | `audio/steps-packed.mp3` | (같은 녹음을 더 짧고 둔하게 다듬은 것) | Ivo Vicic |
 | `audio/snowfall.mp3` | Ruthless Winter - Forest Ambience, Snow Falling On Branches, Crackling, Light Wind | Sonophile Audio |
 | `audio/blizzard.mp3` | Extreme Climate - Blizzard Ambience, Wind Howling | Unrealsfx |
+| `audio/fire.mp3` | Fire Experiments - Bonfire Burning, Pop, Crackle | Blackguard Sound |
 | `audio/fx.mp3` | Foley body falling in the snow / Mixed Materials - Shoveling Snow, Crunchy | re:focus / InspectorJ |
 
 이 소리들은 Artlist 구독 라이선스로 받은 것입니다. 이 게임 밖에서 따로 내려받아 쓰면 안 됩니다.

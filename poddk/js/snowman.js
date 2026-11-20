@@ -1,6 +1,7 @@
 // 눈사람 만들기: 눈을 굴려 커다란 눈덩이를 만들고, 그 위에 그린 그림(얼굴, 단추, 무늬)을 입혀 눈밭에 세운다.
 // 그림은 틀(머리 동그라미와 몸 동그라미) 위에 그린 획들이다: [색 번호, 굵기 번호, 점들(0..255 의 x, y 짝을 base64 로)]
 import * as THREE from 'three';
+import { makeItem, SLOTS } from './outfit.js';
 
 /** 그리는 판의 크기와 눈사람 틀 (그리는 판의 화소 기준) */
 export const PAD = { w: 240, h: 300, head: { x: 120, y: 92, r: 56 }, body: { x: 120, y: 210, r: 80 } };
@@ -50,8 +51,8 @@ function projectUV(geo, circle) {
   uv.needsUpdate = true;
 }
 
-/** 그림을 입힌 눈사람 하나 (발밑 가운데가 원점) */
-export function buildSnowman(strokes) {
+/** 그림을 입힌 눈사람 하나 (발밑 가운데가 원점). f: 씌울 아이템 [안경, 모자, 귀마개] 번호 (없으면 -1) */
+export function buildSnowman(strokes, f = null) {
   const g = new THREE.Group();
   const K = 3, c = document.createElement('canvas'); c.width = PAD.w * K; c.height = PAD.h * K;
   const x = c.getContext('2d'); x.fillStyle = SNOW; x.fillRect(0, 0, c.width, c.height);
@@ -72,6 +73,11 @@ export function buildSnowman(strokes) {
   }
   const mound = new THREE.Mesh(new THREE.SphereGeometry(BODY.r * 1.1, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 }));
   mound.scale.y = 0.22; g.add(mound);
+  // 옷장의 아이템: 펭귄 머리(반지름 0.33)에 맞춘 것을 눈사람 머리 크기로 키워 씌운다
+  if (Array.isArray(f)) {
+    const k = HEAD.r / 0.33, wear = new THREE.Group(); wear.scale.setScalar(k); wear.position.y = HEAD.y - 1.2 * k; g.add(wear);
+    SLOTS.forEach((slot, i) => { if (Number.isInteger(f[i]) && f[i] >= 0) wear.add(makeItem(slot, f[i], 0.33)); });
+  }
   g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   g.userData.dispose = () => { tex.dispose(); g.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); };
   return g;

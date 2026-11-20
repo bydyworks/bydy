@@ -97,13 +97,13 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
       for (const p of m.peers) { const q = add(p.id, p.name, p.look, p.color); if (p.s) { q.s = p.s; q.x = p.s.x; q.z = p.s.z; q.yaw = p.s.yaw; } }
       for (let i = m.marks.length - 1; i >= 0; i--) mark(m.marks[i]);      // (오래된 것부터)
       onCount(peers.size);
-      onSocial({ t: 'hello', wishes: m.wishes || [], wrote: !!m.wrote, snowmen: m.snowmen || [] });      // 소원판의 소원들, 눈밭의 눈사람들
+      onSocial({ t: 'hello', wishes: m.wishes || [], wrote: !!m.wrote, snowmen: m.snowmen || [], top: m.top || [] });      // 소원판의 소원들, 눈밭의 눈사람들
     } else if (m.t === 'join') { add(m.id, m.name, m.look, m.color); onCount(peers.size); }
     else if (m.t === 'bye') { drop(m.id); onCount(peers.size); }
     else if (m.t === 's') { const p = peers.get(m.id); if (p) { const first = !p.s; p.s = m.s; if (first) { p.x = m.s.x; p.z = m.s.z; p.yaw = m.s.yaw; } } }
     else if (m.t === 'm') for (const q of m.l) mark(q);
     else if (m.t === 'g') onGame(m);
-    else if (m.t === 'wish' || m.t === 'wished' || m.t === 'sm' || m.t === 'smx') onSocial(m);
+    else if (m.t === 'wish' || m.t === 'wished' || m.t === 'sm' || m.t === 'smx' || m.t === 'top') onSocial(m);
     else if (m.t === 'b') { const p = peers.get(m.id); if (p) { p.threw = 0; onBall({ ...m, name: p.name }); } }
   }
 
@@ -121,8 +121,10 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     /** 소원 하나를 붙인다 (서버가 'wished' 로 답한다) */
     wish(text) { send({ t: 'wish', text }); },
     /** 눈사람을 세웠다 / 이상한 그림이라 신고한다 / 내 눈사람을 허문다 */
-    snowman(x, z, yaw, d) { send({ t: 'sm', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, yaw: Math.round(yaw * 100) / 100, d }); },
+    snowman(x, z, yaw, d, f = null) { send({ t: 'sm', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, yaw: Math.round(yaw * 100) / 100, d, f }); },
     snowmanReport(id) { send({ t: 'smr', id }); },
+    /** 썰매 경주 기록 하나 */
+    race(d) { send({ t: 'race', d: Math.round(d * 10) / 10 }); },
     snowmanRemove(id) { send({ t: 'smd', id }); },
     /** 눈덩이를 던졌다: 내 자리(x, z)에서 (tx, tz)로, to: 맞힐 펭귄의 번호 */
     ball(x, z, tx, tz, to) { send({ t: 'b', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, tx: Math.round(tx * 100) / 100, tz: Math.round(tz * 100) / 100, to: to || '' }); },
