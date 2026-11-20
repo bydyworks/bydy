@@ -79,12 +79,12 @@ try {
   await test('처음 화면은 무엇을 하는 곳인지 알려 주고, 들어가면 걷는 법과 둘러보는 법이 화면에 잠깐 보였다가 해 보면 사라진다', async () => {
     const p = await page(undefined, { enter: false });
     const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').textContent.trim(), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
-    const SAYINGS = ['우연히 뽀드득 명당을 발견했다!오늘 산책은 여기로 정했어.', '뽀드득 소리가 딱 좋은 눈밭이다!조금만 더 놀다 가야지.', '아무도 안 밟은 새하얀 눈밭이잖아?내 발자국부터 남겨봐야지.', '뒤뚱뒤뚱 걷다 보니 눈밭을 찾았네.여기 눈, 소리가 유난히 좋잖아?'];
+    const SAYINGS = ['뒤뚱뒤뚱 걷다 보니 재밌는 곳을 찾았네?저기 반짝이는 건 뭘까?', '우연히 뽀드득 명당을 발견했다!오늘은 여기서 실컷 놀다 가야지.', '어? 처음 와 보는 곳인데…구석구석 궁금한 게 너무 많잖아!', '눈 밟는 소리를 따라왔더니신기한 겨울 마을이 나타났다!', '발밑에서 뽀드득, 뽀드득!여기 뽀드득 소리가 유난히 좋잖아?'];
     assert(card.title === '뽀드득' && card.sub === null && SAYINGS.includes(card.say) && card.button === '눈 밟으러 가기' && card.hint.includes('소리'), '처음 화면의 글: ' + JSON.stringify(card));
     // 할 일은 알려 주지 않는다 (들어가서 스스로 찾는다)
     assert(await p.evaluate(() => document.querySelector('.start-card .what') === null), '처음 화면에 할 일 목록이 남아 있다');
-    // 제목 아래의 한마디는 올 때마다 넷 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
-    for (const n of [1, 2, 3, 4]) {
+    // 제목 아래의 한마디는 올 때마다 다섯 가운데 하나이고, 두 줄로 나온다. 주소에 ?say=3 처럼 붙이면 그 문장이 나온다
+    for (const n of [1, 2, 3, 4, 5]) {
       const q = await page('t=14:00&speed=0&say=' + n, { enter: false });
       const say = await q.evaluate(() => { const el = document.querySelector('.start-card .say'); return { text: el.textContent, n: el.dataset.n, br: el.querySelectorAll('br').length, lines: Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)) }; });
       await q.close();                                                    // (화면을 여럿 열어 두면 그리는 일이 겹쳐 느려진다)
@@ -210,6 +210,7 @@ try {
     await p.keyboard.down('ArrowUp');
     await until(async () => { const b = await state(p); return Math.hypot(b.x - a.x, b.z - a.z) > 0.4; }, { what: '걷기', timeout: 30000 });
     await p.keyboard.up('ArrowUp');
+    await snow(p, () => { const s = window.__snow; s.teleport(-20, 25); s.me.yaw = s.me.camYaw = Math.PI / 2; s.sim(0.1); });      // (트리 곁의 우체통·소원판에서 떨어진 빈 눈밭에서: 거기서는 스페이스가 그것들을 연다)
     await p.keyboard.press('Space');
     assert(await p.evaluate(() => !!window.__snow.me.slide), '스페이스를 눌러도 배 썰매가 시작되지 않았다');
     await walk(p, 0, 0, 5);
@@ -1378,6 +1379,65 @@ try {
     assert(r.near >= 3.2, '여우가 이글루 속을 지나간다 (가운데에서 ' + r.near.toFixed(2) + ')');
     assert(r.jump < 1.5, '이글루를 돌아가다가 건너뛴다 (0.5초에 ' + r.jump.toFixed(2) + ')');
     assert(!r.onPond || (r.icy === 0 && r.around > 50), '얼음 위에 여우 발자국이 남았다: ' + JSON.stringify(r));
+  });
+
+  console.log('\n■ 특별한 눈송이, 썰매 길, 동물 친구들');
+  await test('눈밭의 특별한 눈송이를 주우면 카드가 잠깐 떴다 사라진다. 밤에는 빛나는 별 눈송이가 내려오고, 낮에는 없다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await snow(p, () => { const s = window.__snow; s.teleport(20, 20); s.sim(0.1); s.flakes.drop('heart', 20, 21.5); s.teleport(20, 21.3); });
+    await until(async () => p.evaluate(() => !document.querySelector('#catch').hidden && document.querySelector('#catch').dataset.kind === 'heart'), { what: '주운 눈송이 카드' });
+    assert((await p.textContent('#catch .name')).includes('하트 눈송이'), '카드 글: ' + await p.textContent('#catch .name'));
+    await until(async () => p.evaluate(() => document.querySelector('#catch').hidden), { what: '카드가 사라짐', timeout: 8000 });
+    // 밤: 별 눈송이가 저절로 내려온다. 낮이 되면 사라진다
+    const night = await snow(p, async () => { const s = window.__snow; s.clock.setTime('21:30'); for (let i = 0; i < 80; i++) await new Promise((r) => requestAnimationFrame(r)); return s.flakes.live.filter((o) => o.id === 'star').length; });
+    assert(night > 0, '밤인데 별 눈송이가 없다');
+    const day = await snow(p, async () => { const s = window.__snow; s.clock.setTime('13:00'); for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r)); return s.flakes.live.filter((o) => o.id === 'star').length; });
+    assert(day === 0, '낮인데 별 눈송이가 남아 있다');
+  });
+
+  await test('썰매 길 출발 자리에서 배 썰매를 타면 미끄러진 거리를 재고, 걸어오던 기세를 살리면 더 멀리 간다. 길 위에는 자국이 남지 않는다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    const run = (runUp) => snow(p, (runUp) => {
+      const s = window.__snow, L = s.lane;
+      s.teleport(L.start.x - L.dir.x * (runUp ? 4.5 : 1), L.start.z - L.dir.z * (runUp ? 4.5 : 1)); s.me.yaw = s.me.camYaw = Math.atan2(L.dir.x, L.dir.z); s.me.recent = 0; s.sim(0.2);
+      if (runUp) { s.controls.debugMove(0, 1); s.sim(3); s.controls.debugMove(0, 0); }
+      const n0 = s.social.races, slides0 = s.tracks.slideCount; s.slide(); for (let i = 0; i < 1500 && s.me.slide; i++) s.sim(1 / 60);
+      const c = { x: s.me.x - L.start.x, z: s.me.z - L.start.z };
+      return { counted: s.social.races - n0, along: c.x * L.dir.x + c.z * L.dir.z, marks: s.tracks.slideCount - slides0, best: s.sled.best };
+    }, runUp);
+    const a = await run(false), b = await run(true);
+    assert(a.counted === 1 && b.counted === 1, '경주로 치지 않았다: ' + JSON.stringify([a, b]));
+    assert(a.along > 8 && b.along > a.along + 2 && b.along < 31, '기세를 살리면 더 멀리: ' + JSON.stringify([a, b]));
+    assert(a.marks === 0 && b.best >= b.along - 0.01, '길 위의 자국, 최고 기록: ' + JSON.stringify([a, b]));
+  });
+
+  await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await sleep(800);
+    assert(!(await snow(p, () => window.__snow.rabbit.visible)), '낮에 토끼가 보인다');
+    await snow(p, () => { const s = window.__snow; s.clock.setTime('21:30'); s.rabbit.place(15, -15); s.teleport(15, -25); });
+    await until(async () => snow(p, () => window.__snow.rabbit.visible), { what: '밤의 토끼' });
+    const before = await snow(p, () => window.__snow.rabbit.pos);
+    await snow(p, (b) => { window.__snow.teleport(b.x, b.z + 2.5); }, before);
+    await until(async () => snow(p, () => window.__snow.rabbit.scared), { what: '깜짝 놀람' });
+    await sleep(1500);
+    const after = await snow(p, () => { const s = window.__snow; return Math.hypot(s.rabbit.pos.x - s.me.x, s.rabbit.pos.z - s.me.z); });
+    assert(after > 3.5, '달아나지 않았다: ' + after.toFixed(2));
+  });
+
+  await test('연못의 아기 물개는 졸다가, 곁에서 무엇을 낚으면 다가와 조른다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    const s0 = await snow(p, () => { const s = window.__snow, sl = s.seals.seals[0]; return { state: sl.state, x: sl.x, z: sl.z }; });
+    assert(s0.state === 'sleep', '처음에 자고 있지 않다: ' + s0.state);
+    await toHole(p);
+    await snow(p, () => window.__snow.showCatch('smelt'));
+    const step = (sec) => snow(p, (sec) => { for (let i = 0; i < sec * 30; i++) window.__snow.seals.update(1 / 30); return window.__snow.seals.seals[0].state; }, sec);      // (그리는 속도와 상관없이 물개의 시간을 흘린다)
+    for (let k = 0; k < 20 && (await step(0.5)) !== 'beg'; k++);
+    const near = await snow(p, () => { const s = window.__snow, sl = s.seals.seals[0]; return Math.hypot(sl.x - s.me.x, sl.z - s.me.z); });
+    assert(near < 2, '펭귄 곁으로 오지 않았다: ' + near.toFixed(2));
+    let st = ''; for (let k = 0; k < 40 && (st = await step(0.5)) !== 'sleep'; k++);
+    assert(st === 'sleep', '받아먹고 돌아가 자지 않는다: ' + st);
   });
 
   console.log('\n■ 크리스마스');

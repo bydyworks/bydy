@@ -18,6 +18,8 @@ const MAX_MSG = 8192, MAX_RATE = 12;  // 한 번에 받는 글의 크기, 1초�
 const GAME_LIFE = 90e3, INVITE_GAP = 12e3;
 const WISH_LEN = 30, WISHES_SHOWN = 40;          // 소원: 길이, 소원판에 붙여 보여 주는 수 (한 기기에 한 철 한 번)
 const MY_SNOWMEN = 3, SNOWMEN = 40, SNOWMAN_LIFE = 6 * 3600e3, SNOWMAN_POINTS = 900, REPORTS_TO_HIDE = 2;      // 눈사람: 눈밭에 서 있는 최대 수, 녹기까지, 그림의 점 수 상한, 이만큼 신고되면 치운다
+/** 한국 날짜의 번호 (하루마다 하나씩 는다) */
+const kday = (ms) => Math.floor((ms + 9 * 3600e3) / 86400e3);
 /** 소원의 철: 한국 시각으로 그해 (1~2월은 지난해 겨울로 친다) */
 const season = (ms) => { const d = new Date(ms + 9 * 3600e3); return d.getUTCMonth() < 2 ? d.getUTCFullYear() - 1 : d.getUTCFullYear(); };      // 주사위 놀이: 이만큼 아무 일이 없으면 닫는다, 한 펭귄이 다시 부르려면 이만큼 기다린다
 
@@ -61,6 +63,8 @@ export class Field {
     this.sql.exec('CREATE TABLE IF NOT EXISTS wishes (text TEXT, device TEXT, season INTEGER, birth INTEGER)');
     this.sql.exec('CREATE UNIQUE INDEX IF NOT EXISTS wishes_once ON wishes (device, season)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS snowmen (id TEXT PRIMARY KEY, x REAL, z REAL, yaw REAL, d TEXT, device TEXT, birth INTEGER, reports TEXT DEFAULT \'\')');
+    try { this.sql.exec('ALTER TABLE snowmen ADD COLUMN f TEXT'); } catch { /* 이미 있다 */ }      // 눈사람에게 씌운 아이템
+    this.sql.exec('CREATE TABLE IF NOT EXISTS races (name TEXT, device TEXT, dist REAL, day INTEGER, birth INTEGER)');      // 썰매 경주 기록
     this.inserts = 0;
     this.games = new Map();         // 이글루 번호 → 주사위 놀이 { gid, host, hostName, players: Map(id → name), at }
   }
@@ -82,8 +86,8 @@ export class Field {
     const sea = season(now);
     const wishes = this.sql.exec('SELECT text, birth FROM wishes WHERE season = ? ORDER BY birth DESC LIMIT ?', sea, WISHES_SHOWN).toArray();
     const wrote = this.sql.exec('SELECT COUNT(*) AS n FROM wishes WHERE device = ? AND season = ?', device, sea).one().n > 0;
-    const snowmen = this.sql.exec('SELECT id, x, z, yaw, d, birth, device FROM snowmen WHERE birth > ? ORDER BY birth DESC LIMIT ?', now - SNOWMAN_LIFE, SNOWMEN).toArray().map((r) => ({ id: r.id, x: r.x, z: r.z, yaw: r.yaw, d: JSON.parse(r.d), birth: r.birth, mine: r.device === device }));
-    server.send(JSON.stringify({ t: 'hello', id, now, peers, marks, wishes, wrote, snowmen }));
+    const snowmen = this.sql.exec('SELECT id, x, z, yaw, d, f, birth, device FROM snowmen WHERE birth > ? ORDER BY birth DESC LIMIT ?', now - SNOWMAN_LIFE, SNOWMEN).toArray().map((r) => ({ id: r.id, x: r.x, z: r.z, yaw: r.yaw, d: JSON.parse(r.d), f: r.f ? JSON.parse(r.f) : null, birth: r.birth, mine: r.device === device }));
+    server.send(JSON.stringify({ t: 'hello', id, now, peers, marks, wishes, wrote, snowmen, top: this.raceTop(now) }));
     this.broadcast({ t: 'join', id, name, look, color }, server);
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -132,6 +136,16 @@ export class Field {
       return;
     }
     if (m.t === 'g') { this.game(ws, me, m, now); ws.serializeAttachment(me); return; }
+    if (m.t === 'race') {
+      // 썰매 경주 기록: 0~40 걸음, 들판에 있을 때, 3초에 한 번까지. 오늘(한국 날짜)의 기록 다섯을 모두에게 알린다
+      if (me.s && me.s.i === -1 && num(m.d, 0.5, 40) && now - (me.raceAt || 0) > 3000) {
+        me.raceAt = now; ws.serializeAttachment(me);
+        this.sql.exec('INSERT INTO races (name, device, dist, day, birth) VALUES (?, ?, ?, ?, ?)', me.name, me.device, Math.round(m.d * 10) / 10, kday(now), now);
+        this.sql.exec('DELETE FROM races WHERE day < ?', kday(now) - 2);
+        this.broadcast({ t: 'top', top: this.raceTop(now) });
+      }
+      return;
+    }
     if (m.t === 'wish') { ws.serializeAttachment(me); this.wish(ws, me, m, now); return; }
     if (m.t === 'sm' || m.t === 'smr' || m.t === 'smd') { ws.serializeAttachment(me); this.snowman(ws, me, m, now); return; }
     if (m.t === 'b') {
@@ -142,6 +156,9 @@ export class Field {
     }
     ws.serializeAttachment(me);
   }
+
+  /** 오늘의 썰매 기록 다섯 (한 기기에 가장 좋은 것 하나씩) */
+  raceTop(now) { return this.sql.exec('SELECT name, MAX(dist) AS dist FROM races WHERE day = ? GROUP BY device ORDER BY dist DESC LIMIT 5', kday(now)).toArray().map((r) => ({ name: r.name, dist: r.dist })); }
 
   // ---------- 크리스마스 소원판 ----------
   // 짧은 소원을 익명으로 붙인다 (한 기기에 한 철 한 번). 욕·성적인 말·연락처는 받지 않는다 (filter.js)
@@ -169,12 +186,13 @@ export class Field {
         points += Math.floor(st[2].length * 3 / 4 / 2);
       }
       if (points > SNOWMAN_POINTS) return;
-      const id = crypto.randomUUID().slice(0, 8), row = { id, x: r2(m.x), z: r2(m.z), yaw: r2(m.yaw), d: m.d, birth: now };
+      const f = Array.isArray(m.f) && m.f.length === 3 && m.f.every((v, j) => int(v, -1, OUTFIT[j] - 1)) ? m.f.slice() : null;      // 씌운 아이템 [안경, 모자, 귀마개]
+      const id = crypto.randomUUID().slice(0, 8), row = { id, x: r2(m.x), z: r2(m.z), yaw: r2(m.yaw), d: m.d, f, birth: now };
       const old = this.sql.exec('SELECT id FROM snowmen WHERE device = ? ORDER BY birth DESC LIMIT -1 OFFSET ?', me.device, MY_SNOWMEN - 1).toArray();      // (한 기기에 셋까지: 넷째를 세우면 가장 오래된 것부터 녹는다)
       for (const o of old) this.sql.exec('DELETE FROM snowmen WHERE id = ?', o.id);
       this.sql.exec('DELETE FROM snowmen WHERE birth < ?', now - SNOWMAN_LIFE);
       for (const o of old) this.broadcast({ t: 'smx', id: o.id });
-      this.sql.exec('INSERT INTO snowmen (id, x, z, yaw, d, device, birth) VALUES (?, ?, ?, ?, ?, ?, ?)', id, row.x, row.z, row.yaw, JSON.stringify(m.d), me.device, now);
+      this.sql.exec('INSERT INTO snowmen (id, x, z, yaw, d, f, device, birth) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, row.x, row.z, row.yaw, JSON.stringify(m.d), f ? JSON.stringify(f) : null, me.device, now);
       const extra = this.sql.exec('SELECT id FROM snowmen ORDER BY birth DESC LIMIT -1 OFFSET ?', SNOWMEN).toArray();      // 너무 많으면 오래된 것부터
       for (const o of extra) { this.sql.exec('DELETE FROM snowmen WHERE id = ?', o.id); this.broadcast({ t: 'smx', id: o.id }); }
       ws.send(JSON.stringify({ t: 'sm', ...row, mine: true }));
