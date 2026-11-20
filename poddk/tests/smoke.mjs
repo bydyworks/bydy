@@ -1470,27 +1470,32 @@ try {
     assert(den.includes('이글루'), '이글루 알림: ' + den);
   });
 
-  await test('들판 모닥불 곁에서 상황 단추를 누르면 앉아서 마시멜로를 굽고, 다시 누르면 먹는다 (노릇노릇·까맣게 탄 것은 한마디가 다르다)', async () => {
+  await test('들판 모닥불 곁에서 상황 단추를 누르면 그루터기 의자에 올라앉고, 🔥로 마시멜로를 굽고 😋로 먹는다 (노릇노릇·까맣게 탄 것은 한마디가 다르다). 조이스틱을 밀면 내려온다', async () => {
     const p = await page('t=19:00&speed=0&xmas=0');
     await byHand(p);
     const C = await snow(p, async () => ({ ...(await import('./js/campfire.js')).CAMPFIRE }));
+    const label = () => p.getAttribute('#act', 'aria-label');
+    await snow(p, (C) => { const s = window.__snow; s.teleport(C.x + 3.0, C.z + 0.4); s.sim(0.1); }, C);
+    await until(async () => (await label()) === '그루터기에 앉기', { what: '앉기 단추' });
+    await p.click('#act');
+    const seated = await snow(p, async () => { const s = window.__snow; s.sim(0.9); for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r)); return { phase: s.roast && s.roast.phase, y: s.penguin.position.y, a: s.myState().a }; });
+    assert(seated.phase === 'seated' && seated.y > 0.3 && seated.a === 5, '그루터기 위에 앉지 않았다: ' + JSON.stringify(seated));
     const roast = async (cookSec) => {
-      await snow(p, (C) => { const s = window.__snow; s.teleport(C.x + 2.3, C.z + 0.4); s.sim(0.1); }, C);
-      await until(async () => (await p.getAttribute('#act', 'aria-label')) === '마시멜로 굽기', { what: '굽기 단추' });
+      await until(async () => (await label()) === '마시멜로 굽기', { what: '굽기 단추' });
       await p.click('#act');
-      const sat = await snow(p, (sec) => { const s = window.__snow; s.sim(0.7); const sat = { phase: s.roast && s.roast.phase, a: s.myState().a }; s.sim(sec); return sat; }, cookSec);
-      await until(async () => (await p.getAttribute('#act', 'aria-label')) === '마시멜로 먹기', { what: '먹기 단추' });
+      const a = await snow(p, (sec) => { const s = window.__snow; s.sim(0.1); const a = s.myState().a; s.sim(sec); return a; }, cookSec);
+      await until(async () => (await label()) === '마시멜로 먹기', { what: '먹기 단추' });
       await p.click('#act');
       const said = await p.textContent('#toast');
-      await snow(p, () => window.__snow.sim(2));
-      return { sat, said, done: await snow(p, () => window.__snow.roast) };
+      await snow(p, () => window.__snow.sim(1.5));
+      return { a, said, after: await snow(p, () => window.__snow.roast && window.__snow.roast.phase) };
     };
     const gold = await roast(5.4);
-    assert(gold.sat.phase === 'cook' && gold.sat.a === 8, '불을 보고 앉아 굽지 않는다: ' + JSON.stringify(gold.sat));
-    assert(gold.said.includes('노릇노릇'), '알맞게 구웠는데: ' + gold.said);
-    assert(gold.done === null, '먹고 나서 일어나지 않았다');
+    assert(gold.a === 8 && gold.said.includes('노릇노릇') && gold.after === 'seated', '알맞게 구워 먹고 다시 앉아 있어야 한다: ' + JSON.stringify(gold));
     const burnt = await roast(10);
     assert(burnt.said.includes('까맣게'), '오래 두었는데: ' + burnt.said);
+    const off = await snow(p, async (C) => { const s = window.__snow; s.controls.debugMove(0, 1); s.sim(0.8); s.controls.debugMove(0, 0); for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r)); return { roast: s.roast, y: s.penguin.position.y, d: Math.hypot(s.me.x - C.x, s.me.z - C.z) }; }, C);
+    assert(off.roast === null && off.y < 0.05 && off.d > 2.6, '조이스틱을 밀었는데 내려오지 않았다: ' + JSON.stringify(off));
   });
 
   await test('오로라: 다섯 밤에 두 번쯤 뜨고(날짜로 정해져 모두에게 같다), 그 밤 저녁 8시~새벽 4시에만 보인다. ?aurora 로 띄우면 밤하늘에 일렁이고 알림이 뜬다', async () => {

@@ -1,14 +1,14 @@
 // 들판의 모닥불: 트리에서 조금 떨어진 곳에 돌을 둘러 피운 불과, 둘레의 나무 그루터기 의자들.
-// 불 곁에서 상황 단추를 누르면 앉아서 막대 끝의 마시멜로를 불에 굽는다. 하얗던 마시멜로가 노릇노릇해지다가,
+// 불 곁에서 상황 단추를 누르면 그루터기 의자에 폴짝 올라앉고, 🔥 단추로 막대 끝의 마시멜로를 불에 굽는다. 하얗던 마시멜로가 노릇노릇해지다가,
 // 너무 오래 두면 갈색을 지나 까맣게 탄다. 다시 누르면 냠 먹는다 (얼마나 구웠는지에 따라 한마디).
 import * as THREE from 'three';
 
 const DEG = 215, FAR = 17;                       // 트리에서 본 방향(도)과 거리
 export const CAMPFIRE = { x: Math.sin(DEG * Math.PI / 180) * FAR, z: Math.cos(DEG * Math.PI / 180) * FAR, r: 0.95 };      // r: 지나갈 수 없는 불 둘레
-export const ROAST_REACH = 3.1;                  // 불에서 이만큼 안이면 "마시멜로 굽기" 단추가 된다
-export const ROAST_SEAT = 1.75;                  // 구울 때 불에서 이만큼 떨어져 앉는다
-const STUMP_RING = 2.6, STUMPS = 4;
-/** 그루터기 의자들 (걸어서 지나갈 수 없다) */
+export const ROAST_REACH = 3.4;                  // 불에서 이만큼 안이면 "그루터기에 앉기" 단추가 된다
+export const STUMP_RING = 2.25, STUMPS = 4;      // 그루터기 의자: 불에서 떨어진 거리와 수
+export const STUMP_SEAT_Y = 0.4;                 // 그루터기에 앉으면 펭귄이 이만큼 높이 앉는다 (그루터기 윗면)
+/** 그루터기 의자들 (걸어서 지나갈 수 없다. 앉을 때는 그 위로 폴짝 올라앉는다) */
 export const STUMP_BLOCKS = Array.from({ length: STUMPS }, (_, k) => {
   const a = Math.PI / 4 + k * Math.PI / 2;
   return { x: CAMPFIRE.x + Math.sin(a) * STUMP_RING, z: CAMPFIRE.z + Math.cos(a) * STUMP_RING, r: 0.38 };
@@ -39,7 +39,7 @@ export function marshmallowColor(t, out = new THREE.Color()) {
 }
 
 /** 마시멜로를 꽂은 막대 (펭귄 날개 끝에 쥔다). 막대는 +y 쪽으로 뻗고, 끝에 마시멜로가 있다 */
-export const STICK_LEN = 1.15;
+export const STICK_LEN = 1.45;
 export function makeStick() {
   const g = new THREE.Group();
   const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.02, STICK_LEN, 6), new THREE.MeshStandardMaterial({ color: '#8a5a36', roughness: 0.9 }));

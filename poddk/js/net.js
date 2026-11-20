@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, COLORS, ROD_GRIP } from './penguin.js';
 import { STATUSES } from './den.js';
 import { ROD_LEN, ROD_TILT, SEAT as FISH_SEAT, FLOAT_Y } from './fishing.js';
-import { makeStick } from './campfire.js';
+import { makeStick, STUMP_SEAT_Y } from './campfire.js';
 import { SLOTS, wear } from './outfit.js';
 import { heightAt } from './hill.js';
 
@@ -77,7 +77,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     float.scale.setScalar(1.5); float.visible = false;      // (낚싯대와 찌는 멀리서도 보이게 내 것보다 조금 크게)
     scene.add(line, float);
     // 마시멜로 막대 (모닥불 곁에서 굽는 동안에만 보인다)
-    const mallow = makeStick(); mallow.position.copy(ROD_GRIP); mallow.position.y -= 0.09; mallow.rotation.set(1.28, 0, 0.1); mallow.visible = false;
+    const mallow = makeStick(); mallow.position.copy(ROD_GRIP); mallow.position.y -= 0.09; mallow.rotation.set(1.45, 0, 0.1); mallow.visible = false;
     mallow.userData.mallow.material.color.set('#f2c98a'); root.add(mallow);
     const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, mallow, tag: null, tagT: -1, near: false, threw: 9 };
     peers.set(id, p);
@@ -176,6 +176,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
           if (p.k <= 0) { if (POSES[p.act]) POSES[p.act](r, 0, time); p.act = want; }
         } else if (POSES[want]) p.k = Math.min(1, p.k + dt / EASE.in);
         const ease = p.k * p.k * (3 - 2 * p.k);
+        if (s.i === -1 && (p.act === ACT.sit || p.act === ACT.roast)) r.position.y += STUMP_SEAT_Y * ease;      // 들판에서 앉은 펭귄은 모닥불 그루터기 위에 앉아 있다
         if (POSES[p.act]) POSES[p.act](r, ease, time);
         // 쓰고 있는 패션 아이템 (선물에서 나온 안경·모자·귀마개)
         const f = Array.isArray(s.f) ? s.f.join('.') : '';
