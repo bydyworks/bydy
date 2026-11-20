@@ -12,7 +12,7 @@ import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
 import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
-import { createHill, heightAt, onHill, canWalk, slidesOff, HILL } from './hill.js';
+import { createHill, heightAt, onHill, canWalk, slidesOff, nearStairFoot, onTop, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
 import { createSanta } from './santa.js';
@@ -1411,12 +1411,33 @@ function tick(t) {
     $('#carol-row').hidden = !carol;
     document.body.dataset.storm = stormPhase(now);
     document.body.dataset.sky = palette.elev > 6 ? 'day' : palette.elev > -6 ? 'dusk' : 'night';      // 시각 옆의 그림: 해, 지평선의 해, 달
-    if (canFish() && firstTime('hole')) toast('얼음 구멍이에요. 낚시 한번 해 볼래요?', 3600);
+    spotTips(t);
   }
   showAction();
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
   raf = document.hidden ? 0 : requestAnimationFrame(tick);
+}
+
+// ---------- 놀 거리 곁에 오면 알림 ----------
+// 낚시 구멍, 이글루, 슬라이딩 언덕, 썰매 길 곁에 들어서면 "해 볼래요?" 알림이 뜬다.
+// 한 자리에서 한 번 뜨면 그 자리를 떠났다가 다시 와야 또 뜨고, 같은 종류는 1분 반 안에 다시 뜨지 않는다.
+const SPOTS = [
+  { key: 'hole', near: () => canFish(), say: '얼음 구멍이에요. 낚시 한번 해 볼래요? 🎣' },
+  { key: 'den', near: () => canEnter() >= 0, say: '이글루예요. 들어가서 쉬었다 갈래요? 🔥' },
+  { key: 'hill', near: () => nearStairFoot(me.x, me.z), say: '슬라이딩 언덕이에요. 계단으로 올라가 볼래요? 🐧' },
+  { key: 'top', near: () => onTop(me.x, me.z), say: '비탈 쪽으로 걸어 나가면 슬라이딩으로 쌩 내려가요!' },
+  { key: 'lane', near: () => onPad(me.x, me.z), say: '썰매 경주 길이에요. 슬라이딩으로 기록을 세워 볼래요? 🏁' },
+];
+const spotWas = {}, spotAt = {};
+function spotTips(t) {
+  const free = started && !busyDoor && me.inside === null && !fishing.active && !me.slide && !me.angel && !me.seat && !giftOpen && !postOpen && !modal();
+  if (!free) return;      // (미끄러지거나 낚시하는 동안에는 알림을 띄우지 않고, 곁에 있었는지도 그대로 둔다)
+  for (const s of SPOTS) {
+    const near = !!s.near();
+    if (near && !spotWas[s.key] && !(t - (spotAt[s.key] ?? -Infinity) < 90000)) { spotAt[s.key] = t; toast(s.say, 3600); }
+    spotWas[s.key] = near;
+  }
 }
 
 // ---------- 시작 ----------

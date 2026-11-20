@@ -25,6 +25,13 @@ export function onStairs(x, z) {
 export function slidesOff(fx, fz, tx, tz) {
   return Math.hypot(fx - HILL.x, fz - HILL.z) <= HILL.top && Math.hypot(tx - HILL.x, tz - HILL.z) > HILL.top && !onStairs(tx, tz);
 }
+/** 계단 아래 언저리인가 (언덕을 처음 찾아왔을 때 알림을 띄우는 자리) */
+export function nearStairFoot(x, z) {
+  const fx = HILL.x + sd.x * (HILL.r + 1.2), fz = HILL.z + sd.z * (HILL.r + 1.2);
+  return Math.hypot(x - fx, z - fz) < 3.2;
+}
+/** 꼭대기의 평평한 자리 위인가 */
+export const onTop = (x, z) => Math.hypot(x - HILL.x, z - HILL.z) <= HILL.top;
 /** 걸어서 (fx, fz) 에서 (tx, tz) 로 갈 수 있는가: 비탈은 계단과 꼭대기로만 다닌다 (비탈 위에 있으면 내려가는 쪽으로는 걸을 수 있다) */
 export function canWalk(fx, fz, tx, tz) {
   if (!onHill(tx, tz) || onStairs(tx, tz) || Math.hypot(tx - HILL.x, tz - HILL.z) <= HILL.top) return true;
@@ -41,8 +48,8 @@ export function createHill(scene) {
   ring.computeVertexNormals();
   const mound = new THREE.Mesh(ring, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 1 })); mound.receiveShadow = true; mound.castShadow = true; g.add(mound);
   geo.dispose();
-  // 계단: 눈을 다져 깎은 계단 칸들과 양옆의 나무 난간
-  const stepMat = new THREE.MeshStandardMaterial({ color: '#eef3fa', roughness: 0.9 }), edge = new THREE.MeshStandardMaterial({ color: '#c9d6e8', roughness: 0.9 }), wood = new THREE.MeshStandardMaterial({ color: '#8a5a36', roughness: 0.9 });
+  // 계단: 눈을 다져 깎은 계단 칸들 (난간 없이)
+  const stepMat = new THREE.MeshStandardMaterial({ color: '#eef3fa', roughness: 0.9 }), edge = new THREE.MeshStandardMaterial({ color: '#c9d6e8', roughness: 0.9 });
   const STEPS = 14;
   for (let k = 0; k < STEPS; k++) {
     const a0 = HILL.r + 0.6 - (k / STEPS) * (HILL.r + 0.6 - HILL.top), a1 = HILL.r + 0.6 - ((k + 1) / STEPS) * (HILL.r + 0.6 - HILL.top);
@@ -50,28 +57,49 @@ export function createHill(scene) {
     const box = new THREE.Mesh(new THREE.BoxGeometry(STAIR_HALF * 2, Math.max(0.08, top) + 0.04, a0 - a1 + 0.02), k % 2 ? stepMat : edge);
     box.position.set(sd.x * mid, (Math.max(0.08, top) + 0.04) / 2, sd.z * mid); box.rotation.y = STAIR_DIR; box.receiveShadow = true; g.add(box);
   }
-  for (const s of [-1, 1]) {
-    for (let k = 0; k <= 4; k++) {
-      const a = HILL.r + 0.6 - (k / 4) * (HILL.r + 0.6 - HILL.top), px = sd.x * a + sd.z * s * (STAIR_HALF + 0.05), pz = sd.z * a - sd.x * s * (STAIR_HALF + 0.05), y = heightAt(HILL.x + sd.x * a, HILL.z + sd.z * a);
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.8, 6), wood); post.position.set(px, y + 0.4, pz); g.add(post);
-      if (k < 4) {
-        const a2 = HILL.r + 0.6 - ((k + 1) / 4) * (HILL.r + 0.6 - HILL.top), px2 = sd.x * a2 + sd.z * s * (STAIR_HALF + 0.05), pz2 = sd.z * a2 - sd.x * s * (STAIR_HALF + 0.05), y2 = heightAt(HILL.x + sd.x * a2, HILL.z + sd.z * a2);
-        const len = Math.hypot(px2 - px, pz2 - pz, y2 - y), rail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, len, 6), wood);
-        rail.position.set((px + px2) / 2, (y + y2) / 2 + 0.78, (pz + pz2) / 2); rail.lookAt(new THREE.Vector3(px2 + HILL.x, y2 + 0.78, pz2 + HILL.z)); rail.rotateX(Math.PI / 2); g.add(rail);
-      }
-    }
-  }
-  // 꼭대기의 작은 깃발과 "슬라이딩" 팻말
+  // 꼭대기의 작은 깃발
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 8), new THREE.MeshStandardMaterial({ color: '#8a5a36' })); pole.position.set(0.6, HILL.h + 0.7, 0); g.add(pole);
   const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshStandardMaterial({ color: '#e0503f', side: THREE.DoubleSide })); flag.position.set(0.9, HILL.h + 1.25, 0); g.add(flag);
-  const c = document.createElement('canvas'); c.width = 256; c.height = 96; const x = c.getContext('2d');
-  x.fillStyle = '#fff3c4'; x.fillRect(0, 0, 256, 96); x.fillStyle = '#7a3b22'; x.font = '900 40px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('🐧 슬라이딩', 128, 50);
-  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
-  const sign = new THREE.Group();
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.42), new THREE.MeshStandardMaterial({ map: tex })); face.position.y = 0.9; sign.add(face);
-  const post = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.9, 8), new THREE.MeshStandardMaterial({ color: '#6b4428' })); post.position.y = 0.45; sign.add(post);
-  const foot = HILL.r + 1.4;      // 계단 아래 옆에
-  sign.position.set(sd.x * foot + sd.z * (STAIR_HALF + 0.9), 0, sd.z * foot - sd.x * (STAIR_HALF + 0.9)); sign.rotation.y = STAIR_DIR; g.add(sign);
+  // 계단 아래 옆의 나무 팻말: 배를 깔고 미끄러지는 펭귄 그림과 "슬라이딩 언덕", 그 아래 "계단으로 올라가요"
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+  const drawSign = () => {
+    const x = c.getContext('2d');
+    x.clearRect(0, 0, 512, 256);
+    const plank = (y, h, col) => { x.fillStyle = col; x.beginPath(); x.roundRect(10, y, 492, h, 26); x.fill(); };
+    plank(8, 240, '#6b4428'); plank(18, 220, '#a8744a');
+    x.strokeStyle = 'rgba(90,55,30,0.35)'; x.lineWidth = 3;      // 나뭇결
+    for (const y of [70, 128, 186]) { x.beginPath(); x.moveTo(34, y); x.bezierCurveTo(170, y - 8, 330, y + 8, 478, y - 2); x.stroke(); }
+    x.fillStyle = '#fff6e0';      // 지붕처럼 얹힌 눈
+    x.beginPath(); x.moveTo(18, 40); x.quadraticCurveTo(18, 14, 46, 14); x.lineTo(466, 14); x.quadraticCurveTo(494, 14, 494, 40);
+    for (let k = 0; k <= 12; k++) x.lineTo(494 - k * 39, 34 + (k % 2 ? 12 : 4));
+    x.closePath(); x.fill();
+    // 배를 깔고 미끄러지는 펭귄
+    const px = 136, py = 128;
+    x.save(); x.translate(px, py); x.rotate(-0.12);
+    x.fillStyle = '#2b2f3a'; x.beginPath(); x.ellipse(0, 0, 66, 34, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(4, 10, 54, 22, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#2b2f3a'; x.beginPath(); x.arc(58, -14, 26, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#ffffff'; x.beginPath(); x.arc(64, -10, 15, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#2b2f3a'; x.beginPath(); x.arc(68, -14, 4.5, 0, Math.PI * 2); x.fill();
+    x.fillStyle = '#f2a33a'; x.beginPath(); x.moveTo(80, -10); x.lineTo(98, -5); x.lineTo(80, -1); x.closePath(); x.fill();
+    x.fillStyle = '#f2a33a'; x.beginPath(); x.ellipse(-70, 6, 12, 7, 0.3, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#ffffff'; x.lineWidth = 5; x.lineCap = 'round';      // 미끄러지는 줄
+    for (const [y, l] of [[-12, 18], [6, 26], [24, 16]]) { x.beginPath(); x.moveTo(-82 - l, y); x.lineTo(-84, y); x.stroke(); }
+    x.restore();
+    x.fillStyle = '#fff6e0'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = '900 64px NanumSquareRound, system-ui, sans-serif'; x.fillText('슬라이딩', 352, 108);
+    x.font = '800 32px NanumSquareRound, system-ui, sans-serif'; x.fillStyle = '#ffe7b0'; x.fillText('계단으로 올라가요 ↑', 342, 182);
+    tex.needsUpdate = true;
+  };
+  drawSign();
+  if (document.fonts) document.fonts.load('900 64px NanumSquareRound').then(drawSign, () => {});
+  const sign = new THREE.Group(), wood = new THREE.MeshStandardMaterial({ color: '#6b4428', roughness: 0.9 });
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.75), new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.5, roughness: 0.85 })); face.position.y = 1.05; sign.add(face);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.46, 0.7, 0.05), wood); back.position.set(0, 1.05, -0.035); sign.add(back);
+  for (const sx of [-0.55, 0.55]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.75, 8), wood); leg.position.set(sx, 0.37, -0.06); sign.add(leg); }
+  const foot = HILL.r + 1.6;      // 계단 아래 옆에, 계단으로 오는 펭귄 쪽을 본다
+  sign.position.set(sd.x * foot + sd.z * (STAIR_HALF + 1.2), 0, sd.z * foot - sd.x * (STAIR_HALF + 1.2)); sign.rotation.y = STAIR_DIR - 0.35; g.add(sign);
   g.traverse((o) => { if (o.isMesh && o !== mound) o.castShadow = true; });
   g.position.set(HILL.x, 0, HILL.z);
   scene.add(g);
