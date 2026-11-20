@@ -12,6 +12,7 @@ import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
 import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
+import { createHill, heightAt, onHill, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
 import { createSanta } from './santa.js';
@@ -64,6 +65,7 @@ const fieldBlocks = [...BLOCKS, POSTBOX, WISHBOARD];      // (눈사람이 서�
 const field = createField(scene, { clearings: CLEARINGS, blocks: fieldBlocks });
 const wishboard = createWishboard(scene);  // 트리 뒤쪽의 크리스마스 소원판
 const sled = createSled(scene);            // 썰매 경주 길
+const hill = createHill(scene);            // 눈썰매 언덕
 const postbox = createPostbox(scene);      // 트리 옆 우체통 (친구에게 엽서 보내기)
 const camp = createCamp(scene);            // 이글루 셋과 얼음 낚시터 셋
 const dens = createDens(scene);            // 이글루 셋의 안쪽 방 (들판 밖 먼 곳에 지어 둔다)
@@ -77,6 +79,7 @@ const santa = createSanta(scene);
 /** 눈 위의 빈자리인가 (얼음, 이글루, 나무 곁, 썰매 길이 아닌 곳): 선물 상자와 특별한 눈송이가 놓이는 자리 */
 const openSnow = (x, z) => {
   if (Math.hypot(x, z) < 7 || PONDS.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius + 1.5) || IGLOOS.some((g) => Math.hypot(x - g.x, z - g.z) < g.radius + 4)) return false;
+  if (Math.hypot(x - HILL.x, z - HILL.z) < HILL.r + 2.5) return false;
   const c = laneCoord(x, z); if (c.along > -LANE.pad - 3 && c.along < LANE.len + 2 && Math.abs(c.side) < LANE.half + 3) return false;
   const f = field.confine(x, z); return Math.hypot(f.x - x, f.z - z) < 1e-6;
 };
@@ -366,6 +369,7 @@ const SLIDE = {
   snow: 2.1, ice: 0.55,  // 눈 위와 얼음 위에서 줄어드는 빠르기 (초당) — 얼음에서는 훨씬 덜 줄어 멀리 간다
   iceBoost: 1.35,        // 얼음 위에 들어서면 미끄러짐이 살아난다 (얼음 위에서 밀고 나간 빠르기의 배수 상한)
   stop: 0.3,             // 이보다 느려지면 멈춘다
+  hill: 1.0, gravity: 9, max: 11,      // 눈썰매 언덕: 눈보다 덜 줄고, 비탈의 기울기만큼 빨라지거나 느려진다 (가장 빨라야 이만큼)
   up: 0.55,              // 일어나기 (초)
 };
 function startSlide() {
@@ -399,8 +403,12 @@ function stepSlide(dt, now) {
     s.v = s.top * Math.max(0, (u - 0.35) / 0.65);
     if (u >= 1) { s.phase = 'glide'; audio.fx('bodyfall', 0.45); crumble.puff(me.x + Math.sin(me.yaw) * 0.5, me.z + Math.cos(me.yaw) * 0.5, 0.45); }
   } else if (s.phase === 'glide') {
-    const lane = onLane(me.x, me.z);
-    s.v = Math.max(0, s.v - (lane ? LANE.decel : ice ? SLIDE.ice : SLIDE.snow) * dt);      // (썰매 길은 매끈하지만, 얼음 연못처럼 기세가 되살아나지는 않는다)
+    const lane = onLane(me.x, me.z), hilly = onHill(me.x, me.z);
+    s.v = Math.max(0, s.v - (lane ? LANE.decel : ice ? SLIDE.ice : hilly ? SLIDE.hill : SLIDE.snow) * dt);
+    if (hilly) {      // 언덕 비탈: 내리막이면 빨라지고 오르막이면 느려진다
+      const ax = Math.sin(me.yaw), az = Math.cos(me.yaw), slope = (heightAt(me.x + ax * 0.25, me.z + az * 0.25) - heightAt(me.x - ax * 0.25, me.z - az * 0.25)) / 0.5;
+      s.v = Math.min(SLIDE.max, Math.max(0, s.v - slope * SLIDE.gravity * dt));
+    }      // (썰매 길은 매끈하지만, 얼음 연못처럼 기세가 되살아나지는 않는다)
     if (ice && !lane && s.v < SLIDE.push * 0.75 && s.v > SLIDE.stop) s.v = Math.min(SLIDE.push * SLIDE.iceBoost, s.v + 0.9 * dt);      // 얼음 위: 미끄러움이 쉽게 죽지 않는다
     if (s.v < SLIDE.stop) { s.v = 0; s.phase = 'up'; s.t = 0; audio.slide.stop(); }
   } else {
@@ -421,7 +429,7 @@ function stepSlide(dt, now) {
     while (s.mark >= SLIDE_PIECE) {
       s.mark -= SLIDE_PIECE;
       const bx = me.x - dx * (0.25 + s.mark), bz = me.z - dz * (0.25 + s.mark);
-      if (!onIce(bx, bz) && !onLane(bx, bz)) { tracks.addSlide(bx, bz, me.yaw, now); net.mark(2, bx, bz, me.yaw); }
+      if (!onIce(bx, bz) && !onLane(bx, bz) && !onHill(bx, bz)) { tracks.addSlide(bx, bz, me.yaw, now); net.mark(2, bx, bz, me.yaw); }
     }
     // 눈 위에서는 앞쪽으로 눈가루가 살짝 튄다
     s.spray -= dt;
@@ -565,7 +573,7 @@ const SNOWMAN_LIFE = 6 * 3600e3, MY_SNOWMEN = 3;
 let localNo = 0; const pendingLocal = [];      // 서버에서 번호를 받기 전의 내 눈사람들 (세운 차례대로)
 const hiddenSnowmen = new Set();      // (예전에 신고로 치우던 것: 이제 신고는 없다)
 const modal = () => !$('#sculpt').hidden || !$('#wishes').hidden;
-const canRoll = () => free() && !onIce(me.x, me.z) && !fishing.button;
+const canRoll = () => free() && !onIce(me.x, me.z) && !onHill(me.x, me.z) && !fishing.button;
 function startRoll() { me.roll = { size: ROLL.start, last: { x: me.x, z: me.z } }; rollBall.visible = true; placeRollBall(); audio.fx('rustle', 0.3); }
 function stopRoll(puffIt = true) { if (!me.roll) return; if (puffIt) crumble.puff(rollBall.position.x, rollBall.position.z, me.roll.size * 1.4); me.roll = null; rollBall.visible = false; }
 function placeRollBall() {
@@ -1264,7 +1272,7 @@ function walk(dt, now) {
       me.side = -me.side;
       // 발 위치: 몸 가운데에서 옆으로 벌어진 자리
       const px = me.x + me.side * STANCE * Math.cos(me.yaw), pz = me.z - me.side * STANCE * Math.sin(me.yaw);
-      const ice = onIce(px, pz) || onLane(px, pz), indoors = me.inside !== null;      // 얼음 위와 이글루 안: 발자국이 남지 않고, 발소리는 다져진 눈처럼 낮게 난다
+      const ice = onIce(px, pz) || onLane(px, pz) || onHill(px, pz), indoors = me.inside !== null;      // 얼음 위와 이글루 안: 발자국이 남지 않고, 발소리는 다져진 눈처럼 낮게 난다
       const packed = ice || indoors || tracks.isPacked(px, pz, now);
       if (!ice && !indoors) { tracks.addPrint(px, pz, me.yaw, me.side, now); net.mark(0, px, pz, me.yaw, me.side); }
       // 한 걸음 소리의 길이는 걸음 사이의 두 배쯤: 빨리 걸으면 짧게 끊어 뭉개지지 않게 하고, 천천히 걸으면 다 들려준다
@@ -1295,10 +1303,11 @@ function walk(dt, now) {
 }
 
 function placeCamera(dt) {
-  penguin.position.set(me.x, 0, me.z);
+  const gy = me.inside === null ? heightAt(me.x, me.z) : 0;      // 언덕 위에서는 그 높이에 선다
+  penguin.position.set(me.x, gy, me.z);
   penguin.rotation.y = me.yaw;
   fwd.set(Math.sin(me.camYaw), 0, Math.cos(me.camYaw));
-  focus.set(me.x, CAM_TARGET_H, me.z);
+  focus.set(me.x, CAM_TARGET_H + gy, me.z);
   // 눈 천사를 만드는 동안에는 카메라가 위로 올라가 내려다본다 (자국이 그려지는 모습이 보이게)
   angelLift += ((me.angel ? 1 : 0) - angelLift) * (dt > 0 ? 1 - Math.exp(-dt * 3.5) : 1);
   fishView += ((fishing.active ? 1 : 0) - fishView) * (dt > 0 ? 1 - Math.exp(-dt * 3) : 1);
@@ -1306,7 +1315,7 @@ function placeCamera(dt) {
   const pitch = Math.min(1.25, me.camPitch + angelLift * 0.62 + fishView * FISH_VIEW.pitch + slideLift * 0.32 + (me.inside !== null ? 0.3 : 0));      // 이글루 안에서는 조금 내려다본다
   const dist = me.camDist + angelLift * 1.2 + slideLift * 1.6;
   camGoal.copy(focus).addScaledVector(fwd, -dist * Math.cos(pitch));
-  camGoal.y = CAM_TARGET_H + dist * Math.sin(pitch);
+  camGoal.y = focus.y + dist * Math.sin(pitch);
   if (me.inside !== null) {
     // 이글루 안: 바깥처럼 펭귄 뒤 조금 위에서 내려다본다. 벽은 안쪽 면만 그려지므로, 카메라가 벽 밖으로 물러나도 방이 가리지 않고
     // 지붕을 걷어 낸 것처럼 넓게 보인다. 끌어서 돌리고, 두 손가락이나 휠로 가까이·멀리 한다. 걷는 방향의 기준은 카메라가 실제로 보는 쪽이다

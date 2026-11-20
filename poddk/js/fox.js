@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { printAlpha } from './clock.js';
 import { IGLOOS, HOLES } from './igloo.js';
+import { HILL } from './hill.js';
 
 const ORANGE = '#e8853b', CREAM = '#fbf1e0', SOCK = '#4b342c', INK = '#17181d';
 
@@ -15,7 +16,7 @@ const ROAM = 68;                 // 가운데에서 이만큼까지 돌아다닌
 const KEEP = 6;                  // 목적지는 나무에서 이만큼은 떨어진 곳에 잡는다
 const CLEAR = 4;                 // 걷는 길은 나무 둥치에서 이만큼은 떨어져 지나간다
 /** 돌아가야 하는 곳들: 나무, 이글루(문간까지), 낚시 구멍 */
-const AVOID = [{ x: 0, z: 0, r: CLEAR }, ...IGLOOS.map((g) => ({ x: g.x, z: g.z, r: g.radius + 2.4 })), ...HOLES.map((h) => ({ x: h.x, z: h.z, r: 2.6 }))];
+const AVOID = [{ x: 0, z: 0, r: CLEAR }, { x: HILL.x, z: HILL.z, r: HILL.r + 1.5 }, ...IGLOOS.map((g) => ({ x: g.x, z: g.z, r: g.radius + 2.4 })), ...HOLES.map((h) => ({ x: h.x, z: h.z, r: 2.6 }))];
 const WALK = 1.15;               // 평소 걷는 빠르기 (단위/초) — 펭귄보다 조금 느려서 따라잡을 수 있다
 const STRIDE = 0.5;              // 걸음 한 주기에 나아가는 거리
 const PAW_STEP = 0.3;            // 발자국 사이의 거리
