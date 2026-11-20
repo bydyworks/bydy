@@ -12,7 +12,7 @@ import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
 import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
-import { createHill, heightAt, onHill, canWalk, HILL } from './hill.js';
+import { createHill, heightAt, onHill, canWalk, slidesOff, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
 import { createSanta } from './santa.js';
@@ -65,7 +65,7 @@ const fieldBlocks = [...BLOCKS, POSTBOX, WISHBOARD];      // (눈사람이 서�
 const field = createField(scene, { clearings: CLEARINGS, blocks: fieldBlocks });
 const wishboard = createWishboard(scene);  // 트리 뒤쪽의 크리스마스 소원판
 const sled = createSled(scene);            // 썰매 경주 길
-const hill = createHill(scene);            // 눈썰매 언덕
+const hill = createHill(scene);            // 슬라이딩 언덕
 const postbox = createPostbox(scene);      // 트리 옆 우체통 (친구에게 엽서 보내기)
 const camp = createCamp(scene);            // 이글루 셋과 얼음 낚시터 셋
 const dens = createDens(scene);            // 이글루 셋의 안쪽 방 (들판 밖 먼 곳에 지어 둔다)
@@ -369,7 +369,7 @@ const SLIDE = {
   snow: 2.1, ice: 0.55,  // 눈 위와 얼음 위에서 줄어드는 빠르기 (초당) — 얼음에서는 훨씬 덜 줄어 멀리 간다
   iceBoost: 1.35,        // 얼음 위에 들어서면 미끄러짐이 살아난다 (얼음 위에서 밀고 나간 빠르기의 배수 상한)
   stop: 0.3,             // 이보다 느려지면 멈춘다
-  hill: 1.0, gravity: 9, max: 11,      // 눈썰매 언덕: 눈보다 덜 줄고, 비탈의 기울기만큼 빨라지거나 느려진다 (가장 빨라야 이만큼)
+  hill: 1.0, gravity: 9, max: 11,      // 슬라이딩 언덕: 눈보다 덜 줄고, 비탈의 기울기만큼 빨라지거나 느려진다 (가장 빨라야 이만큼)
   up: 0.55,              // 일어나기 (초)
 };
 function startSlide() {
@@ -1254,7 +1254,12 @@ function walk(dt, now) {
     me.yaw += THREE.MathUtils.clamp(angleDiff(want, me.yaw), -TURN_RATE * dt, TURN_RATE * dt);
     const speed = WALK_SPEED * mag;
     let c = me.inside !== null ? dens.confine(me.inside, me.x + dx * speed * dt, me.z + dz * speed * dt) : field.confine(me.x + dx * speed * dt, me.z + dz * speed * dt);
-    if (me.inside === null && !canWalk(me.x, me.z, c.x, c.z)) {      // 눈썰매 언덕의 비탈은 걸어서 오르지 못한다 (계단으로만): 비탈을 따라 옆으로 비껴 걷는 것도 막는다
+    if (me.inside === null && slidesOff(me.x, me.z, c.x, c.z)) {      // 언덕 꼭대기에서 비탈로 걸어 나가면: 걷지 않고 비탈 아래쪽을 보고 엎드려 슬라이딩으로 내려간다
+      me.yaw = Math.atan2(c.x - HILL.x, c.z - HILL.z);
+      startSlide();
+      if (me.slide) return;
+    }
+    if (me.inside === null && !canWalk(me.x, me.z, c.x, c.z)) {      // 슬라이딩 언덕의 비탈은 걸어서 오르지 못한다 (계단으로만): 비탈을 따라 옆으로 비껴 걷는 것도 막는다
       const sx = { x: c.x, z: me.z }, sz = { x: me.x, z: c.z };
       c = canWalk(me.x, me.z, sx.x, sx.z) ? { ...sx, edge: true } : canWalk(me.x, me.z, sz.x, sz.z) ? { ...sz, edge: true } : { x: me.x, z: me.z, edge: true };
     }
@@ -1264,7 +1269,7 @@ function walk(dt, now) {
     if (me.roll) stepRoll();                               // 굴리는 눈덩이가 걸은 만큼 커진다
     coach.note(moved, 0);
     if (!giftOpen) { const g = xmas.touch(me.x, me.z); if (g) openGift(g); }
-    if (c.edge && me.inside === null && performance.now() - me.edgeAt > 7000) { me.edgeAt = performance.now(); toast('여기부터는 눈이 너무 깊어요'); }
+    if (c.edge && me.inside === null && performance.now() - me.edgeAt > 7000) { me.edgeAt = performance.now(); toast(onHill(me.x + dx * 0.6, me.z + dz * 0.6) ? '언덕은 계단으로 올라가요 🐧' : '여기부터는 눈이 너무 깊어요'); }
     // 옆으로 밀면 카메라도 천천히 그쪽으로 돈다 (직접 둘러보는 중이 아닐 때) — 키보드만으로도 방향을 바꿀 수 있다
     if (!controls.looking) me.camYaw -= mv.x * 0.85 * dt;
 

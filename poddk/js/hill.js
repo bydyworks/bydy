@@ -1,4 +1,4 @@
-// 눈썰매 언덕: 들판 한쪽에 솟은 둥근 눈 언덕. 한쪽의 계단으로만 걸어 오르내리고, 꼭대기에서 배 썰매를 타면 비탈을 따라 쌩 내려간다.
+// 슬라이딩 언덕: 들판 한쪽에 솟은 둥근 눈 언덕. 한쪽의 계단으로 걸어 오르고, 꼭대기 가장자리에서 비탈 쪽으로 걸어 나가면 저절로 배를 깔고 슬라이딩으로 쌩 내려간다.
 // 비탈은 걸어서 오를 수 없다 (미끄러져 내려온 뒤 비탈에 멈췄으면 아래쪽으로는 걸어 나올 수 있다).
 // 언덕의 높이는 heightAt(x, z) 로 어디서나 잴 수 있다 (펭귄과 다른 펭귄이 그 높이에 선다).
 import * as THREE from 'three';
@@ -20,6 +20,10 @@ export const onHill = (x, z) => Math.hypot(x - HILL.x, z - HILL.z) < HILL.r;
 export function onStairs(x, z) {
   const dx = x - HILL.x, dz = z - HILL.z, along = dx * sd.x + dz * sd.z, side = dx * sd.z - dz * sd.x;
   return Math.abs(side) < STAIR_HALF && along > HILL.top - 0.5 && along < HILL.r + 1;
+}
+/** 꼭대기의 평평한 자리에서 비탈(계단 아닌 쪽)로 걸어 나가는 걸음인가: 그러면 걷는 대신 슬라이딩으로 내려간다 */
+export function slidesOff(fx, fz, tx, tz) {
+  return Math.hypot(fx - HILL.x, fz - HILL.z) <= HILL.top && Math.hypot(tx - HILL.x, tz - HILL.z) > HILL.top && !onStairs(tx, tz);
 }
 /** 걸어서 (fx, fz) 에서 (tx, tz) 로 갈 수 있는가: 비탈은 계단과 꼭대기로만 다닌다 (비탈 위에 있으면 내려가는 쪽으로는 걸을 수 있다) */
 export function canWalk(fx, fz, tx, tz) {
@@ -57,11 +61,11 @@ export function createHill(scene) {
       }
     }
   }
-  // 꼭대기의 작은 깃발과 "눈썰매" 팻말
+  // 꼭대기의 작은 깃발과 "슬라이딩" 팻말
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 8), new THREE.MeshStandardMaterial({ color: '#8a5a36' })); pole.position.set(0.6, HILL.h + 0.7, 0); g.add(pole);
   const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.38), new THREE.MeshStandardMaterial({ color: '#e0503f', side: THREE.DoubleSide })); flag.position.set(0.9, HILL.h + 1.25, 0); g.add(flag);
   const c = document.createElement('canvas'); c.width = 256; c.height = 96; const x = c.getContext('2d');
-  x.fillStyle = '#fff3c4'; x.fillRect(0, 0, 256, 96); x.fillStyle = '#7a3b22'; x.font = '900 40px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('🛷 눈썰매', 128, 50);
+  x.fillStyle = '#fff3c4'; x.fillRect(0, 0, 256, 96); x.fillStyle = '#7a3b22'; x.font = '900 40px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('🐧 슬라이딩', 128, 50);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const sign = new THREE.Group();
   const face = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.42), new THREE.MeshStandardMaterial({ map: tex })); face.position.y = 0.9; sign.add(face);
