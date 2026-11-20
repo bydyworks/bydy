@@ -1432,7 +1432,8 @@ const SPOTS = [
 ];
 const spotWas = {}, spotAt = {};
 function spotTips(t) {
-  const free = started && !busyDoor && me.inside === null && !fishing.active && !me.slide && !me.angel && !me.seat && !giftOpen && !postOpen && !modal();
+  if (!started) return;      // (시작하기 전에는 아무것도 기억하지 않는다)
+  const free = !busyDoor && me.inside === null && !fishing.active && !me.slide && !me.angel && !me.seat && !giftOpen && !postOpen && !modal();
   if (!free) { for (const s of SPOTS) spotWas[s.key] = true; return; }      // 미끄러지거나 낚시하거나 이글루에 있는 동안: 알림 없이, 끝난 자리에서 바로 알림이 뜨지 않게 '이미 곁에 있었다'로 둔다
   if (t < toastUntil) return;      // 다른 알림이 떠 있는 동안에는 덮지 않는다 (곁에 있었는지도 그대로 두어, 그 알림이 사라진 뒤에 뜬다)
   for (const s of SPOTS) {
