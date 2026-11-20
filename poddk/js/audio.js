@@ -66,6 +66,16 @@ export function createAudio(baseUrl = 'audio/') {
     applyWeather(2.5);
   }
 
+  let campDist = Infinity;
+  const campLevel = (d) => { const u = Math.max(0, 1 - (d - 1.5) / 13); return INDOOR.fire * 0.85 * u * u; };      // 불 곁에서는 이글루 안만큼, 멀어질수록 작게
+  /** 장작 타는 소리의 세기: 이글루 안에서는 늘, 바깥에서는 들판 모닥불에 가까울수록 */
+  function applyFire(tau) {
+    if (!ctx) return;
+    const level = indoor ? INDOOR.fire : campLevel(campDist);
+    const f = level > 0 ? fireBed() : fire;
+    if (f) f.gain.gain.setTargetAtTime(level, ctx.currentTime, tau);
+    stats.fire = level;
+  }
   function applyWeather(tau = 1.5) {
     if (!ctx) return;
     const storm = Math.min(1, Math.max(0, (weather - 0.38) / 0.62)), out = indoor ? INDOOR.outside : 1;
@@ -318,9 +328,16 @@ export function createAudio(baseUrl = 'audio/') {
       if (on === indoor && (!on || fire || !ctx)) return;      // (소리가 켜지기 전에 들어왔으면, 켜진 뒤에 장작 소리를 붙인다)
       indoor = on; stats.indoor = on;
       applyWeather(0.4);
-      const f = on ? fireBed() : fire;
-      if (f) f.gain.gain.setTargetAtTime(on ? INDOOR.fire : 0, ctx.currentTime, 0.5);
-      stats.fire = on ? INDOOR.fire : 0;
+      applyFire(0.5);
+    },
+    /** 들판 모닥불까지의 거리: 가까이 가면 바깥에서도 장작 타는 소리가 들린다 */
+    setCampfireDistance(d) {
+      campDist = d;
+      const level = indoor ? INDOOR.fire : campLevel(d);
+      if (!ctx) return;
+      const same = level === 0 ? stats.fire === 0 : Math.abs(level - stats.fire) < 0.005 && !!fire;      // (마지막으로 맞춘 세기와 견준다: 조금씩 멀어져도 결국 0 까지 줄어든다)
+      if (same) return;
+      applyFire(0.4);
     },
     /** 눈발의 세기 0..1 */
     setWeather(snowfall) { if (Math.abs(snowfall - weather) > 0.01) { weather = snowfall; applyWeather(); } },

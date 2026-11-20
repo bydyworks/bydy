@@ -5,13 +5,15 @@ import * as THREE from 'three';
 import { createClock, snowfallAt, stormPhase, clockText, stormText } from './clock.js';
 import { createSky } from './sky.js';
 import { createField, FIELD_RADIUS } from './field.js';
-import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, randomLook, COLORS, STEP, STANCE, POP_SWAP } from './penguin.js';
+import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, randomLook, COLORS, STEP, STANCE, POP_SWAP, ROD_GRIP } from './penguin.js';
 import { createSnowballs } from './snowball.js';
 import { buildSnowman, makeRollBall, paint, packPoints, PAD, INKS, WIDTHS, MAX_POINTS } from './snowman.js';
 import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
 import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
+import { createCampfire, makeStick, CAMPFIRE, STUMP_BLOCKS, ROAST_REACH, ROAST_SEAT, STICK_LEN, donenessAt, marshmallowColor } from './campfire.js';
+import { createAurora, auroraAt, nightId } from './aurora.js';
 import { createHill, heightAt, onHill, canWalk, slidesOff, nearStairFoot, onTop, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
@@ -32,6 +34,7 @@ import { createWeather } from './weather.js';
 import { createControls } from './controls.js';
 import { createAudio } from './audio.js';
 import { createCapture } from './capture.js';
+import { setupInstall } from './install.js';
 
 const $ = (sel) => document.querySelector(sel);
 const q = new URLSearchParams(location.search);
@@ -61,11 +64,15 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(46, 1, 0.3, 1200);
 const clock = createClock();
 const sky = createSky(scene, { shadowSize: coarse ? 1024 : 2048 });
-const fieldBlocks = [...BLOCKS, POSTBOX, WISHBOARD];      // (눈사람이 서면 여기에 더한다)
+const fieldBlocks = [...BLOCKS, POSTBOX, WISHBOARD, CAMPFIRE, ...STUMP_BLOCKS];      // (눈사람이 서면 여기에 더한다)
 const field = createField(scene, { clearings: CLEARINGS, blocks: fieldBlocks });
 const wishboard = createWishboard(scene);  // 트리 뒤쪽의 크리스마스 소원판
 const sled = createSled(scene);            // 썰매 경주 길
 const hill = createHill(scene);            // 슬라이딩 언덕
+const campfire = createCampfire(scene);    // 들판의 모닥불 (마시멜로 굽기)
+const aurora = createAurora(scene);        // 어떤 밤에 뜨는 오로라
+const AURORA_FORCED = q.has('aurora');     // 주소에 ?aurora: 그날 밤이 아니어도 띄운다 (구경용)
+let auroraSaid = null;                     // 오로라 알림을 띄운 밤 (한 밤에 한 번만)
 const postbox = createPostbox(scene);      // 트리 옆 우체통 (친구에게 엽서 보내기)
 const camp = createCamp(scene);            // 이글루 셋과 얼음 낚시터 셋
 const dens = createDens(scene);            // 이글루 셋의 안쪽 방 (들판 밖 먼 곳에 지어 둔다)
@@ -79,7 +86,7 @@ const santa = createSanta(scene);
 /** 눈 위의 빈자리인가 (얼음, 이글루, 나무 곁, 썰매 길이 아닌 곳): 선물 상자와 특별한 눈송이가 놓이는 자리 */
 const openSnow = (x, z) => {
   if (Math.hypot(x, z) < 7 || PONDS.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius + 1.5) || IGLOOS.some((g) => Math.hypot(x - g.x, z - g.z) < g.radius + 4)) return false;
-  if (Math.hypot(x - HILL.x, z - HILL.z) < HILL.r + 2.5) return false;
+  if (Math.hypot(x - HILL.x, z - HILL.z) < HILL.r + 2.5 || Math.hypot(x - CAMPFIRE.x, z - CAMPFIRE.z) < 4.5) return false;
   const c = laneCoord(x, z); if (c.along > -LANE.pad - 3 && c.along < LANE.len + 2 && Math.abs(c.side) < LANE.half + 3) return false;
   const f = field.confine(x, z); return Math.hypot(f.x - x, f.z - z) < 1e-6;
 };
@@ -186,12 +193,13 @@ const fishing = createFishing(scene, {
   early: () => { if (firstTime('early')) toast('조금 일렀어요. 찌가 쑥 들어갈 때까지 기다려요', 3600); },
   free: (x, z) => { const c = field.confine(x, z); return Math.hypot(c.x - x, c.z - z) < 1e-6; },
   caught: (kind) => showCatch(kind),
+  aurora: () => aurora.strength > 0.4,
 });
 // 낚아 올린 것을 보여 주는 창: 선물을 받을 때처럼 작은 카드가 뿅 튀어나오고, 그 안에서 낚은 것이 3D 로 빙글 돈다
 const showcase = createShowcase();
 const CATCH_SAY = {
   smelt: '은빛으로 반짝이는 작은 빙어', cherry: '알록달록 무늬가 예쁜 산천어', trout: '묵직한 손맛! 커다란 송어', carp: '통통하게 살이 오른 붕어',
-  catfish: '수염이 멋진 메기 아저씨', goldcarp: '눈부신 황금빛! 행운이 올 것 같아요', boot: '누가 빠뜨렸을까? 물이 뚝뚝…', mitten: '누가 잃어버린 한 짝일까요?',
+  aurora: '오로라 빛을 머금고 반짝이는 빙어! 오로라가 뜬 밤에만 만날 수 있어요', catfish: '수염이 멋진 메기 아저씨', goldcarp: '눈부신 황금빛! 행운이 올 것 같아요', boot: '누가 빠뜨렸을까? 물이 뚝뚝…', mitten: '누가 잃어버린 한 짝일까요?',
   duck: '꽥! 목욕하다 놀러 나왔나 봐요', can: '눈밭은 깨끗하게! 잘 건졌어요', bottle: '안에 누군가의 편지가 들어 있어요', treasure: '와, 금화가 반짝반짝! 오늘 운이 좋아요',
 };
 let catchHide = 0;
@@ -211,7 +219,7 @@ function showCatch(kind) {
 function hideCatch() { clearTimeout(catchHide); const el = $('#catch'); if (el.hidden) return; el.hidden = true; el.classList.remove('pop'); if (!giftOpen) showcase.hide(); }
 $('#catch').addEventListener('click', hideCatch);
 /** 지금 낚시를 시작할 수 있는가: 낚시 구멍 곁에 서 있고, 다른 것을 하고 있지 않다 */
-const canFish = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !fishing.active && holeNear(me.x, me.z) !== null;
+const canFish = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !(fishing.active || !!me.roast) && holeNear(me.x, me.z) !== null;
 const FISH_VIEW = { turn: 1.05, pitch: 0.22, look: 0.9 };      // 낚시하는 동안의 카메라: 등 뒤에서 이만큼(라디안) 옆으로 비켜서고, 조금 더 내려다보며, 펭귄보다 구멍 쪽을 본다
 let fishTurn = 0;                // 낚시를 시작하며 카메라가 마저 돌아야 할 각 (라디안)
 let fishView = 0;
@@ -228,21 +236,90 @@ function startFishing() {
   me.idle = 0;
   if (firstTime('fish')) toast('찌가 쑥 들어가면 물고기 단추를 눌러요. ✕는 그만두기예요', 4800);
 }
+// ---------- 모닥불에서 마시멜로 굽기 ----------
+// 불 곁에서 상황 단추(🔥)를 누르면 불을 보고 앉아 막대 끝의 마시멜로를 불에 댄다. 하얗던 마시멜로가 노릇노릇해지다가 너무 오래 두면 까맣게 탄다.
+// 단추(😋)를 다시 누르면 냠 먹고 일어난다. 걸으려고 조이스틱을 밀면 먹지 않고 일어난다.
+const ROAST = { sit: 0.6, eat: 1.2, stand: 0.45, tilt: 1.28 };
+let roastTurn = 0;               // 굽기 시작하며 카메라가 마저 돌아야 할 각: 옆에서 불과 펭귄이 함께 보이게
+const roastStick = makeStick(); roastStick.visible = false; penguin.add(roastStick);
+const canRoast = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !me.roll && !me.roast && !fishing.active && !me.seat && !me.wave && campfire.dist(me.x, me.z) < ROAST_REACH;
+function startRoast() {
+  if (!canRoast()) return;
+  let a = Math.atan2(me.x - CAMPFIRE.x, me.z - CAMPFIRE.z);      // 불에서 본 펭귄 쪽. 그루터기 자리면 옆 빈자리로 비켜 앉는다 (그루터기를 뚫고 미끄러지지 않게)
+  for (const b of STUMP_BLOCKS) { const sa = Math.atan2(b.x - CAMPFIRE.x, b.z - CAMPFIRE.z), dd = angleDiff(a, sa); if (Math.abs(dd) < 0.42) a = sa + (dd >= 0 ? 0.42 : -0.42); }
+  const ux = Math.sin(a), uz = Math.cos(a);
+  const to = field.confine(CAMPFIRE.x + ux * ROAST_SEAT, CAMPFIRE.z + uz * ROAST_SEAT);      // (그루터기 자리면 조금 비켜 앉는다)
+  me.roast = { phase: 'sit', t: 0, cook: 0, k: 0, from: { x: me.x, z: me.z, yaw: me.yaw }, to: { x: to.x, z: to.z, yaw: Math.atan2(CAMPFIRE.x - to.x, CAMPFIRE.z - to.z) }, hinted: 0 };
+  roastStick.userData.mallow.visible = true;
+  { const rel = angleDiff(me.camYaw, me.roast.to.yaw); roastTurn = (rel >= 0 ? 1 : -1) * 1.3 - rel; }      // 카메라를 등 뒤에서 비스듬히 옆으로 (불이 펭귄 몸에 가리지 않게)
+  me.walk = 0; shakeOff(true); me.snow = 0; me.idle = 0;
+  if (firstTime('roast')) toast('노릇노릇해지면 😋 단추를 눌러 먹어요. 너무 오래 두면 타요!', 4200);
+}
+/** 다 구웠다: 먹는다 (구운 정도에 따라 한마디) */
+function eatRoast() {
+  const r = me.roast; if (!r || r.phase !== 'cook') return;
+  const d = donenessAt(r.cook);
+  r.phase = 'eat'; r.t = 0; r.result = d.id;
+  toast(d.say, 3000);
+  audio.snowFx(d.id === 'gold' ? 'ding' : d.id === 'burnt' ? 'paper' : 'pop');
+  stats.mallows = (stats.mallows || 0) + 1;
+}
+function stopRoast() { const r = me.roast; if (!r || r.phase === 'stand' || r.phase === 'eat') return; r.phase = 'stand'; r.t = 0; r.from.k = r.k; }
+function stepRoast(dt, wantWalk, looked = false) {
+  const r = me.roast;
+  r.t += dt;
+  const ease = (u) => u * u * (3 - 2 * u);
+  let lift = 0;
+  if (r.phase === 'sit') {
+    const u = Math.min(1, r.t / ROAST.sit), e = ease(u);
+    me.x = r.from.x + (r.to.x - r.from.x) * e; me.z = r.from.z + (r.to.z - r.from.z) * e;
+    me.yaw = r.from.yaw + angleDiff(r.to.yaw, r.from.yaw) * e; r.k = e;
+    if (u >= 1) { r.phase = 'cook'; r.t = 0; }
+  } else if (r.phase === 'cook') {
+    r.cook += dt;
+    if (wantWalk) stopRoast();
+    else if (r.hinted === 0 && r.cook > 4.8) { r.hinted = 1; toast('노릇노릇! 지금 먹으면 딱 좋아요 😋', 2200); }
+    else if (r.hinted === 1 && r.cook > 7.6) { r.hinted = 2; toast('앗, 타기 시작했어요! 🔥', 1800); }
+    if (r.cook > 9 && Math.random() < dt * 3) { const tip = roastStick.localToWorld(new THREE.Vector3(0, STICK_LEN, 0)); crumble.puff(tip.x, tip.z, 0.12); }      // 탄 마시멜로에서 연기가 폴폴
+  } else if (r.phase === 'eat') {
+    const u = Math.min(1, r.t / ROAST.eat);
+    lift = Math.sin(Math.min(1, u * 1.6) * Math.PI / 2) * (1 - Math.max(0, (u - 0.75) / 0.25));      // 막대를 입가로 들어 올렸다 내린다
+    if (u > 0.5) roastStick.userData.mallow.visible = false;
+    if (u >= 1) { r.phase = 'stand'; r.t = 0; }
+  } else {
+    const u = Math.min(1, r.t / ROAST.stand);
+    r.k = 1 - ease(u);
+    if (u >= 1) { me.roast = null; roastStick.visible = false; me.idle = 0; return; }
+  }
+  if (looked) roastTurn = 0;      // 직접 둘러보기 시작하면 더 돌리지 않는다
+  { const turn = roastTurn * (1 - Math.exp(-dt * 3.4)); me.camYaw += turn; roastTurn -= turn; }
+  me.walk = 0; me.idle = 0; me.snow = 0;
+  pose(penguin, me.phase, 0);
+  sit(penguin, r.k, Math.sin(performance.now() / 700) * 0.012);
+  roastStick.visible = r.k > 0.02;
+  roastStick.scale.setScalar(Math.max(0.001, r.k));
+  roastStick.position.set(ROD_GRIP.x - 0.1 * lift, ROD_GRIP.y - 0.09 * r.k + 0.25 * lift, ROD_GRIP.z);
+  roastStick.rotation.set(ROAST.tilt - 1.9 * lift, 0, 0.1 + 0.55 * lift);
+  marshmallowColor(r.cook, roastStick.userData.mallow.material.color);
+  roastStick.userData.mallow.material.emissive.setRGB(r.phase === 'cook' ? 0.18 + 0.05 * Math.sin(r.t * 9) : 0, r.phase === 'cook' ? 0.07 : 0, 0);      // 불빛을 받아 살짝 발그레
+}
+
 /**
  * 가운데 버튼의 모습을 지금 할 수 있는 일에 맞춘다:
  *   평소 눈 천사 → 낚시 구멍 곁에서는 물고기(낚시하기) → 낚시 중에는 ✕(그만두기) → 입질이 오면 두근거리는 물고기(낚아 올리기)
  */
 let actionShown = '';
 function showAction() {
-  const slideOff = fishing.active || !!me.angel || !!me.flap || !!me.roll || me.inside !== null;          // 낚시나 눈 천사를 하는 동안에는 미끄러질 수 없다
+  const slideOff = (fishing.active || !!me.roast) || !!me.angel || !!me.flap || !!me.roll || me.inside !== null;          // 낚시나 눈 천사를 하는 동안에는 미끄러질 수 없다
   if ($('#slide').classList.contains('off') !== slideOff) $('#slide').classList.toggle('off', slideOff);
-  const flapOff = fishing.active || !!me.angel || !!me.slide || !!me.seat || !!me.roll;
+  const flapOff = (fishing.active || !!me.roast) || !!me.angel || !!me.slide || !!me.seat || !!me.roll;
   if ($('#flap').classList.contains('off') !== flapOff) $('#flap').classList.toggle('off', flapOff);
   const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : fishing.nibbling ? 'nib' : 'wait')
     : me.inside !== null ? (me.seat ? (me.seat.phase === 'sat' ? 'standup' : 'none') : dens.seatNear(me.inside, me.x, me.z) >= 0 ? 'sitdown' : dens.nearDoor(me.inside, me.x, me.z) ? 'exit' : 'none')
-    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : greetTarget() ? 'wave' : throwTarget() ? 'throw' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
+    : me.roast ? (me.roast.phase === 'cook' ? 'eat' : 'eatwait')
+    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'roast' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : greetTarget() ? 'wave' : throwTarget() ? 'throw' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
   // 눈 천사 단추: 눈 천사를 할 수 없을 때(이글루 안, 낚시·썰매·파닥 중, 방석) 흐려진다
-  const angelOff = me.inside !== null || fishing.active || !!me.slide || !!me.flap || !!me.seat || !!me.roll;
+  const angelOff = me.inside !== null || (fishing.active || !!me.roast) || !!me.slide || !!me.flap || !!me.seat || !!me.roll;
   if ($('#angel').classList.contains('off') !== angelOff) $('#angel').classList.toggle('off', angelOff);
   if (now === actionShown) return;
   actionShown = now;
@@ -251,10 +328,11 @@ function showAction() {
   el.classList.toggle('fish', now === 'fish' || now === 'pull');
   el.classList.toggle('bite', now === 'pull');
   el.classList.toggle('quit', now === 'quit' || now === 'wait' || now === 'nib');
-  el.classList.toggle('hold', now === 'wait');            // 낚아 올리거나 놓아주는 동안: 누를 수 없다
+  el.classList.toggle('hold', now === 'wait' || now === 'eatwait');            // 낚아 올리거나 놓아주는 동안: 누를 수 없다
   el.classList.toggle('rest', now === 'nib');             // 가짜 입질이 지나가는 잠깐: 흐려져 쉰다 (눌러도 그만두지 않는다)
-  for (const c of ['enter', 'exit', 'sitdown', 'standup', 'mail', 'wave', 'throw', 'roll', 'rollstop', 'wish', 'look']) el.classList.toggle(c, now === c);
-  el.setAttribute('aria-label', { angel: '할 수 있는 것이 없어요', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기', wave: '인사하기', throw: '눈덩이 던지기', roll: '눈 굴리기', rollstop: '그만 굴리기', wish: '소원판 보기', look: '눈사람 보기' }[now]);
+  for (const c of ['enter', 'exit', 'sitdown', 'standup', 'mail', 'wave', 'throw', 'roll', 'rollstop', 'wish', 'look', 'roast', 'eat']) el.classList.toggle(c, now === c);
+  el.classList.toggle('eat', now === 'eat' || now === 'eatwait'); if (now === 'eatwait') el.classList.add('hold');
+  el.setAttribute('aria-label', { angel: '할 수 있는 것이 없어요', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기', wave: '인사하기', throw: '눈덩이 던지기', roll: '눈 굴리기', rollstop: '그만 굴리기', wish: '소원판 보기', look: '눈사람 보기', roast: '마시멜로 굽기', eat: '마시멜로 먹기', eatwait: '마시멜로 먹기' }[now]);
 }
 
 /** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 낚시 중에는 낚아 올리기나 그만두기, 그 밖에서는 눈 천사 */
@@ -273,8 +351,10 @@ function act(how = 'button') {
     return;
   }
   if (fishing.active) fishing.press();
+  else if (me.roast) eatRoast();
   else if (canEnter() >= 0) goIn(canEnter());
   else if (canFish()) startFishing();
+  else if (canRoast()) startRoast();
   else if (canMail()) openPostcard();
   else if (canWish()) openWishes();
   else if (snowmanNear()) openSnowcard();
@@ -315,7 +395,7 @@ function roomToLie() {
   return { x, z };
 }
 function startAngel() {
-  if (!started || me.inside !== null || me.angel || me.slide || me.flap || fishing.active) return;
+  if (!started || me.inside !== null || me.angel || me.slide || me.flap || fishing.active || me.roast) return;
   const to = roomToLie();
   if (!to) { toast('얼음 위에서는 눈 천사를 못 만들어요. 눈 위에서 해 봐요'); return; }
   me.angel = { t: 0, item: null, beats: 0, fell: false, from: { x: me.x, z: me.z }, to };
@@ -359,7 +439,7 @@ function stepAngel(dt, now) {
 }
 controls.onAction(() => act('key'));      // PC 스페이스: 상황 단추가 있으면 그것, 없으면 배 썰매
 $('#act').addEventListener('click', () => act('button'));      // (클릭 이벤트가 key 자리로 들어가지 않게)
-$('#angel').addEventListener('click', () => { if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.slide || me.flap || me.inside !== null || me.seat || fishing.active) return; startAngel(); });
+$('#angel').addEventListener('click', () => { if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.slide || me.flap || me.inside !== null || me.seat || (fishing.active || !!me.roast)) return; startAngel(); });
 
 // ---------- 배 썰매 ----------
 // 버튼을 누르면 배를 깔고 엎드려, 바라보던 쪽으로 쭉 미끄러지다가 천천히 멈추고 일어난다.
@@ -374,7 +454,7 @@ const SLIDE = {
   up: 0.55,              // 일어나기 (초)
 };
 function startSlide() {
-  if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.inside !== null || me.seat || me.angel || me.slide || me.flap || fishing.active) return;
+  if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.inside !== null || me.seat || me.angel || me.slide || me.flap || fishing.active || me.roast) return;
   const boost = Math.min(1.6, (me.recent || 0) * 1.1);      // 걸어오던 기세를 살려 엎드리면 더 빨리 미끄러진다
   me.slide = { t: 0, v: 0, phase: 'down', mark: 0, spray: 0, wiggle: 0, dist: 0, top: SLIDE.push + boost, race: onPad(me.x, me.z) ? { done: false } : null };
   me.walk = 0;
@@ -452,7 +532,7 @@ $('#slide').addEventListener('click', startSlide);
 // 제자리에서 양 날개를 빠르게 퍼덕인다. 머리와 어깨에 쌓인 눈은 털려 흩날리고(눈사람이었으면 부서지고), 가까이 있던 여우는 깜짝 놀라 쳐다본다
 const FLAP = { len: 1.4, beats: 6 };
 function startFlap() {
-  if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.seat || me.angel || me.slide || me.flap || fishing.active) return;
+  if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.seat || me.angel || me.slide || me.flap || fishing.active || me.roast) return;
   me.flap = { t: 0 };
   me.walk = 0;
   const hadSnow = me.snow > 0.35 || me.pop >= POP_SWAP;
@@ -481,7 +561,7 @@ window.addEventListener('keydown', (e) => { if (e.code === 'KeyF' && !e.repeat) 
 const GREET = 3.2, THROW = 14, WAVE_LEN = 1.5, THROW_GAP = 0.9, SPLASH = 1.5;      // SPLASH: 눈덩이가 떨어진 자리에서 이만큼 안의 펭귄은 맞는다
 const snowballs = createSnowballs(scene, { puff: (x, z, s) => crumble.puff(x, z, s) });
 let throwIn = 0, hitToast = 0;
-const free = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !me.wave && !me.roll && !fishing.active && !me.seat && !giftOpen && !postOpen && !busyDoor && !modal();
+const free = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !me.wave && !me.roll && !fishing.active && !me.roast && !me.seat && !giftOpen && !postOpen && !busyDoor && !modal();
 /** 인사할 상대: 가장 가까운 것 (펭귄, 산타, 여우) 또는 null */
 function greetTarget() {
   if (!free()) return null;
@@ -737,7 +817,7 @@ function social(m) {
     else placeSnowman(m);
   } else if (m.t === 'smx') removeSnowman(m.id);
 }
-window.addEventListener('keydown', (e) => { if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && !me.slide && !me.angel) { if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.slide || me.flap || me.inside !== null || me.seat || fishing.active) return; startAngel(); } });      // PC: 시프트 키는 눈 천사 (스페이스는 배 썰매)      // PC: 시프트 키로도 미끄러진다
+window.addEventListener('keydown', (e) => { if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat && !me.slide && !me.angel) { if (!started || giftOpen || postOpen || busyDoor || me.roll || modal() || me.slide || me.flap || me.inside !== null || me.seat || (fishing.active || !!me.roast)) return; startAngel(); } });      // PC: 시프트 키는 눈 천사 (스페이스는 배 썰매)      // PC: 시프트 키로도 미끄러진다
 
 // ---------- 이글루 안 ----------
 // 이글루 문 앞에 서면 가운데 단추가 "들어가기"가 된다. 들어가면 잠깐 어두워졌다가 모닥불이 타는 둥근 방 안에 선다.
@@ -745,7 +825,7 @@ window.addEventListener('keydown', (e) => { if ((e.code === 'ShiftLeft' || e.cod
 const ENTRANCES = IGLOOS.map((g) => { const r = Math.hypot(g.x, g.z); return { x: g.x - g.x / r * 5.1, z: g.z - g.z / r * 5.1, yaw: Math.atan2(g.x, g.z) }; });      // 문 바로 앞 (트리 쪽)
 /** 들어갈 수 있는 이글루의 번호 (문 앞이 아니면 -1) */
 function canEnter() {
-  if (!started || me.inside !== null || me.angel || me.slide || me.flap || fishing.active) return -1;
+  if (!started || me.inside !== null || me.angel || me.slide || me.flap || fishing.active || me.roast) return -1;
   return ENTRANCES.findIndex((e) => Math.hypot(e.x - me.x, e.z - me.z) < 1.9);
 }
 let busyDoor = false;
@@ -946,7 +1026,7 @@ $('#dice .again').addEventListener('click', () => { closeDice(false); inviteDice
 $('#dice .quit').addEventListener('click', () => closeDice());
 /** 내 모습을 서버에 보낼 꼴로 */
 function myState() {
-  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
+  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? (me.roast.phase === 'sit' || me.roast.phase === 'cook' ? ACT.roast : ACT.sit) : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
   const st = me.seat && me.seat.phase === 'sat' && me.status ? STATUSES.findIndex((x) => x[1] === me.status[1]) : -1;
   return { x: me.x, z: me.z, yaw: me.yaw, w: Math.min(1, Math.max(0, me.walk)), a, i: me.inside === null ? -1 : me.inside, k: me.seat ? me.seat.k : -1, st, f: worn(penguin) };
 }
@@ -1101,7 +1181,7 @@ $('#closet-panel .close').addEventListener('click', closeCloset);
 
 // ---------- 트리 옆 우체통: 친구에게 엽서 ----------
 let postOpen = false;
-const canMail = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !fishing.active && !me.seat && postbox.near(me.x, me.z);
+const canMail = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !(fishing.active || !!me.roast) && !me.seat && postbox.near(me.x, me.z);
 /** 친구에게 보낼 주소: 지금 이 게임의 주소에서 점검용 덧붙임(?t= 같은 것)을 뗀 것 */
 const inviteUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
 const inviteText = () => subject(name) + ' 뽀드득 눈밭에서 기다려요! 같이 걸을래? ⛄';
@@ -1225,7 +1305,7 @@ function walk(dt, now) {
   me.camPitch = THREE.MathUtils.clamp(me.camPitch + lk.dy * 0.0035, me.inside !== null ? 0 : 0.08, 0.75);
   me.camDist = THREE.MathUtils.clamp(me.camDist * controls.takeZoom(), CAM_DIST_MIN, me.inside !== null ? DEN_CAM.far : CAM_DIST_MAX);
   coach.note(0, Math.abs(lk.dx) + Math.abs(lk.dy));
-  if (mag > 0.02 && !me.angel && !fishing.active) { strolled += dt; rested = 0; } else { rested += dt; strolled = 0; }
+  if (mag > 0.02 && !me.angel && !(fishing.active || !!me.roast)) { strolled += dt; rested = 0; } else { rested += dt; strolled = 0; }
 
   if (me.angel) { stepAngel(dt, now); setSnow(penguin, me.snow, me.pop); return; }
   if (me.slide) { stepSlide(dt, now); setSnow(penguin, 0, 0); return; }      // 미끄러지는 동안에는 걷지 않는다
@@ -1233,6 +1313,7 @@ function walk(dt, now) {
   if (me.wave) { stepWave(dt); setSnow(penguin, me.snow, me.pop); return; }      // 인사하는 동안에는 제자리
   if (me.seat) { stepSeat(dt); setSnow(penguin, 0, 0); me.idle = 0; me.snow = 0; return; }      // 앉아 있는 동안에는 걷지 않는다 (일어나려면 단추)        // 파닥이는 동안에도 제자리      // 누울 때 털린 눈이 모습에도 바로 드러나게
 
+  if (me.roast) { stepRoast(dt, mag > 0.3, Math.abs(lk.dx) + Math.abs(lk.dy) > 0); setSnow(penguin, 0, 0); return; }      // 마시멜로를 굽는 동안에는 걷지 않는다 (조이스틱을 밀면 일어난다)
   if (fishing.active) {
     // 낚시하는 동안: 조이스틱을 밀어도 걷지 않는다 (그만두려면 버튼을 누른다). 눈은 서 있을 때만 쌓이므로, 앉아 있는 동안에는 쌓이지 않는다
     if (Math.abs(lk.dx) + Math.abs(lk.dy) > 0) fishTurn = 0;          // 직접 둘러보기 시작하면 카메라를 더 돌리지 않는다
@@ -1371,10 +1452,17 @@ function tick(t) {
   placeCamera(started ? dt : 0);
   focus.set(me.x, 0, me.z);
   const palette = sky.update(now, focus, snowfall);
+  {      // 오로라: 뜨는 밤, 하늘이 충분히 어두울 때, 바깥에 있을 때만
+    const dark = Math.min(1, Math.max(0, (-6 - palette.elev) / 8));
+    const level = me.inside === null ? auroraAt(now, snowfall, AURORA_FORCED) * dark : 0;
+    aurora.update(seconds, level, focus);
+    if (level > 0.5 && started && auroraSaid !== nightId(now)) { auroraSaid = nightId(now); toast('하늘에 오로라가 떴어요! ✨ 오늘 밤엔 오로라 빙어가 낚여요', 4500); }
+  }
   weather.update(seconds, camera, snowfall, palette.flake, renderer.domElement.height);
   weather.points.visible = me.inside === null;              // 이글루 안에는 눈이 내리지 않는다
   for (const [i, d] of dens.dens.entries()) d.group.visible = me.inside === i;
   dens.update(dt, camera);
+  campfire.update(seconds, Math.min(1, Math.max(0, (6 - palette.elev) / 14)));      // 모닥불: 해가 낮을수록 불빛이 밝다
   postbox.update(dt);
   // 해가 지평선 가까이 내려오면 나무의 전구에 불이 들어온다
   const night = THREE.MathUtils.clamp((3 - palette.elev) / 9, 0, 1);
@@ -1401,6 +1489,7 @@ function tick(t) {
   audio.setWeather(me.inside !== null ? 0 : snowfall);
   audio.setIndoor(me.inside !== null);
   if (frame % 6 === 0) audio.setTreeDistance(Math.hypot(me.x, me.z));
+  if (frame % 6 === 3) audio.setCampfireDistance(me.inside === null ? campfire.dist(me.x, me.z) : Infinity);
 
   if (t - hudAt > 500) {
     hudAt = t;
@@ -1421,7 +1510,7 @@ function tick(t) {
 }
 
 // ---------- 놀 거리 곁에 오면 알림 ----------
-// 낚시 구멍, 이글루, 슬라이딩 언덕, 썰매 길 곁에 들어서면 "해 볼래요?" 알림이 뜬다.
+// 낚시 구멍, 이글루, 슬라이딩 언덕, 썰매 길, 모닥불 곁에 들어서면 "해 볼래요?" 알림이 뜬다.
 // 한 자리에서 한 번 뜨면 그 자리를 떠났다가 다시 와야 또 뜨고, 같은 종류는 1분 반 안에 다시 뜨지 않는다.
 const SPOTS = [
   { key: 'hole', near: () => canFish(), say: '얼음 구멍이에요. 낚시 한번 해 볼래요? 🎣' },
@@ -1429,11 +1518,12 @@ const SPOTS = [
   { key: 'hill', near: () => nearStairFoot(me.x, me.z), say: '슬라이딩 언덕이에요. 계단으로 올라가 볼래요? 🐧' },
   { key: 'top', near: () => onTop(me.x, me.z), say: '비탈 쪽으로 걸어 나가면 슬라이딩으로 쌩 내려가요!' },
   { key: 'lane', near: () => onPad(me.x, me.z), say: '썰매 경주 길이에요. 슬라이딩으로 기록을 세워 볼래요? 🏁' },
+  { key: 'fire', near: () => campfire.dist(me.x, me.z) < ROAST_REACH, say: '모닥불이에요. 마시멜로 구워 볼래요? 🔥' },
 ];
 const spotWas = {}, spotAt = {};
 function spotTips(t) {
   if (!started) return;      // (시작하기 전에는 아무것도 기억하지 않는다)
-  const free = !busyDoor && me.inside === null && !fishing.active && !me.slide && !me.angel && !me.seat && !giftOpen && !postOpen && !modal();
+  const free = !busyDoor && me.inside === null && !(fishing.active || !!me.roast) && !me.slide && !me.angel && !me.seat && !giftOpen && !postOpen && !modal();
   if (!free) { for (const s of SPOTS) spotWas[s.key] = true; return; }      // 미끄러지거나 낚시하거나 이글루에 있는 동안: 알림 없이, 끝난 자리에서 바로 알림이 뜨지 않게 '이미 곁에 있었다'로 둔다
   if (t < toastUntil) return;      // 다른 알림이 떠 있는 동안에는 덮지 않는다 (곁에 있었는지도 그대로 두어, 그 알림이 사라진 뒤에 뜬다)
   for (const s of SPOTS) {
@@ -1449,6 +1539,7 @@ resize();
 placeCamera(0);
 camera.position.copy(camGoal);
 
+setupInstall();                       // 첫 화면의 '홈 화면에 추가하기' 단추
 $('#enter').addEventListener('click', () => {
   if (started) return;
   started = true;
@@ -1523,6 +1614,7 @@ window.__snow = {
   clock, me, look, tracks, audio: audio.stats, controls, sky, penguin, crumble, fox, santa, camp, weather, camera,
   place: { hole: HOLES[0], holes: HOLES, igloos: IGLOOS, ponds: PONDS, onIce, holeNear },
   get started() { return started; },
+  campfire, aurora, get roast() { return me.roast ? { phase: me.roast.phase, cook: me.roast.cook, result: me.roast.result || null } : null; }, myState: () => myState(),
   get snowfall() { return snowfallAt(clock.now()); },
   get palette() { return sky.palette; },
   get treeLight() { return field.tree.lamp.intensity; },

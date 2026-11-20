@@ -1,0 +1,17 @@
+{
+  "name": "뽀드득",
+  "short_name": "뽀드득",
+  "description": "펭귄이 되어 눈밭을 뽀드득 걸어요. 눈 밟는 소리가 유난히 좋은 작은 겨울 마을이에요.",
+  "lang": "ko",
+  "id": "/",
+  "start_url": "/?home=1",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#e8f1fb",
+  "theme_color": "#e8f1fb",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

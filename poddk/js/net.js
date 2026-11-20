@@ -8,11 +8,12 @@ import * as THREE from 'three';
 import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, COLORS, ROD_GRIP } from './penguin.js';
 import { STATUSES } from './den.js';
 import { ROD_LEN, ROD_TILT, SEAT as FISH_SEAT, FLOAT_Y } from './fishing.js';
+import { makeStick } from './campfire.js';
 import { SLOTS, wear } from './outfit.js';
 import { heightAt } from './hill.js';
 
 /** 하는 일의 번호 (서버와 같은 약속) */
-export const ACT = { stand: 0, angel: 1, slide: 2, flap: 3, fish: 4, sit: 5, snowman: 6, wave: 7 };
+export const ACT = { stand: 0, angel: 1, slide: 2, flap: 3, fish: 4, sit: 5, snowman: 6, wave: 7, roast: 8 };
 const SEND_EVERY = 0.2, BEAT = 2;          // 바뀌었으면 0.2초마다, 안 바뀌어도 2초마다 한 번 보낸다
 const DEVICE_KEY = 'poddk.device.v1';
 const EASE = { in: 0.32, out: 0.45 };      // 자세가 바뀔 때: 새 자세로 들어가는 시간, 하던 자세에서 빠져나오는 시간(초)
@@ -23,6 +24,7 @@ const POSES = {
   [ACT.flap]: (r, k, t) => flap(r, k, t * 27),
   [ACT.fish]: (r, k, t) => sit(r, k, Math.sin(t * 1.3) * 0.012),
   [ACT.sit]: (r, k) => sit(r, k),
+  [ACT.roast]: (r, k, t) => sit(r, k, Math.sin(t * 1.4) * 0.012),      // 모닥불 곁에 앉아 마시멜로를 굽는다
   [ACT.wave]: (r, k, t) => wave(r, k, t * 11),
 };
 const NAME_NEAR = 4.5, NAME_FAR = 7, NAME_SHOW = 3.2;      // 다른 펭귄에게 이만큼 다가가면 머리 위에 이름이 이만큼(초) 떴다가 사라진다. 이만큼 멀어졌다 다시 오면 또 뜬다
@@ -74,7 +76,10 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.057, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#d8362f', roughness: 0.5 })); float.add(cap);
     float.scale.setScalar(1.5); float.visible = false;      // (낚싯대와 찌는 멀리서도 보이게 내 것보다 조금 크게)
     scene.add(line, float);
-    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, tag: null, tagT: -1, near: false, threw: 9 };
+    // 마시멜로 막대 (모닥불 곁에서 굽는 동안에만 보인다)
+    const mallow = makeStick(); mallow.position.copy(ROD_GRIP); mallow.position.y -= 0.09; mallow.rotation.set(1.28, 0, 0.1); mallow.visible = false;
+    mallow.userData.mallow.material.color.set('#f2c98a'); root.add(mallow);
+    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, mallow, tag: null, tagT: -1, near: false, threw: 9 };
     peers.set(id, p);
     return p;
   }
@@ -209,6 +214,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
           const q = p.line.geometry.attributes.position;
           q.setXYZ(0, tip.x, tip.y, tip.z); q.setXYZ(1, fx, FLOAT_Y + 0.02, fz); q.needsUpdate = true;
         }
+        p.mallow.visible = p.act === ACT.roast && ease > 0.5;
         // 이글루에서 앉아 고른 상태: 머리 위 말풍선
         const say = s.a === ACT.sit && s.st >= 0 ? STATUSES[s.st] : null;
         if (say && !p.bubble) { p.bubble = document.createElement('div'); p.bubble.className = 'peer-say'; document.body.append(p.bubble); }
