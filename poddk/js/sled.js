@@ -3,7 +3,7 @@
 // 역대 기록 셋은 서버가 모아 두고, 출발 자리 옆 기록판에 보여 준다.
 import * as THREE from 'three';
 
-const DEG = 280, FROM = 40, LEN = 30, HALF = 1.6;        // 트리에서 본 방향(도), 출발선까지의 거리, 길이, 길 너비의 반
+const DEG = 280, FROM = 32, LEN = 30, HALF = 1.6;        // 트리에서 본 방향(도), 출발선까지의 거리, 길이, 길 너비의 반
 const dir = { x: Math.sin(DEG * Math.PI / 180), z: Math.cos(DEG * Math.PI / 180) };      // 길이 뻗은 쪽 (트리에서 멀어지는 쪽)
 export const LANE = {
   start: { x: dir.x * FROM, z: dir.z * FROM }, dir, len: LEN, half: HALF,

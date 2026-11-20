@@ -183,6 +183,21 @@ body.in #start { opacity: 0; pointer-events: none; }
 #install { margin: 10px auto 0; display: block; height: 34px; padding: 0 16px; border-radius: 17px; font-size: 13px; font-weight: 800; color: var(--brown); background: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 6px rgba(80, 58, 36, 0.12); transition: transform .28s var(--squish); }
 #install[hidden] { display: none; }
 #install:active { transform: scale(0.94); transition-duration: .08s; }
+/* 첫 화면 맨 아래의 저작권 한 줄과 "만든 이와 쓰인 것" */
+#start .copy { position: absolute; left: 0; right: 0; bottom: calc(10px + var(--safe-b, env(safe-area-inset-bottom, 0px))); margin: 0; text-align: center; font-size: 11px; font-weight: 700; color: rgba(60, 78, 110, 0.75); text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7); }
+#start .copy button { padding: 0; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 2px; background: none; }
+@media (max-height: 560px) { #start { flex-direction: column; } #start .copy { position: static; margin-top: 8px; } }      /* 낮은 화면(가로 등): 카드 바로 아래에 (겹치지 않게) */
+#credits { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+#credits[hidden] { display: none; }
+#credits .card { width: min(100%, 360px); max-height: 84vh; overflow: auto; padding: 18px 18px 12px; border-radius: 24px; text-align: left; color: var(--ink); background: var(--cream); box-shadow: 0 14px 34px rgba(36, 64, 110, 0.25); }
+#credits .title { margin: 0; text-align: center; font-size: 20px; font-weight: 900; color: var(--brown); }
+#credits .by { margin: 4px 0 6px; text-align: center; font-size: 13.5px; font-weight: 800; line-height: 1.5; }
+#credits .by small { font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+#credits h3 { margin: 12px 0 4px; font-size: 13.5px; font-weight: 900; color: var(--brown); }
+#credits .note { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+#credits ul { margin: 0; padding-left: 18px; font-size: 12px; font-weight: 600; line-height: 1.6; word-break: keep-all; }
+#credits a { color: #2f6fc4; }
+#credits .close { display: block; margin: 12px auto 2px; height: 38px; padding: 0 22px; border-radius: 19px; font-size: 14px; font-weight: 800; color: var(--brown); background: var(--mint); }
 #install-help { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 #install-help[hidden] { display: none; }
 #install-help .card { width: min(100%, 320px); padding: 20px 20px 14px; border-radius: 26px; text-align: center; color: var(--ink); background: var(--cream); box-shadow: 0 14px 34px rgba(36, 64, 110, 0.25); }

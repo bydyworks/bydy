@@ -3,9 +3,9 @@
 // 언덕의 높이는 heightAt(x, z) 로 어디서나 잴 수 있다 (펭귄과 다른 펭귄이 그 높이에 선다).
 import * as THREE from 'three';
 
-const DEG = 100, FAR = 46;                      // 트리에서 본 방향(도)과 거리
+const DEG = 100, FAR = 37;                      // 트리에서 본 방향(도)과 거리
 export const HILL = { x: Math.sin(DEG * Math.PI / 180) * FAR, z: Math.cos(DEG * Math.PI / 180) * FAR, r: 10, h: 3.2, top: 2.2 };      // top: 꼭대기의 평평한 자리
-const STAIR_DIR = (DEG + 90) * Math.PI / 180, STAIR_HALF = 0.85;      // 계단은 트리에서 보아 옆쪽(오른쪽)에서 꼭대기로 곧게 오른다
+export const STAIR_DIR = (DEG + 90) * Math.PI / 180, STAIR_HALF = 0.85;      // 계단은 트리에서 보아 옆쪽(오른쪽)에서 꼭대기로 곧게 오른다
 const sd = { x: Math.sin(STAIR_DIR), z: Math.cos(STAIR_DIR) };
 const smooth = (t) => t * t * (3 - 2 * t);
 /** 그 자리의 땅 높이 (언덕 밖은 0) */

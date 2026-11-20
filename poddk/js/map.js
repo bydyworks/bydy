@@ -1,5 +1,5 @@
 // 만드는 사람끼리 보는 지도 (map.html). 게임이 쓰는 자리 값과 규칙을 그대로 읽어, 위에서 내려다본 눈밭을 그린다.
-//   · 트리, 들어오는 자리, 이글루 셋, 낚시터 셋
+//   · 트리, 들어오는 자리, 이글루 셋, 낚시터 셋, 슬라이딩 언덕(계단), 썰매 길, 모닥불, 우체통, 소원판
 //   · 여우: 지금 있는 자리와 지나온 길(발자국이 남아 있는 12분), 앞으로 갈 길
 //   · 눈 소식(다음 폭설), 오늘 밤 썰매가 지나가는 시각과 하늘 쪽
 //   · 이 기기에 저장된 내 펭귄의 마지막 자리와 발자국
@@ -9,6 +9,11 @@ import { FIELD_RADIUS } from './field.js';
 import { IGLOOS, PONDS } from './igloo.js';
 import { foxAt, PAW_LIFE_MS } from './fox.js';
 import { nextPass, passesOf, passAt, PASS_MS } from './santa.js';
+import { HILL, STAIR_DIR, STAIR_HALF } from './hill.js';
+import { LANE } from './sled.js';
+import { CAMPFIRE, STUMP_BLOCKS } from './campfire.js';
+import { POSTBOX } from './postbox.js';
+import { WISHBOARD } from './wishboard.js';
 
 const WALK = 1.25;                 // 펭귄이 걷는 빠르기 (단위/초) — main.js 의 WALK_SPEED 와 같다
 const START = { x: 0, z: 15 };     // 들어오는 자리 (main.js 의 me)
@@ -48,7 +53,7 @@ base.append(
 );
 const label = (x, y, text, size = 5.2, weight = 700) => el('text', { x, y, 'text-anchor': 'middle', 'font-size': size, 'font-weight': weight }, text);
 // (거리 글자는 아무것도 없는 오른쪽에 적는다)
-base.append(label(30 * WALK, -1.6, '걸어서 30초', 3.6, 500), label(60 * WALK, -1.6, '걸어서 1분', 3.6, 500));
+// (점선 원이 걸어서 30초·1분 거리라는 것은 그림 설명에 적는다 — 언덕과 겹치지 않게)
 // 낚시터: 언 연못(실제 크기)과 구멍
 PONDS.forEach((p, i) => {
   const g = el('g', { 'data-kind': 'pond' });
@@ -61,6 +66,31 @@ IGLOOS.forEach((g0, i) => {
   g.append(el('circle', { cx: g0.x, cy: g0.z, r: 4.6, fill: '#eef3fb', stroke: '#8fa3c8', 'stroke-width': 0.9 }), el('circle', { cx: g0.x + dx * 4.6, cy: g0.z + dz * 4.6, r: 1.7, fill: '#39405f' }), label(g0.x, g0.z + 11.6, `이글루 ${i + 1}`));
   base.append(g);
 });
+// 슬라이딩 언덕: 둥근 언덕과 꼭대기, 한쪽의 계단
+{
+  const g = el('g', { 'data-kind': 'hill' }), sx = Math.sin(STAIR_DIR), sz = Math.cos(STAIR_DIR), w = STAIR_HALF * 2;
+  g.append(el('circle', { cx: HILL.x, cy: HILL.z, r: HILL.r, fill: '#f1f5fc', stroke: '#9fb2d4', 'stroke-width': 0.9 }), el('circle', { cx: HILL.x, cy: HILL.z, r: HILL.top, fill: '#e3ebf7', stroke: '#9fb2d4', 'stroke-width': 0.5 }));
+  for (let k = 0; k < 7; k++) { const a = HILL.top + (HILL.r + 0.6 - HILL.top) * (k + 0.5) / 7; g.append(el('line', { x1: HILL.x + sx * a + sz * w / 2, y1: HILL.z + sz * a - sx * w / 2, x2: HILL.x + sx * a - sz * w / 2, y2: HILL.z + sz * a + sx * w / 2, stroke: '#8a5a36', 'stroke-width': 0.6 })); }
+  g.append(label(HILL.x + HILL.r + 13, HILL.z + 1.8, '슬라이딩 언덕'), label(HILL.x + sx * (HILL.r + 1) + 6.5, HILL.z + sz * (HILL.r + 1) + 1.2, '계단', 3.6, 600));
+  base.insertBefore(g, base.children[3]);      // (넓은 언덕이 옆 이글루의 이름을 덮지 않게 먼저 그린다)
+}
+// 썰매 길: 출발 자리부터 곧게 뻗은 얼음 길
+{
+  const d = LANE.dir, n = { x: d.z, z: -d.x }, a0 = -LANE.pad, a1 = LANE.len, h = LANE.half;
+  const pt = (a, s) => `${r1(LANE.start.x + d.x * a + n.x * s)} ${r1(LANE.start.z + d.z * a + n.z * s)}`;
+  const g = el('g', { 'data-kind': 'lane' });
+  g.append(el('path', { d: `M${pt(a0, h)} L${pt(a1, h)} L${pt(a1, -h)} L${pt(a0, -h)} Z`, fill: '#cfe5f6', stroke: '#8fb8dc', 'stroke-width': 0.7 }), el('path', { d: `M${pt(0, h)} L${pt(0, -h)}`, stroke: '#e0503f', 'stroke-width': 0.9 }));
+  const mid = LANE.len / 2; g.append(label(LANE.start.x + d.x * mid + n.x * 7, LANE.start.z + d.z * mid + n.z * 7, '썰매 길'));
+  base.append(g);
+}
+// 모닥불과 그루터기 의자
+{
+  const g = el('g', { 'data-kind': 'campfire' });
+  g.append(el('circle', { cx: CAMPFIRE.x, cy: CAMPFIRE.z, r: 2.2, fill: '#ffb35c', stroke: '#e0503f', 'stroke-width': 0.6 }), ...STUMP_BLOCKS.map((b) => el('circle', { cx: b.x, cy: b.z, r: 0.9, fill: '#8a5a36' })), label(CAMPFIRE.x - 9.5, CAMPFIRE.z + 1.6, '모닥불'));
+  base.append(g);
+}
+// 우체통과 소원판 (트리 곁)
+base.append(el('rect', { x: POSTBOX.x - 1, y: POSTBOX.z - 1, width: 2, height: 2, fill: '#d0312d' }), el('rect', { x: WISHBOARD.x - 1.5, y: WISHBOARD.z - 0.8, width: 3, height: 1.6, fill: '#8a5a36' }));
 // 트리와 들어오는 자리
 base.append(
   el('path', { d: 'M0 -8 L5.6 4 L-5.6 4 Z', fill: '#2f7d5b' }), el('rect', { x: -1.2, y: 4, width: 2.4, height: 3, fill: '#6b4a33' }),
@@ -73,6 +103,9 @@ base.append(
 const sites = [
   ...IGLOOS.map((g, i) => ({ name: `이글루 ${i + 1}`, x: g.x, z: g.z })),
   ...PONDS.map((p, i) => ({ name: `낚시터 ${i + 1}`, x: p.x, z: p.z })),
+  { name: '슬라이딩 언덕(계단)', x: HILL.x + Math.sin(STAIR_DIR) * (HILL.r + 1), z: HILL.z + Math.cos(STAIR_DIR) * (HILL.r + 1) },
+  { name: '썰매 길 출발', x: LANE.start.x, z: LANE.start.z },
+  { name: '모닥불', x: CAMPFIRE.x, z: CAMPFIRE.z },
 ];
 document.querySelector('#sites').innerHTML = '<tr><th>곳</th><th>트리에서</th><th>들어와서</th><th>가까운 곳</th></tr>' + sites.map((s) => {
   const near = sites.filter((o) => o !== s).map((o) => ({ o, d: Math.hypot(o.x - s.x, o.z - s.z) })).sort((a, b) => a.d - b.d)[0];

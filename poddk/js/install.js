@@ -42,6 +42,13 @@ export function setupInstall() {
   });
   help.querySelector('.close').addEventListener('click', () => { help.hidden = true; });
   help.addEventListener('click', (e) => { if (e.target === help) help.hidden = true; });
+  // 만든 이와 쓰인 것 (첫 화면 맨 아래의 작은 글자 단추)
+  const credits = $('#credits'), open = $('#credits-open');
+  if (credits && open) {
+    open.addEventListener('click', (e) => { e.stopPropagation(); credits.hidden = false; });
+    credits.querySelector('.close').addEventListener('click', () => { credits.hidden = true; });
+    credits.addEventListener('click', (e) => { if (e.target === credits) credits.hidden = true; });
+  }
   if ('serviceWorker' in navigator && /(^|\.)poddk\.pages\.dev$/.test(location.hostname)) {
     const reg = () => navigator.serviceWorker.register('/sw.js').catch(() => {});
     if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);

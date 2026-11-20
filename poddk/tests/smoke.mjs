@@ -1021,11 +1021,11 @@ try {
     // 서로 겹치지 않고 멀리 떨어져 있다 (이글루끼리도, 낚시터끼리도, 이글루와 낚시터도)
     let closest = 1e9;
     for (let i = 0; i < sites.length; i++) for (let j = i + 1; j < sites.length; j++) closest = Math.min(closest, Math.hypot(sites[i].x - sites[j].x, sites[i].z - sites[j].z));
-    assert(closest > 24, '두 곳이 너무 가깝다: ' + closest.toFixed(1));      // (눈밭을 줄여 트리 둘레에 오밀조밀하게 모았다)
+    assert(closest > 24, '두 곳이 너무 가깝다: ' + closest.toFixed(1));      // (트리 둘레에 오밀조밀하게 모았다)
     // 트리 둘레에 흩어져 있다: 트리에서 멀찍이, 들판 안에, 들어오는 자리에서 바로 보이지 않을 만큼 떨어져, 여러 방향에
     for (const g of sites) {
       const r = Math.hypot(g.x, g.z);
-      assert(r > 24 && r + g.radius + 4 < 78, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
+      assert(r > 18 && r + g.radius + 4 < 78, g.kind + '가 트리에 너무 가깝거나 들판 밖이다: ' + r.toFixed(0));
       assert(Math.hypot(g.x, g.z - 15) > 18, g.kind + '가 들어오는 자리에 너무 가깝다');      // (오밀조밀해졌어도 들어오는 자리 바로 앞은 아니게)
     }
     const angles = sites.map((g) => (Math.atan2(g.x, g.z) * 180 / Math.PI + 360) % 360).sort((a, b) => a - b);
@@ -1470,27 +1470,32 @@ try {
     assert(den.includes('이글루'), '이글루 알림: ' + den);
   });
 
-  await test('들판 모닥불 곁에서 상황 단추를 누르면 앉아서 마시멜로를 굽고, 다시 누르면 먹는다 (노릇노릇·까맣게 탄 것은 한마디가 다르다)', async () => {
+  await test('들판 모닥불 곁에서 상황 단추를 누르면 그루터기 의자에 올라앉고, 🔥로 마시멜로를 굽고 😋로 먹는다 (노릇노릇·까맣게 탄 것은 한마디가 다르다). 조이스틱을 밀면 내려온다', async () => {
     const p = await page('t=19:00&speed=0&xmas=0');
     await byHand(p);
     const C = await snow(p, async () => ({ ...(await import('./js/campfire.js')).CAMPFIRE }));
+    const label = () => p.getAttribute('#act', 'aria-label');
+    await snow(p, (C) => { const s = window.__snow; s.teleport(C.x + 3.0, C.z + 0.4); s.sim(0.1); }, C);
+    await until(async () => (await label()) === '그루터기에 앉기', { what: '앉기 단추' });
+    await p.click('#act');
+    const seated = await snow(p, async () => { const s = window.__snow; s.sim(0.9); for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r)); return { phase: s.roast && s.roast.phase, y: s.penguin.position.y, a: s.myState().a }; });
+    assert(seated.phase === 'seated' && seated.y > 0.3 && seated.a === 5, '그루터기 위에 앉지 않았다: ' + JSON.stringify(seated));
     const roast = async (cookSec) => {
-      await snow(p, (C) => { const s = window.__snow; s.teleport(C.x + 2.3, C.z + 0.4); s.sim(0.1); }, C);
-      await until(async () => (await p.getAttribute('#act', 'aria-label')) === '마시멜로 굽기', { what: '굽기 단추' });
+      await until(async () => (await label()) === '마시멜로 굽기', { what: '굽기 단추' });
       await p.click('#act');
-      const sat = await snow(p, (sec) => { const s = window.__snow; s.sim(0.7); const sat = { phase: s.roast && s.roast.phase, a: s.myState().a }; s.sim(sec); return sat; }, cookSec);
-      await until(async () => (await p.getAttribute('#act', 'aria-label')) === '마시멜로 먹기', { what: '먹기 단추' });
+      const a = await snow(p, (sec) => { const s = window.__snow; s.sim(0.1); const a = s.myState().a; s.sim(sec); return a; }, cookSec);
+      await until(async () => (await label()) === '마시멜로 먹기', { what: '먹기 단추' });
       await p.click('#act');
       const said = await p.textContent('#toast');
-      await snow(p, () => window.__snow.sim(2));
-      return { sat, said, done: await snow(p, () => window.__snow.roast) };
+      await snow(p, () => window.__snow.sim(1.5));
+      return { a, said, after: await snow(p, () => window.__snow.roast && window.__snow.roast.phase) };
     };
     const gold = await roast(5.4);
-    assert(gold.sat.phase === 'cook' && gold.sat.a === 8, '불을 보고 앉아 굽지 않는다: ' + JSON.stringify(gold.sat));
-    assert(gold.said.includes('노릇노릇'), '알맞게 구웠는데: ' + gold.said);
-    assert(gold.done === null, '먹고 나서 일어나지 않았다');
+    assert(gold.a === 8 && gold.said.includes('노릇노릇') && gold.after === 'seated', '알맞게 구워 먹고 다시 앉아 있어야 한다: ' + JSON.stringify(gold));
     const burnt = await roast(10);
     assert(burnt.said.includes('까맣게'), '오래 두었는데: ' + burnt.said);
+    const off = await snow(p, async (C) => { const s = window.__snow; s.controls.debugMove(0, 1); s.sim(0.8); s.controls.debugMove(0, 0); for (let i = 0; i < 3; i++) await new Promise((r) => requestAnimationFrame(r)); return { roast: s.roast, y: s.penguin.position.y, d: Math.hypot(s.me.x - C.x, s.me.z - C.z) }; }, C);
+    assert(off.roast === null && off.y < 0.05 && off.d > 2.6, '조이스틱을 밀었는데 내려오지 않았다: ' + JSON.stringify(off));
   });
 
   await test('오로라: 다섯 밤에 두 번쯤 뜨고(날짜로 정해져 모두에게 같다), 그 밤 저녁 8시~새벽 4시에만 보인다. ?aurora 로 띄우면 밤하늘에 일렁이고 알림이 뜬다', async () => {
@@ -1529,6 +1534,12 @@ try {
     await p.click('#install-help .close');
     assert(!(await p.isVisible('#install-help')), '닫히지 않는다');
     assert(!(await p.evaluate(() => document.body.classList.contains('in'))), '단추를 눌렀는데 게임이 시작됐다');
+    assert((await p.textContent('#start .copy')).includes('© 2026 이드'), '첫 화면에 저작권 표시가 없다');
+    await p.click('#credits-open');
+    const cr = await p.textContent('#credits');
+    assert(await p.isVisible('#credits') && cr.includes('이드') && cr.includes('Artlist') && cr.includes('three.js') && cr.includes('나눔스퀘어라운드'), '만든 이와 쓰인 것: ' + cr.slice(0, 120));
+    await p.click('#credits .close');
+    assert(!(await p.isVisible('#credits')) && !(await p.evaluate(() => document.body.classList.contains('in'))), '닫히지 않거나 게임이 시작됐다');
     const how = await p.evaluate(async () => { const { howTo } = await import('./js/install.js'); return { ios: howTo('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit Version/17.0 Mobile Safari'), android: howTo('Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile'), naver: howTo('Mozilla/5.0 (iPhone) NAVER(inapp; search)') }; });
     assert(how.ios.includes('공유') && how.android.includes('⋮') && how.naver.includes('네이버'), '기기별 안내: ' + JSON.stringify(how));
   });
@@ -1910,7 +1921,7 @@ try {
     assert(same(m.igloos, game.igloos) && same(m.ponds, game.ponds), '지도의 이글루·낚시터 자리가 게임과 다르다: ' + JSON.stringify([m.igloos, game.igloos]));
     assert(Math.hypot(m.fox[0] - game.fox[0], m.fox[1] - game.fox[1]) < 0.01, '지도의 여우 자리가 게임과 다르다: ' + JSON.stringify([m.fox, game.fox]));
     assert(m.me && Math.hypot(m.me[0] - game.me[0], m.me[1] - game.me[1]) < 0.01 && m.prints === game.prints, '내 펭귄의 자리와 발자국이 게임과 다르다: ' + JSON.stringify([m.me, game.me, m.prints, game.prints]));
-    assert(m.trail > 100 && m.santa && m.rows === 7, '여우가 지나온 길, 썰매가 지나갈 하늘, 자리 표가 있어야 한다: ' + JSON.stringify(m));
+    assert(m.trail > 100 && m.santa && m.rows === 10, '여우가 지나온 길, 썰매가 지나갈 하늘, 자리 표(이글루 셋, 낚시터 셋, 언덕, 썰매 길, 모닥불)가 있어야 한다: ' + JSON.stringify(m));
     assert(m.now.includes('오후 8:10') && /큰 눈은 (50분|1시간)쯤 뒤/.test(m.now) && /\d\d:\d\d · \d\d:\d\d · \d\d:\d\d/.test(m.now), '지금의 소식: ' + m.now);
     assert(m.wide && m.noindex, '화면보다 넓거나, 검색에 걸리지 않게 하는 표시가 없다');
   });

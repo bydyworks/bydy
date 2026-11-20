@@ -12,7 +12,7 @@ import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
 import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
-import { createCampfire, makeStick, CAMPFIRE, STUMP_BLOCKS, ROAST_REACH, ROAST_SEAT, STICK_LEN, donenessAt, marshmallowColor } from './campfire.js';
+import { createCampfire, makeStick, CAMPFIRE, STUMP_BLOCKS, STUMP_SEAT_Y, ROAST_REACH, STICK_LEN, donenessAt, marshmallowColor } from './campfire.js';
 import { createAurora, auroraAt, nightId } from './aurora.js';
 import { createHill, heightAt, onHill, canWalk, slidesOff, nearStairFoot, onTop, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
@@ -236,23 +236,32 @@ function startFishing() {
   me.idle = 0;
   if (firstTime('fish')) toast('찌가 쑥 들어가면 물고기 단추를 눌러요. ✕는 그만두기예요', 4800);
 }
-// ---------- 모닥불에서 마시멜로 굽기 ----------
-// 불 곁에서 상황 단추(🔥)를 누르면 불을 보고 앉아 막대 끝의 마시멜로를 불에 댄다. 하얗던 마시멜로가 노릇노릇해지다가 너무 오래 두면 까맣게 탄다.
-// 단추(😋)를 다시 누르면 냠 먹고 일어난다. 걸으려고 조이스틱을 밀면 먹지 않고 일어난다.
-const ROAST = { sit: 0.6, eat: 1.2, stand: 0.45, tilt: 1.28 };
-let roastTurn = 0;               // 굽기 시작하며 카메라가 마저 돌아야 할 각: 옆에서 불과 펭귄이 함께 보이게
+// ---------- 모닥불: 그루터기 의자에 앉아 마시멜로 굽기 ----------
+// 불 곁에서 상황 단추를 누르면 가장 가까운 그루터기 의자에 폴짝 올라앉아 불을 본다.
+// 앉은 채로 🔥 단추를 누르면 막대 끝의 마시멜로를 불에 댄다. 하얗던 마시멜로가 노릇노릇해지다가 너무 오래 두면 까맣게 탄다.
+// 😋 단추로 냠 먹으면 다시 앉아 있는 채로 돌아온다 (또 구울 수 있다). 조이스틱을 밀면 일어나 의자에서 내려온다.
+// me.roast.phase: sit(올라앉는 중) → seated(앉아 있음) ⇄ cook(굽는 중) → eat(먹는 중) → seated … → stand(내려오는 중)
+const ROAST = { sit: 0.7, eat: 1.2, stand: 0.55, tilt: 1.45 };
+let roastTurn = 0;               // 앉으며 카메라가 마저 돌아야 할 각: 옆에서 불과 펭귄이 함께 보이게
 const roastStick = makeStick(); roastStick.visible = false; penguin.add(roastStick);
 const canRoast = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !me.roll && !me.roast && !fishing.active && !me.seat && !me.wave && campfire.dist(me.x, me.z) < ROAST_REACH;
+/** 그루터기 의자에 앉는다 (가장 가까운 것) */
 function startRoast() {
   if (!canRoast()) return;
-  let a = Math.atan2(me.x - CAMPFIRE.x, me.z - CAMPFIRE.z);      // 불에서 본 펭귄 쪽. 그루터기 자리면 옆 빈자리로 비켜 앉는다 (그루터기를 뚫고 미끄러지지 않게)
-  for (const b of STUMP_BLOCKS) { const sa = Math.atan2(b.x - CAMPFIRE.x, b.z - CAMPFIRE.z), dd = angleDiff(a, sa); if (Math.abs(dd) < 0.42) a = sa + (dd >= 0 ? 0.42 : -0.42); }
-  const ux = Math.sin(a), uz = Math.cos(a);
-  const to = field.confine(CAMPFIRE.x + ux * ROAST_SEAT, CAMPFIRE.z + uz * ROAST_SEAT);      // (그루터기 자리면 조금 비켜 앉는다)
-  me.roast = { phase: 'sit', t: 0, cook: 0, k: 0, from: { x: me.x, z: me.z, yaw: me.yaw }, to: { x: to.x, z: to.z, yaw: Math.atan2(CAMPFIRE.x - to.x, CAMPFIRE.z - to.z) }, hinted: 0 };
-  roastStick.userData.mallow.visible = true;
+  let best = STUMP_BLOCKS[0], bd = Infinity;
+  for (const b of STUMP_BLOCKS) { const d = Math.hypot(b.x - me.x, b.z - me.z); if (d < bd) { bd = d; best = b; } }
+  const out = Math.hypot(best.x - CAMPFIRE.x, best.z - CAMPFIRE.z) || 1, ux = (best.x - CAMPFIRE.x) / out, uz = (best.z - CAMPFIRE.z) / out;
+  me.roast = { phase: 'sit', t: 0, cook: 0, k: 0, lift: 0, stick: 0, from: { x: me.x, z: me.z, yaw: me.yaw }, to: { x: best.x, z: best.z, yaw: Math.atan2(-ux, -uz) }, off: { x: best.x + ux * 0.85, z: best.z + uz * 0.85 }, hinted: 0 };
   { const rel = angleDiff(me.camYaw, me.roast.to.yaw); roastTurn = (rel >= 0 ? 1 : -1) * 1.3 - rel; }      // 카메라를 등 뒤에서 비스듬히 옆으로 (불이 펭귄 몸에 가리지 않게)
   me.walk = 0; shakeOff(true); me.snow = 0; me.idle = 0;
+  audio.snowFx('pop');
+  if (firstTime('stump')) toast('🔥 단추로 마시멜로를 구워요. 일어나려면 조이스틱을 밀어요', 4200);
+}
+/** 앉은 채로 마시멜로를 불에 댄다 */
+function cookRoast() {
+  const r = me.roast; if (!r || r.phase !== 'seated') return;
+  r.phase = 'cook'; r.t = 0; r.cook = 0; r.hinted = 0; r.result = null;
+  roastStick.userData.mallow.visible = true;
   if (firstTime('roast')) toast('노릇노릇해지면 😋 단추를 눌러 먹어요. 너무 오래 두면 타요!', 4200);
 }
 /** 다 구웠다: 먹는다 (구운 정도에 따라 한마디) */
@@ -264,42 +273,51 @@ function eatRoast() {
   audio.snowFx(d.id === 'gold' ? 'ding' : d.id === 'burnt' ? 'paper' : 'pop');
   stats.mallows = (stats.mallows || 0) + 1;
 }
-function stopRoast() { const r = me.roast; if (!r || r.phase === 'stand' || r.phase === 'eat') return; r.phase = 'stand'; r.t = 0; r.from.k = r.k; }
+/** 상황 단추: 앉아 있으면 굽기, 굽는 중이면 먹기 */
+function pressRoast() { const r = me.roast; if (!r) return; if (r.phase === 'seated') cookRoast(); else if (r.phase === 'cook') eatRoast(); }
+/** 일어나 의자에서 내려온다 (굽던 마시멜로는 먹지 않고 거둔다) */
+function stopRoast() { const r = me.roast; if (!r || r.phase === 'stand' || r.phase === 'eat' || r.phase === 'sit') return; r.phase = 'stand'; r.t = 0; }
 function stepRoast(dt, wantWalk, looked = false) {
   const r = me.roast;
   r.t += dt;
   const ease = (u) => u * u * (3 - 2 * u);
-  let lift = 0;
-  if (r.phase === 'sit') {
+  let lift = 0, stickGoal = r.phase === 'cook' || r.phase === 'eat' ? 1 : 0;
+  if (r.phase === 'sit') {      // 폴짝 올라앉는다
     const u = Math.min(1, r.t / ROAST.sit), e = ease(u);
     me.x = r.from.x + (r.to.x - r.from.x) * e; me.z = r.from.z + (r.to.z - r.from.z) * e;
-    me.yaw = r.from.yaw + angleDiff(r.to.yaw, r.from.yaw) * e; r.k = e;
-    if (u >= 1) { r.phase = 'cook'; r.t = 0; }
-  } else if (r.phase === 'cook') {
-    r.cook += dt;
+    me.yaw = r.from.yaw + angleDiff(r.to.yaw, r.from.yaw) * Math.min(1, e * 1.4); r.k = e;
+    r.lift = STUMP_SEAT_Y * e + Math.sin(Math.PI * u) * 0.28;
+    if (u >= 1) { r.phase = 'seated'; r.t = 0; r.lift = STUMP_SEAT_Y; }
+  } else if (r.phase === 'seated' || r.phase === 'cook') {
     if (wantWalk) stopRoast();
-    else if (r.hinted === 0 && r.cook > 4.8) { r.hinted = 1; toast('노릇노릇! 지금 먹으면 딱 좋아요 😋', 2200); }
-    else if (r.hinted === 1 && r.cook > 7.6) { r.hinted = 2; toast('앗, 타기 시작했어요! 🔥', 1800); }
-    if (r.cook > 9 && Math.random() < dt * 3) { const tip = roastStick.localToWorld(new THREE.Vector3(0, STICK_LEN, 0)); crumble.puff(tip.x, tip.z, 0.12); }      // 탄 마시멜로에서 연기가 폴폴
+    else if (r.phase === 'cook') {
+      r.cook += dt;
+      if (r.hinted === 0 && r.cook > 4.8) { r.hinted = 1; toast('노릇노릇! 지금 먹으면 딱 좋아요 😋', 2200); }
+      else if (r.hinted === 1 && r.cook > 7.6) { r.hinted = 2; toast('앗, 타기 시작했어요! 🔥', 1800); }
+      if (r.cook > 9 && Math.random() < dt * 3) { const tip = roastStick.localToWorld(new THREE.Vector3(0, STICK_LEN, 0)); crumble.puff(tip.x, tip.z, 0.12); }      // 탄 마시멜로에서 연기가 폴폴
+    }
   } else if (r.phase === 'eat') {
     const u = Math.min(1, r.t / ROAST.eat);
     lift = Math.sin(Math.min(1, u * 1.6) * Math.PI / 2) * (1 - Math.max(0, (u - 0.75) / 0.25));      // 막대를 입가로 들어 올렸다 내린다
     if (u > 0.5) roastStick.userData.mallow.visible = false;
-    if (u >= 1) { r.phase = 'stand'; r.t = 0; }
-  } else {
-    const u = Math.min(1, r.t / ROAST.stand);
-    r.k = 1 - ease(u);
+    if (u >= 1) { r.phase = 'seated'; r.t = 0; }
+  } else {      // 폴짝 내려온다
+    const u = Math.min(1, r.t / ROAST.stand), e = ease(u);
+    me.x = r.to.x + (r.off.x - r.to.x) * e; me.z = r.to.z + (r.off.z - r.to.z) * e;
+    r.k = 1 - e; r.lift = STUMP_SEAT_Y * (1 - e) + Math.sin(Math.PI * u) * 0.22;
     if (u >= 1) { me.roast = null; roastStick.visible = false; me.idle = 0; return; }
   }
+  r.stick += (stickGoal - r.stick) * (1 - Math.exp(-dt * 10));
   if (looked) roastTurn = 0;      // 직접 둘러보기 시작하면 더 돌리지 않는다
   { const turn = roastTurn * (1 - Math.exp(-dt * 3.4)); me.camYaw += turn; roastTurn -= turn; }
   me.walk = 0; me.idle = 0; me.snow = 0;
   pose(penguin, me.phase, 0);
   sit(penguin, r.k, Math.sin(performance.now() / 700) * 0.012);
-  roastStick.visible = r.k > 0.02;
-  roastStick.scale.setScalar(Math.max(0.001, r.k));
+  const sk = r.stick * r.k;
+  roastStick.visible = sk > 0.02;
+  roastStick.scale.setScalar(Math.max(0.001, sk));
   roastStick.position.set(ROD_GRIP.x - 0.1 * lift, ROD_GRIP.y - 0.09 * r.k + 0.25 * lift, ROD_GRIP.z);
-  roastStick.rotation.set(ROAST.tilt - 1.9 * lift, 0, 0.1 + 0.55 * lift);
+  roastStick.rotation.set(ROAST.tilt - 2.05 * lift, 0, 0.1 + 0.55 * lift);
   marshmallowColor(r.cook, roastStick.userData.mallow.material.color);
   roastStick.userData.mallow.material.emissive.setRGB(r.phase === 'cook' ? 0.18 + 0.05 * Math.sin(r.t * 9) : 0, r.phase === 'cook' ? 0.07 : 0, 0);      // 불빛을 받아 살짝 발그레
 }
@@ -316,8 +334,8 @@ function showAction() {
   if ($('#flap').classList.contains('off') !== flapOff) $('#flap').classList.toggle('off', flapOff);
   const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : fishing.nibbling ? 'nib' : 'wait')
     : me.inside !== null ? (me.seat ? (me.seat.phase === 'sat' ? 'standup' : 'none') : dens.seatNear(me.inside, me.x, me.z) >= 0 ? 'sitdown' : dens.nearDoor(me.inside, me.x, me.z) ? 'exit' : 'none')
-    : me.roast ? (me.roast.phase === 'cook' ? 'eat' : 'eatwait')
-    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'roast' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : greetTarget() ? 'wave' : throwTarget() ? 'throw' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
+    : me.roast ? (me.roast.phase === 'cook' ? 'eat' : me.roast.phase === 'seated' ? 'roast' : me.roast.phase === 'eat' ? 'eatwait' : 'none')
+    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'stump' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : greetTarget() ? 'wave' : throwTarget() ? 'throw' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
   // 눈 천사 단추: 눈 천사를 할 수 없을 때(이글루 안, 낚시·썰매·파닥 중, 방석) 흐려진다
   const angelOff = me.inside !== null || (fishing.active || !!me.roast) || !!me.slide || !!me.flap || !!me.seat || !!me.roll;
   if ($('#angel').classList.contains('off') !== angelOff) $('#angel').classList.toggle('off', angelOff);
@@ -332,7 +350,8 @@ function showAction() {
   el.classList.toggle('rest', now === 'nib');             // 가짜 입질이 지나가는 잠깐: 흐려져 쉰다 (눌러도 그만두지 않는다)
   for (const c of ['enter', 'exit', 'sitdown', 'standup', 'mail', 'wave', 'throw', 'roll', 'rollstop', 'wish', 'look', 'roast', 'eat']) el.classList.toggle(c, now === c);
   el.classList.toggle('eat', now === 'eat' || now === 'eatwait'); if (now === 'eatwait') el.classList.add('hold');
-  el.setAttribute('aria-label', { angel: '할 수 있는 것이 없어요', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기', wave: '인사하기', throw: '눈덩이 던지기', roll: '눈 굴리기', rollstop: '그만 굴리기', wish: '소원판 보기', look: '눈사람 보기', roast: '마시멜로 굽기', eat: '마시멜로 먹기', eatwait: '마시멜로 먹기' }[now]);
+  if (now === 'stump') el.classList.add('sitdown');      // 그루터기에 앉기: 이글루 방석과 같은 앉기 그림
+  el.setAttribute('aria-label', { angel: '할 수 있는 것이 없어요', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기', wave: '인사하기', throw: '눈덩이 던지기', roll: '눈 굴리기', rollstop: '그만 굴리기', wish: '소원판 보기', look: '눈사람 보기', roast: '마시멜로 굽기', eat: '마시멜로 먹기', eatwait: '마시멜로 먹기', stump: '그루터기에 앉기' }[now]);
 }
 
 /** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 낚시 중에는 낚아 올리기나 그만두기, 그 밖에서는 눈 천사 */
@@ -351,7 +370,7 @@ function act(how = 'button') {
     return;
   }
   if (fishing.active) fishing.press();
-  else if (me.roast) eatRoast();
+  else if (me.roast) pressRoast();
   else if (canEnter() >= 0) goIn(canEnter());
   else if (canFish()) startFishing();
   else if (canRoast()) startRoast();
@@ -731,8 +750,11 @@ $('#sculpt .make').addEventListener('click', () => {
   stats.built++;
   toast('눈사람을 만들었어요! ⛄', 2400);
 });
+/** 이글루·연못·언덕·썰매 길·모닥불 자리인가 (자리를 옮기기 전에 세운 눈사람이 그 안에 파묻혀 보이지 않게) */
+const MOVED_AT = Date.UTC(2026, 10, 21, 0, 0, 0);      // 놀 거리를 트리 쪽으로 모은 때: 이보다 먼저 세운 눈사람만 살핀다 (새로 세운 것은 늘 보인다)
+const snowmanBuried = (x, z) => IGLOOS.some((g) => Math.hypot(x - g.x, z - g.z) < g.radius + 3.2) || PONDS.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius + 0.6) || onHill(x, z) || onLane(x, z) || campfire.dist(x, z) < 3.3;
 function placeSnowman(s) {
-  if (hiddenSnowmen.has(s.id)) return;
+  if (hiddenSnowmen.has(s.id) || (!(s.birth >= MOVED_AT) && snowmanBuried(s.x, s.z))) return;
   if (s.mine) { const mine = [...snowmen.values()].filter((o) => o.mine && o.id !== s.id).sort((a, b) => a.birth - b.birth); while (mine.length >= MY_SNOWMEN) removeSnowman(mine.shift().id); }      // (내 눈사람은 셋까지: 넷째를 세우면 가장 오래된 것이 녹는다)
   if (snowmen.has(s.id)) removeSnowman(s.id);
   const mesh = buildSnowman(s.d, s.f); mesh.position.set(s.x, 0, s.z); mesh.rotation.y = s.yaw; scene.add(mesh);
@@ -1026,7 +1048,7 @@ $('#dice .again').addEventListener('click', () => { closeDice(false); inviteDice
 $('#dice .quit').addEventListener('click', () => closeDice());
 /** 내 모습을 서버에 보낼 꼴로 */
 function myState() {
-  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? (me.roast.phase === 'sit' || me.roast.phase === 'cook' ? ACT.roast : ACT.sit) : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
+  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? (me.roast.phase === 'cook' ? ACT.roast : me.roast.phase === 'seated' || me.roast.phase === 'eat' ? ACT.sit : ACT.stand) : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
   const st = me.seat && me.seat.phase === 'sat' && me.status ? STATUSES.findIndex((x) => x[1] === me.status[1]) : -1;
   return { x: me.x, z: me.z, yaw: me.yaw, w: Math.min(1, Math.max(0, me.walk)), a, i: me.inside === null ? -1 : me.inside, k: me.seat ? me.seat.k : -1, st, f: worn(penguin) };
 }
@@ -1395,7 +1417,7 @@ function walk(dt, now) {
 
 function placeCamera(dt) {
   const gy = me.inside === null ? heightAt(me.x, me.z) : 0;      // 언덕 위에서는 그 높이에 선다
-  penguin.position.set(me.x, gy, me.z);
+  penguin.position.set(me.x, gy + (me.roast ? me.roast.lift : 0), me.z);      // (그루터기 의자에 앉으면 그만큼 높이)
   penguin.rotation.y = me.yaw;
   fwd.set(Math.sin(me.camYaw), 0, Math.cos(me.camYaw));
   focus.set(me.x, CAM_TARGET_H + gy, me.z);
@@ -1518,7 +1540,7 @@ const SPOTS = [
   { key: 'hill', near: () => nearStairFoot(me.x, me.z), say: '슬라이딩 언덕이에요. 계단으로 올라가 볼래요? 🐧' },
   { key: 'top', near: () => onTop(me.x, me.z), say: '비탈 쪽으로 걸어 나가면 슬라이딩으로 쌩 내려가요!' },
   { key: 'lane', near: () => onPad(me.x, me.z), say: '썰매 경주 길이에요. 슬라이딩으로 기록을 세워 볼래요? 🏁' },
-  { key: 'fire', near: () => campfire.dist(me.x, me.z) < ROAST_REACH, say: '모닥불이에요. 마시멜로 구워 볼래요? 🔥' },
+  { key: 'fire', near: () => campfire.dist(me.x, me.z) < ROAST_REACH, say: '모닥불이에요. 그루터기에 앉아 마시멜로 구워 볼래요? 🔥' },
 ];
 const spotWas = {}, spotAt = {};
 function spotTips(t) {
@@ -1541,7 +1563,7 @@ camera.position.copy(camGoal);
 
 setupInstall();                       // 첫 화면의 '홈 화면에 추가하기' 단추
 $('#enter').addEventListener('click', () => {
-  if (started) return;
+  if (started || !$('#credits').hidden || !$('#install-help').hidden) return;      // (만든 이·홈 화면 안내 창이 떠 있으면 들어가지 않는다)
   started = true;
   $('#enter').blur();                 // 누른 버튼에 초점이 남아 있으면 스페이스(눈 천사)가 이 버튼의 몫이 된다
   audio.start();
