@@ -1423,6 +1423,19 @@ try {
     assert(hill > flat * 1.8, '언덕에서 더 멀리 가야 한다: ' + JSON.stringify({ flat, hill }));
   });
 
+  await test('눈썰매 언덕은 한쪽 계단으로만 걸어 오른다: 비탈로 걸어 오르면 언덕 가장자리에서 막히고, 계단으로는 꼭대기까지 간다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    const H = await snow(p, async () => ({ ...(await import('./js/hill.js')).HILL }));
+    const r = await snow(p, async (H) => {
+      const s = window.__snow;
+      const toward = async (a) => { s.teleport(H.x + Math.sin(a) * 13, H.z + Math.cos(a) * 13); s.me.yaw = s.me.camYaw = a + Math.PI; s.controls.debugMove(0, 1); s.sim(10); s.controls.debugMove(0, 0); for (let i = 0; i < 4; i++) await new Promise((r) => requestAnimationFrame(r)); return { d: Math.hypot(s.me.x - H.x, s.me.z - H.z), y: s.penguin.position.y }; };
+      return { slope: await toward(Math.atan2(-H.x, -H.z)), stairs: await toward((100 + 90) * Math.PI / 180) };
+    }, H);
+    assert(r.slope.d > H.r - 0.3 && r.slope.y < 0.3, '비탈로 걸어 올라갔다: ' + JSON.stringify(r.slope));
+    assert(r.stairs.d < H.top + 1 && r.stairs.y > H.h - 0.3, '계단으로 꼭대기에 못 갔다: ' + JSON.stringify(r.stairs));
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);

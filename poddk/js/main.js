@@ -12,7 +12,7 @@ import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
 import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
-import { createHill, heightAt, onHill, HILL } from './hill.js';
+import { createHill, heightAt, onHill, canWalk, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
 import { createSanta } from './santa.js';
@@ -1253,7 +1253,11 @@ function walk(dt, now) {
     const want = Math.atan2(dx, dz);
     me.yaw += THREE.MathUtils.clamp(angleDiff(want, me.yaw), -TURN_RATE * dt, TURN_RATE * dt);
     const speed = WALK_SPEED * mag;
-    const c = me.inside !== null ? dens.confine(me.inside, me.x + dx * speed * dt, me.z + dz * speed * dt) : field.confine(me.x + dx * speed * dt, me.z + dz * speed * dt);
+    let c = me.inside !== null ? dens.confine(me.inside, me.x + dx * speed * dt, me.z + dz * speed * dt) : field.confine(me.x + dx * speed * dt, me.z + dz * speed * dt);
+    if (me.inside === null && !canWalk(me.x, me.z, c.x, c.z)) {      // 눈썰매 언덕의 비탈은 걸어서 오르지 못한다 (계단으로만): 비탈을 따라 옆으로 비껴 걷는 것도 막는다
+      const sx = { x: c.x, z: me.z }, sz = { x: me.x, z: c.z };
+      c = canWalk(me.x, me.z, sx.x, sx.z) ? { ...sx, edge: true } : canWalk(me.x, me.z, sz.x, sz.z) ? { ...sz, edge: true } : { x: me.x, z: me.z, edge: true };
+    }
     const moved = Math.hypot(c.x - me.x, c.z - me.z);
     me.x = c.x; me.z = c.z;
     me.recent = Math.max(me.recent || 0, moved / Math.max(dt, 1e-3));      // 걸어오던 기세 (배 썰매에 보탠다)
