@@ -62,7 +62,7 @@ export function makeFlake(f) {
 export function makeHeadStar() {
   const g = new THREE.Group();
   const star = makeFlake(FLAKES.find((f) => f.id === 'star'));
-  star.scale.setScalar(0.36); star.rotation.x = Math.PI / 2;      // (눈송이는 눕혀 만들어져 있다: 세워서 앞을 보게)
+  star.scale.setScalar(0.72); star.rotation.x = Math.PI / 2;      // (눈송이는 눕혀 만들어져 있다: 세워서 앞을 보게)
   const spin = new THREE.Group(); spin.add(star); g.add(spin);
   // 십자 빛줄기 없이 별 둘레에 은은하게 번지는 둥근 빛만
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
@@ -78,14 +78,14 @@ export function makeHeadStar() {
 }
 const _q = new THREE.Quaternion();
 /** 머리 위 별을 한 박자 움직인다: 늘 화면 쪽을 보며(옆으로 납작해 보이지 않게) 천천히 돌고, 살랑 떠오르내린다 */
-export function bobHeadStar(g, time, camera, head = 1.72) {
+export function bobHeadStar(g, time, camera, head = 2.38) {      // (머리 위 이름표보다 위에)
   g.position.y = head + Math.sin(time * 2.1) * 0.05;
   if (camera && g.parent) { g.parent.getWorldQuaternion(_q); g.quaternion.copy(_q.invert()).multiply(camera.quaternion); }
   g.userData.star.rotation.set(0, Math.sin(time * 1.3) * 0.35, time * 0.7);
   // 반짝반짝: 별이 밝아졌다 어두워지고, 둘레의 빛도 함께 커졌다 작아진다
   const tw = 0.5 + 0.5 * Math.sin(time * 4.2) * Math.sin(time * 1.7 + 1);
   for (const m of g.userData.mats || []) m.emissiveIntensity = 0.5 + 0.9 * tw;
-  g.userData.glow.material.opacity = 0.35 + 0.4 * tw; g.userData.glow.scale.setScalar(0.42 + 0.16 * tw);
+  g.userData.glow.material.opacity = 0.35 + 0.4 * tw; g.userData.glow.scale.setScalar(0.84 + 0.32 * tw);
 }
 function glintSprite(color, big) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
