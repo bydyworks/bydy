@@ -161,8 +161,9 @@ function firstTime(name) {
   if (!TEST_MODE) { try { localStorage.setItem(HINT_KEY, JSON.stringify(hints)); } catch { /* 저장소가 막혀 있으면 이번 방문 동안만 기억한다 */ } }
   return true;
 }
-let toastTimer = 0;
+let toastTimer = 0, toastUntil = 0;
 function toast(text, ms = 2600) {
+  toastUntil = performance.now() + ms;
   const el = $('#toast');
   el.textContent = text;
   el.classList.add('show');
@@ -1432,7 +1433,8 @@ const SPOTS = [
 const spotWas = {}, spotAt = {};
 function spotTips(t) {
   const free = started && !busyDoor && me.inside === null && !fishing.active && !me.slide && !me.angel && !me.seat && !giftOpen && !postOpen && !modal();
-  if (!free) return;      // (미끄러지거나 낚시하는 동안에는 알림을 띄우지 않고, 곁에 있었는지도 그대로 둔다)
+  if (!free) { for (const s of SPOTS) spotWas[s.key] = true; return; }      // 미끄러지거나 낚시하거나 이글루에 있는 동안: 알림 없이, 끝난 자리에서 바로 알림이 뜨지 않게 '이미 곁에 있었다'로 둔다
+  if (t < toastUntil) return;      // 다른 알림이 떠 있는 동안에는 덮지 않는다 (곁에 있었는지도 그대로 두어, 그 알림이 사라진 뒤에 뜬다)
   for (const s of SPOTS) {
     const near = !!s.near();
     if (near && !spotWas[s.key] && !(t - (spotAt[s.key] ?? -Infinity) < 90000)) { spotAt[s.key] = t; toast(s.say, 3600); }

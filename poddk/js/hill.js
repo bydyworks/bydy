@@ -66,7 +66,7 @@ export function createHill(scene) {
   const drawSign = () => {
     const x = c.getContext('2d');
     x.clearRect(0, 0, 512, 256);
-    const plank = (y, h, col) => { x.fillStyle = col; x.beginPath(); x.roundRect(10, y, 492, h, 26); x.fill(); };
+    const plank = (y, h, col) => { x.fillStyle = col; x.beginPath(); if (x.roundRect) x.roundRect(10, y, 492, h, 26); else x.rect(10, y, 492, h); x.fill(); };
     plank(8, 240, '#6b4428'); plank(18, 220, '#a8744a');
     x.strokeStyle = 'rgba(90,55,30,0.35)'; x.lineWidth = 3;      // 나뭇결
     for (const y of [70, 128, 186]) { x.beginPath(); x.moveTo(34, y); x.bezierCurveTo(170, y - 8, 330, y + 8, 478, y - 2); x.stroke(); }
