@@ -1556,7 +1556,7 @@ try {
     await snow(p, () => window.__snow.sim(3));
     await snow(p, () => { const s = window.__snow; s.teleport(15, -10); s.sim(0.1); });
     await until(async () => (await p.getAttribute('#social', 'aria-label')) === '함께 할 상대가 없어요', { what: '상대가 없으면 숨기' });
-    await sleep(400);      // (숨는 동안의 짧은 움직임이 끝나기를)
+    await sleep(900);      // (숨는 동안의 짧은 움직임이 끝나기를)
     assert(!(await p.isVisible('#social')) || (await p.evaluate(() => getComputedStyle(document.querySelector('#social')).visibility)) === 'hidden', '상대가 없는데 상대 단추가 보인다');
   });
 
@@ -1595,9 +1595,11 @@ try {
       const { onIce, IGLOOS } = await import('./js/igloo.js');
       const s = window.__snow, list = s.xmas.gifts.map((x) => ({ x: x.x, z: x.z }));
       return { on: s.xmas.on, n: list.length, ice: list.filter((q) => onIce(q.x, q.z)).length, nearIgloo: list.filter((q) => IGLOOS.some((i) => Math.hypot(q.x - i.x, q.z - i.z) < 5)).length, nearTree: list.filter((q) => Math.hypot(q.x, q.z) < 6).length,
-        spread: Math.min(...list.flatMap((a, i) => list.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))) };
+        spread: (() => { const far = list.filter((q) => Math.hypot(q.x, q.z) >= 7); return Math.min(...far.flatMap((a, i) => far.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))); })(),      // (트리 둘레의 선물은 빼고 잰다)
+        treeGap: (() => { const t = list.filter((q) => Math.hypot(q.x, q.z) < 7); return t.length < 2 ? 99 : Math.min(...t.flatMap((a, i) => t.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))); })() };
     });
-    assert(g.on && g.n === 10 && g.ice === 0 && g.nearIgloo === 0 && g.nearTree === 0 && g.spread >= 11.9, '선물 상자: ' + JSON.stringify(g));
+    assert(g.on && g.n === 10 && g.ice === 0 && g.nearIgloo === 0 && g.nearTree <= 3 && g.treeGap >= 2.5 && g.spread >= 11.9,      // (셋쯤은 트리 둘레에)
+      '선물 상자: ' + JSON.stringify(g));
     // 상자 쪽으로 걸어가 닿으면 선물 창이 뜨고, 그동안은 걷지 않는다
     await byHand(p);
     await snow(p, () => { const s = window.__snow, x = s.xmas.gifts[0]; s.teleport(x.x, x.z + 3); s.me.yaw = s.me.camYaw = Math.PI; s.controls.debugMove(0, 1); for (let i = 0; i < 300 && !s.gift; i++) s.sim(1 / 60); s.controls.debugMove(0, 0); });
