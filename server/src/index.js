@@ -148,6 +148,12 @@ export class Field {
     }
     if (m.t === 'wish') { ws.serializeAttachment(me); this.wish(ws, me, m, now); return; }
     if (m.t === 'sm' || m.t === 'smr' || m.t === 'smd') { ws.serializeAttachment(me); this.snowman(ws, me, m, now); return; }
+    if (m.t === 'w') {
+      // 인사: 누구에게 손을 흔들었는지 같은 곳의 펭귄들에게 전한다 (받은 펭귄 화면에 "○○가 나에게 인사했어요"). 2초에 한 번까지, 나 자신에게는 안 된다
+      const now = Date.now();
+      if (me.s && typeof m.to === 'string' && m.to.length <= 8 && m.to !== me.id && !(now - (me.waveAt || 0) < 2000)) { me.waveAt = now; this.broadcast({ t: 'w', id: me.id, to: m.to }, ws); }
+      ws.serializeAttachment(me); return;
+    }
     if (m.t === 'b') {
       // 눈덩이: 던진 자리와 떨어질 자리 (들판 안, 14 걸음 안), 맞힐 펭귄의 번호. 같은 곳(들판)에 있는 펭귄들에게 전한다
       const ok = me.s && me.s.i === -1 && [m.x, m.z, m.tx, m.tz].every((v) => num(v, -FIELD_R, FIELD_R)) && Math.hypot(m.x - me.s.x, m.z - me.s.z) < 3 && Math.hypot(m.tx - m.x, m.tz - m.z) <= 16 && typeof m.to === 'string' && m.to.length <= 8;

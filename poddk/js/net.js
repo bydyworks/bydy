@@ -27,7 +27,7 @@ const POSES = {
   [ACT.roast]: (r, k, t) => sit(r, k, Math.sin(t * 1.4) * 0.012),      // 모닥불 곁에 앉아 마시멜로를 굽는다
   [ACT.wave]: (r, k, t) => wave(r, k, t * 11),
 };
-const NAME_NEAR = 4.5, NAME_FAR = 7, NAME_SHOW = 3.2;      // 다른 펭귄에게 이만큼 다가가면 머리 위에 이름이 이만큼(초) 떴다가 사라진다. 이만큼 멀어졌다 다시 오면 또 뜬다
+const NAME_SEE = 22, NAME_DIM = 10;      // 다른 펭귄의 머리 위 이름: 이만큼 안이면 늘 보이고, 이만큼보다 멀면 작고 흐리게      // 다른 펭귄에게 이만큼 다가가면 머리 위에 이름이 이만큼(초) 떴다가 사라진다. 이만큼 멀어졌다 다시 오면 또 뜬다
 
 function deviceId() {
   try { const d = localStorage.getItem(DEVICE_KEY); if (d && /^[a-f0-9]{12}$/.test(d)) return d; } catch { /* 막혀 있다 */ }
@@ -39,7 +39,7 @@ function deviceId() {
 /**
  * @param {{ url: string, scene: THREE.Scene, camera: THREE.Camera, tracks: object, name: () => string, look: { blanket: boolean, color: string }, onCount: (n: number) => void }} o
  */
-export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {}, onBall = () => {}, onSocial = () => {} }) {
+export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {}, onBall = () => {}, onSocial = () => {}, onWave = () => {} }) {
   const peers = new Map();                 // id → { root, name, s(받은 모습), x, z, yaw, phase, t(시각), bubble }
   const stats = { connected: false, sent: 0, got: 0, marksIn: 0, marksOut: 0, tries: 0 };
   let ws = null, myId = null, wait = 2, sendIn = 0, beatIn = 0, lastSent = '', outbox = [], closed = !url, time = 0;
@@ -79,7 +79,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     // 마시멜로 막대 (모닥불 곁에서 굽는 동안에만 보인다)
     const mallow = makeStick(); mallow.position.copy(ROD_GRIP); mallow.position.y -= 0.09; mallow.rotation.set(1.45, 0, 0.1); mallow.visible = false;
     mallow.userData.mallow.material.color.set('#f2c98a'); root.add(mallow);
-    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, mallow, tag: null, tagT: -1, near: false, threw: 9 };
+    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, mallow, tag: null, threw: 9, wavedTo: '', wavedT: 9 };
     peers.set(id, p);
     return p;
   }
@@ -111,6 +111,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     else if (m.t === 'g') onGame(m);
     else if (m.t === 'wish' || m.t === 'wished' || m.t === 'sm' || m.t === 'smx' || m.t === 'top') onSocial(m);
     else if (m.t === 'b') { const p = peers.get(m.id); if (p) { p.threw = 0; onBall({ ...m, name: p.name }); } }
+    else if (m.t === 'w') { const p = peers.get(m.id); if (p) { p.wavedTo = m.to; p.wavedT = 0; onWave({ ...m, name: p.name, me: m.to === myId }); } }
   }
 
   function send(obj) { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(obj)); stats.sent++; } }
@@ -133,6 +134,8 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     race(d) { send({ t: 'race', d: Math.round(d * 10) / 10 }); },
     snowmanRemove(id) { send({ t: 'smd', id }); },
     /** 눈덩이를 던졌다: 내 자리(x, z)에서 (tx, tz)로, to: 맞힐 펭귄의 번호 */
+    /** 누구에게 손을 흔들었는지 알린다 */
+    wave(to) { send({ t: 'w', to: to || '' }); },
     ball(x, z, tx, tz, to) { send({ t: 'b', x: Math.round(x * 100) / 100, z: Math.round(z * 100) / 100, tx: Math.round(tx * 100) / 100, tz: Math.round(tz * 100) / 100, to: to || '' }); },
     /** 이름으로 다른 펭귄 찾기 (번호 → 이름) */
     nameOf(id) { const p = peers.get(id); return p ? p.name : null; },
@@ -187,13 +190,10 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
         if (p.threw < 0.45 && p.act !== ACT.wave) wave(r, Math.sin(Math.PI * p.threw / 0.45), 1.5 - p.threw * 9);      // 눈덩이를 던지는 날갯짓
         setSnow(r, s.a === ACT.snowman ? 1 : 0, s.a === ACT.snowman ? 1 : 0);
         // 가까이 다가가면 머리 위에 이름이 잠깐 (멀어졌다 다시 오면 또). 인사하는 동안에는 👋
-        if (at) {
-          const d = Math.hypot(p.x - at.x, p.z - at.z);
-          if (!p.near && d < NAME_NEAR) { p.near = true; p.tagT = 0; } else if (p.near && d > NAME_FAR) p.near = false;
-        }
-        p.tagT = p.tagT >= 0 ? p.tagT + dt : -1;
-        const waving = s.a === ACT.wave, showName = p.tagT >= 0 && p.tagT < NAME_SHOW;
-        const tagText = waving ? '👋 ' + p.name : showName ? p.name : '';
+        const dist = at ? Math.hypot(p.x - at.x, p.z - at.z) : 0;
+        p.wavedT = (p.wavedT ?? 9) + dt;
+        const waving = s.a === ACT.wave, toMe = waving && p.wavedTo === myId && p.wavedT < 3;
+        const tagText = dist > NAME_SEE ? '' : (waving ? '👋 ' : '') + p.name + (toMe ? ' → 나' : '');
         if (tagText && !p.tag) { p.tag = document.createElement('div'); p.tag.className = 'peer-name'; document.body.append(p.tag); }
         if (p.tag) {
           const sayOn = !!(p.bubble && !p.bubble.hidden);
@@ -201,7 +201,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
           if (on) {
             head.set(p.x, 1.95 + (s.i === -1 ? heightAt(p.x, p.z) : 0), p.z).project(camera);
             on = head.z < 1 && Math.abs(head.x) < 1.1 && Math.abs(head.y) < 1.1;
-            if (on) { if (p.tag.textContent !== tagText) p.tag.textContent = tagText; p.tag.style.left = ((head.x + 1) / 2 * innerWidth) + 'px'; p.tag.style.top = ((1 - head.y) / 2 * innerHeight) + 'px'; p.tag.classList.toggle('fade', !waving && p.tagT > NAME_SHOW - 0.5); }
+            if (on) { if (p.tag.textContent !== tagText) p.tag.textContent = tagText; p.tag.style.left = ((head.x + 1) / 2 * innerWidth) + 'px'; p.tag.style.top = ((1 - head.y) / 2 * innerHeight) + 'px'; p.tag.classList.toggle('far', !waving && dist > NAME_DIM); p.tag.classList.toggle('wave', waving); p.tag.classList.toggle('me', toMe); }
           }
           p.tag.hidden = !on;
         }
