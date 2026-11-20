@@ -4,19 +4,18 @@
 
 ## 소리
 
-누구나 자유롭게 쓸 수 있는 CC0(퍼블릭 도메인) 녹음을 OpenGameArt 에서 받아, 게임에 맞게 자르고 음색과 크기를 다듬었습니다 (`tests/sounds.py`).
-CC0 라 출처를 밝힐 의무는 없지만, 고마운 마음으로 적어 둡니다.
+모두 Artlist 의 효과음을 받아 게임에 맞게 잘라 다듬은 것입니다 (발소리는 한 걸음씩 자르고, 배경 소리는 끊김 없이 돌도록 이었습니다).
 
-| 파일 | 원본 (CC0) | 만든 이 |
+| 파일 | 원본 | 만든 이 |
 | --- | --- | --- |
-| `audio/steps-fresh.mp3`, `audio/steps-packed.mp3` | [42 Snow and Gravel Footsteps](https://opengameart.org/content/42-snow-and-gravel-footsteps) | Corsica_S 녹음 · qubodup 정리 |
-| `audio/fx.mp3` (눈에 풀썩) | [41 snow shoe steps](https://opengameart.org/content/41-snow-shoe-steps) | Corsica_S 녹음 · qubodup 정리 |
-| `audio/fx.mp3` (눈 쓰는 소리) | [Shovel Sound](https://opengameart.org/content/shovel-sound) | OpenGameArt |
-| `audio/fire.mp3` | [Fireplace Sound loop](https://opengameart.org/content/fireplace-sound-loop) | PagDev |
-| `audio/blizzard.mp3` | [windy ambient noise](https://opengameart.org/content/windy-ambient-noise) | Some Weirdo |
-| `audio/snowfall.mp3` | 이드가 코드로 직접 만든 소리 | 이드 |
+| `audio/steps-fresh.mp3` | Ice Cold - Stepping in The Pace, Jumping in The Place, Frozen Snow | Ivo Vicic |
+| `audio/steps-packed.mp3` | (같은 녹음을 더 짧고 둔하게 다듬은 것) | Ivo Vicic |
+| `audio/snowfall.mp3` | Ruthless Winter - Forest Ambience, Snow Falling On Branches, Crackling, Light Wind | Sonophile Audio |
+| `audio/blizzard.mp3` | Extreme Climate - Blizzard Ambience, Wind Howling | Unrealsfx |
+| `audio/fire.mp3` | Fire Experiments - Bonfire Burning, Pop, Crackle | Blackguard Sound |
+| `audio/fx.mp3` | Foley body falling in the snow / Mixed Materials - Shoveling Snow, Crunchy | re:focus / InspectorJ |
 
-트리 오르골의 캐롤은 저작권이 끝난 옛 캐롤의 가락을 코드로 연주합니다 (`js/carols.js`).
+이 소리들은 Artlist 구독 라이선스로 받은 것입니다. 이 게임 밖에서 따로 내려받아 쓰면 안 됩니다.
 
 ## 코드
 
