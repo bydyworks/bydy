@@ -126,14 +126,16 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 #act.bite { --c: var(--sun); animation: bite .46s ease-in-out infinite; }
 @keyframes bite { 0%, 100% { transform: scale(1) rotate(-5deg); } 50% { transform: scale(1.16) rotate(5deg); } }
 
-/* 확대·축소: 크림색 알약 쪽지 하나에 더하기와 빼기, 사이에 점선 */
-#zoom { bottom: var(--col-b); height: var(--zoom-h); border-radius: calc(var(--btn) / 2); display: flex; flex-direction: column; overflow: hidden; background: var(--cream); box-shadow: var(--float); color: var(--brown); }
-#zoom button { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0; background: none; transition: transform .25s var(--squish); }
+/* 가까이·멀리: 캡처 단추 아래, 크림색 알약 하나에 더하기와 빼기 (사이에 점선) */
+#zoom { position: fixed; right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px)); width: 40px; height: 84px; z-index: 2; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--cream); box-shadow: 0 0 0 3px var(--cream), 0 5px 12px rgba(80, 58, 36, 0.16); color: var(--brown); transition: opacity .3s; }
+#zoom button { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0; background: none; color: inherit; transition: transform .25s var(--squish); }
 #zoom button + button { border-top: 2.5px dotted var(--cream-line); }
-#zoom .g .s { stroke-width: 3.2; }
+#zoom .g { width: 20px; height: 20px; }
+#zoom .g .s { stroke-width: 3; }
 #zoom button:disabled { color: #cfc1a8; }
 #zoom button:active:not(:disabled) { transform: scale(0.86); }
-
+body:not(.in) #zoom { opacity: 0; pointer-events: none; }
 /* 누른 단추: 0.2초쯤, 살짝 커졌다가 제자리로 (js 가 누를 때마다 .pop 을 붙였다 뗀다) */
 .pop, #zoom button.pop { animation: pop .22s ease-out; }
 @keyframes pop { 0% { transform: scale(0.92); } 45% { transform: scale(1.13); } 100% { transform: scale(1); } }
@@ -548,14 +550,14 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .peer-name.wave { background: #fff3c4; color: #7a4b00; }      /* 손을 흔드는 동안 */
 .peer-name.me { background: #ffd65e; color: #5a3600; box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(160, 110, 20, 0.3); }      /* 나에게 인사하는 중 */
 /* 옷장 단추 (캡쳐 단추 아래)와 옷장 */
-#zoomout { --c: var(--mint); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px)); width: 40px; height: 40px; }      /* 멀리 보기: 캡처 단추 바로 아래 */
-#zoomout .g { width: 22px; height: 22px; }
-#zoomout .g .s { stroke-width: 2.6; }
-#zoomout .in, #zoomout.wide .out { display: none; }
-#zoomout.wide .in { display: block; }
-body:not(.in) #zoomout { opacity: 0; pointer-events: none; }
-@media (max-height: 520px) { #zoomout { top: calc(12px + var(--safe-t) + 40px + 10px); right: calc(14px + var(--safe-r) + 40px + 10px); } #closet { top: calc(12px + var(--safe-t) + 2 * (40px + 10px)) !important; } }      /* 낮은 화면: 캡처 단추 왼쪽 옆에 (옷장이 상황 단추와 겹치지 않게) */
-#closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 3 * (40px + 10px)); width: 40px; height: 40px; }
+#closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px) + 84px + 10px); width: 40px; height: 40px; }      /* 가까이·멀리 알약 아래 */
+/* 낮은 화면(가로): 오른쪽 위 단추들을 한 줄로 — 소리, 캡처, 가까이·멀리(가로 알약), 옷장 (아래쪽 단추 줄과 겹치지 않게) */
+@media (max-height: 520px) {
+  #shot { top: calc(12px + var(--safe-t)); right: calc(14px + var(--safe-r) + 50px); }
+  #zoom { top: calc(12px + var(--safe-t)); right: calc(14px + var(--safe-r) + 100px); width: 84px; height: 40px; flex-direction: row; }
+  #zoom button + button { border-top: 0; border-left: 2.5px dotted var(--cream-line); }
+  #closet { top: calc(12px + var(--safe-t)); right: calc(14px + var(--safe-r) + 194px); }
+}
 #closet[hidden] { display: none; }
 #closet.new { animation: catch-pop .55s cubic-bezier(.3, 1.7, .6, 1); }
 #closet .g { width: 22px; height: 22px; }

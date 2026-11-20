@@ -1586,18 +1586,18 @@ try {
     assert(after.owned.length === 1 && after.closet && JSON.stringify(after.worn) === JSON.stringify(worn) && worn.some((n) => n >= 0), '옷장이 그대로가 아니다: ' + JSON.stringify({ worn, after }));
   });
 
-  await test('캡처 단추 아래의 멀리 보기 단추: 누르면 카메라가 멀리 물러나고, 다시 누르면 원래 거리로', async () => {
+  await test('캡처 단추 아래의 가까이·멀리 단추: 누를 때마다 다가가고 물러나며, 끝까지 가면 흐려진다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     const d0 = await snow(p, () => window.__snow.me.camDist);
-    await p.click('#zoomout');
-    const wide = await snow(p, () => window.__snow.me.camDist);
-    assert(wide >= 14 && (await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기' || wide >= 14, '멀리 물러나지 않았다: ' + wide);
-    await sleep(300);
-    assert((await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기', '단추가 가까이 보기로 바뀌지 않았다');
-    await p.click('#zoomout');
-    const back = await snow(p, () => window.__snow.me.camDist);
-    assert(Math.abs(back - d0) < 0.01, '원래 거리로 돌아오지 않았다: ' + JSON.stringify({ d0, back }));
-    const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoomout'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
+    await p.click('#zoom-out');
+    const far = await snow(p, () => window.__snow.me.camDist);
+    await p.click('#zoom-in'); await p.click('#zoom-in');
+    const near = await snow(p, () => window.__snow.me.camDist);
+    assert(far > d0 * 1.3 && near < d0 * 0.8, '다가가거나 물러나지 않는다: ' + JSON.stringify({ d0, far, near }));
+    for (let i = 0; i < 8; i++) await p.click('#zoom-in', { force: true });
+    await sleep(200);
+    assert(await p.isDisabled('#zoom-in'), '가장 가까이 갔는데 더하기 단추가 흐려지지 않는다');
+    const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoom'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
     assert(zoom.top >= shot.top + shot.h && Math.abs(zoom.left - shot.left) < 2, '캡처 단추 바로 아래가 아니다: ' + JSON.stringify({ shot, zoom }));
   });
 
@@ -2007,7 +2007,7 @@ try {
       assert(col.every((b) => size(b).join() === size(r.slide).join() && Math.abs(b.l - r.slide.l) < 0.5) && size(r.slide)[0] === size(r.slide)[1], '네 자리가 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
       assert(r.act.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 상황 단추, 배 썰매, 눈 천사, 파닥파닥)');
       assert(Math.abs((r.view[1] - r.flap.b) - (r.view[1] < 431 ? 12 : 26)) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
-      assert(size(r.slide)[0] >= 40 && size(r.slide).join() === size(r.mute).join() && (await p.$('#zoom')) === null, '오른쪽 아래 단추가 소리 단추와 크기가 같아야 한다: ' + size(r.slide) + ' / ' + size(r.mute));
+      assert(size(r.slide)[0] >= 40 && size(r.slide).join() === size(r.mute).join(), '오른쪽 아래 단추가 소리 단추와 크기가 같아야 한다: ' + size(r.slide) + ' / ' + size(r.mute));
       assert(r.canvas[0] === r.view[0] && r.canvas[1] === r.view[1], '눈밭이 화면을 다 채우지 않는다');
       assert(r.scroll[0] <= r.view[0] && r.scroll[1] <= r.view[1], '화면이 밀린다');
     });
