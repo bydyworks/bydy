@@ -153,7 +153,7 @@ export function createXmas(scene, { free, nearTree = () => false, crumble }) {
   // 트리 밑에 쌓인 장식 선물 (열리지는 않는다): 둥치 둘레에 크고 작은 상자 여덟
   for (let k = 0; k < 8; k++) {
     const m = giftMesh(k + 3), a = k / 8 * Math.PI * 2 + 0.35 + (k % 2) * 0.18, r = 1.45 + (k % 3) * 0.17;
-    m.position.set(Math.sin(a) * r, 0, Math.cos(a) * r); m.rotation.y = a * 2.3; m.scale.setScalar(0.62 + (k % 3) * 0.12);
+    m.position.set(Math.sin(a) * r, 0.384 * Math.sqrt(Math.max(0, 1 - ((r + 0.25) / 2.4) ** 2)), Math.cos(a) * r); m.rotation.y = a * 2.3; m.scale.setScalar(0.62 + (k % 3) * 0.12);      // (트리 밑 눈 둔덕 위에 얹는다)
     group.add(m);
   }
   for (const g of pool) { const s = new THREE.Sprite(glint); s.scale.setScalar(0.5); s.position.y = g.mesh.userData.height + 0.42; g.mesh.add(s); g.glint = s; }

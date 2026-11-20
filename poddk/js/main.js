@@ -90,7 +90,7 @@ const openSnow = (x, z) => {
   const c = laneCoord(x, z); if (c.along > -LANE.pad - 3 && c.along < LANE.len + 2 && Math.abs(c.side) < LANE.half + 3) return false;
   const f = field.confine(x, z); return Math.hypot(f.x - x, f.z - z) < 1e-6;
 };
-const nearTree = (x, z) => { const f = field.confine(x, z); return Math.hypot(f.x - x, f.z - z) < 1e-6 && Math.hypot(x - POSTBOX.x, z - POSTBOX.z) > 1.8 && Math.hypot(x - WISHBOARD.x, z - WISHBOARD.z) > 2.2 && Math.hypot(x, z - 15) > 4; };      // 트리 둘레에 선물을 둘 수 있는가 (우체통·소원판·들어오는 자리는 비켜서)
+const nearTree = (x, z) => { const f = field.confine(x, z); return Math.hypot(f.x - x, f.z - z) < 1e-6 && Math.hypot(x - POSTBOX.x, z - POSTBOX.z) > 3.2 && Math.hypot(x - WISHBOARD.x, z - WISHBOARD.z) > 3.6; };      // 트리 둘레에 선물을 둘 수 있는가 (우체통·소원판·들어오는 자리는 비켜서)
 const xmas = createXmas(scene, { crumble: { puff: (...a) => crumble.puff(...a) }, free: openSnow, nearTree });
 const flakes = createFlakes(scene, { free: openSnow });      // 가끔 내려앉는 특별한 눈송이 (육각, 하트, 밤의 별)
 const rabbit = createRabbit(scene, tracks, { free: (x, z) => openSnow(x, z) || onLane(x, z) });      // 밤에만 나오는 눈토끼
@@ -345,6 +345,7 @@ function stepRoast(dt, wantWalk, looked = false) {
  */
 let actionShown = '', socialShown = '';
 const meHead = new THREE.Vector3();
+const waveFrom = new Map();      // 나에게 인사한 펭귄 → 마지막으로 알린 때 (같은 펭귄의 인사는 9초에 한 번만 알린다)
 function showAction() {
   const slideOff = (fishing.active || !!me.roast) || !!me.angel || !!me.flap || !!me.roll || me.inside !== null;          // 낚시나 눈 천사를 하는 동안에는 미끄러질 수 없다
   if ($('#slide').classList.contains('off') !== slideOff) $('#slide').classList.toggle('off', slideOff);
@@ -364,11 +365,11 @@ function showAction() {
     const b = $('#social');
     b.classList.toggle('idle', soc === 'idle'); b.classList.toggle('wave', soc === 'wave'); b.classList.toggle('throw', soc === 'throw');
     b.setAttribute('aria-label', { wave: '인사하기', throw: '눈덩이 던지기', idle: '함께 할 상대가 없어요' }[soc]);
-    if (soc !== 'idle') setTimeout(() => nudge.show(soc), 300);      // (뿅 나타난 뒤에 말풍선)
+    if (soc !== 'idle') setTimeout(() => { if (socialShown === soc) nudge.show(soc); }, 300);      // (뿅 나타난 뒤에, 그때도 같은 모습이면 말풍선)
   }
   if (now === actionShown) return;
   actionShown = now;
-  if (NUDGE[now]) setTimeout(() => nudge.show(now), 300);
+  if (NUDGE[now] && NUDGE[now][0] === '#act') setTimeout(() => { if (actionShown === now) nudge.show(now); }, 300);
   const el = $('#act');
   el.classList.toggle('idle', now === 'angel' || now === 'none');      // 할 수 있는 것이 없으면 상황 단추는 숨는다
   el.classList.toggle('fish', now === 'fish' || now === 'pull');
@@ -973,7 +974,7 @@ $('#rename').addEventListener('click', () => { name = rename(!TEST_MODE); showNa
 
 // ---------- 함께 걷는 눈밭 ----------
 const net = createNet({
-  onWave: (m) => { if (m.me && started) { toast(`👋 ${subject(m.name)} 나에게 인사했어요! 위 단추로 답인사해 봐요`, 2800); audio.snowFx('ding'); } },      // 나에게 한 인사만 알린다 (다른 펭귄끼리의 인사는 머리 위 👋 로 보인다)
+  onWave: (m) => { const now = performance.now(); if (m.me && started && !(now - (waveFrom.get(m.id) || -1e9) < 9000)) { waveFrom.set(m.id, now); toast(`👋 ${subject(m.name)} 나에게 인사했어요! 위 단추로 답인사해 봐요`, 2800); audio.snowFx('ding'); } },      // 나에게 한 인사만 알린다 (다른 펭귄끼리의 인사는 머리 위 👋 로 보인다)
   url: q.get('server') === 'off' ? '' : (q.get('server') || SERVER_URL), scene, camera, tracks, look, name: () => name,
   onCount: (n) => { $('#peers').textContent = `함께 걷는 펭귄 ${n}마리`; $('#peer-row').hidden = n === 0; xmas.setPeers(n); },
   onGame: (m) => diceMessage(m),
@@ -1212,6 +1213,7 @@ function addToCloset(item) {
   owned.push(item);
   const b = $('#closet'); b.hidden = false;
   b.classList.remove('new'); void b.offsetWidth; b.classList.add('new');      // (받을 때마다 통 튄다)
+  b.addEventListener('animationend', () => b.classList.remove('new'), { once: true });      // (끝나면 떼어 말풍선의 두근거림이 보이게)
   if (!$('#closet-panel').hidden) drawCloset();
 }
 function drawCloset() {
@@ -1377,7 +1379,7 @@ const nudge = {
   key: null, until: 0, next: 0,
   /** key 의 말풍선을 (이 기기에서 처음이면) 띄운다. 다른 말풍선이 떠 있으면 다음 기회로 미룬다 */
   show(key) {
-    const n = NUDGE[key]; if (!n || hints['nudge-' + key] || !started) return false;
+    const n = NUDGE[key]; if (!n || hints['nudge-' + key] || !started || modal() || giftOpen || postOpen || busyDoor || coach.on) return false;      // (곧바로 접힐 때는 본 것으로 치지 않는다)
     const now = performance.now();
     if (this.key && now < this.until) return false;
     const btn = $(n[0]); if (!btn || btn.classList.contains('idle')) return false;
@@ -1401,7 +1403,11 @@ const nudge = {
   },
   /** 매 박자: 시간이 다 됐거나 단추가 숨으면 접는다. 걷기 길잡이가 끝나고 가만히 서 있으면 아래 단추를 하나씩 알려 준다 */
   update(now) {
-    if (this.key) { if (now > this.until || $(NUDGE[this.key][0]).classList.contains('idle') || modal() || giftOpen || postOpen) this.hide(); else this.place(); return; }
+    if (this.key) {
+      const sel = NUDGE[this.key][0], stale = (sel === '#act' && actionShown !== this.key) || (sel === '#social' && socialShown !== this.key);      // 단추가 다른 모습으로 바뀌었으면 접는다
+      if (now > this.until || stale || $(sel).classList.contains('idle') || modal() || giftOpen || postOpen) this.hide(); else this.place();
+      return;
+    }
     if (owned.length && !hints['nudge-closet'] && !giftOpen && !modal() && now > this.next) { this.show('closet'); return; }      // 처음 선물을 받으면 옷장을 알려 준다
     if (now < this.next || coach.on || !hints.coach || !free() || me.idle < 3) return;
     for (const k of ['slide', 'angel', 'flap']) if (!hints['nudge-' + k]) { this.show(k); break; }
