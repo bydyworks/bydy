@@ -79,7 +79,7 @@ try {
   await test('처음 화면은 무엇을 하는 곳인지 알려 주고, 들어가면 걷는 법과 둘러보는 법이 화면에 잠깐 보였다가 해 보면 사라진다', async () => {
     const p = await page(undefined, { enter: false });
     const card = await p.evaluate(() => ({ say: document.querySelector('.start-card .say').textContent, button: document.querySelector('#enter').textContent.trim(), hint: document.querySelector('.start-card .hint').textContent.trim(), title: document.querySelector('.start-card h1').textContent.trim(), sub: document.querySelector('.start-card .sub'), tab: document.title, share: document.querySelector('meta[property="og:description"]').content }));
-    const SAYINGS = ['우연히 뽀드득 명당을 발견했다!오늘 산책은 여기로 정했어.', '뽀드득 소리가 딱 좋은 눈밭이다!조금만 더 놀다 가야지.', '아무도 안 밟은 새하얀 눈밭이잖아?내 발자국부터 남겨봐야지.', '뒤뚱뒤뚱 걷다 보니 눈밭을 찾았네.여기 눈, 소리가 유난히 좋잖아?'];
+    const SAYINGS = ['뒤뚱뒤뚱 걷다 보니 재밌는 곳을 찾았네?저기 반짝이는 건 뭘까?', '우연히 뽀드득 명당을 발견했다!오늘은 여기서 실컷 놀다 가야지.', '어? 처음 와 보는 곳인데…구석구석 궁금한 게 너무 많잖아!', '눈 밟는 소리를 따라왔더니신기한 겨울 마을이 나타났다!'];
     assert(card.title === '뽀드득' && card.sub === null && SAYINGS.includes(card.say) && card.button === '눈 밟으러 가기' && card.hint.includes('소리'), '처음 화면의 글: ' + JSON.stringify(card));
     // 할 일은 알려 주지 않는다 (들어가서 스스로 찾는다)
     assert(await p.evaluate(() => document.querySelector('.start-card .what') === null), '처음 화면에 할 일 목록이 남아 있다');
