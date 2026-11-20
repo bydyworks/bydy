@@ -1537,7 +1537,7 @@ try {
     assert((await p.textContent('#start .copy')).includes('© 2026 이드'), '첫 화면에 저작권 표시가 없다');
     await p.click('#credits-open');
     const cr = await p.textContent('#credits');
-    assert(await p.isVisible('#credits') && cr.includes('이드') && cr.includes('Artlist') && cr.includes('three.js') && cr.includes('나눔스퀘어라운드'), '만든 이와 쓰인 것: ' + cr.slice(0, 120));
+    assert(await p.isVisible('#credits') && cr.includes('이드') && !cr.includes('Artlist') && cr.includes('three.js') && cr.includes('나눔스퀘어라운드'), '만든 이와 쓰인 것: ' + cr.slice(0, 120));
     await p.click('#credits .close');
     assert(!(await p.isVisible('#credits')) && !(await p.evaluate(() => document.body.classList.contains('in'))), '닫히지 않거나 게임이 시작됐다');
     const how = await p.evaluate(async () => { const { howTo } = await import('./js/install.js'); return { ios: howTo('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit Version/17.0 Mobile Safari'), android: howTo('Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile'), naver: howTo('Mozilla/5.0 (iPhone) NAVER(inapp; search)') }; });

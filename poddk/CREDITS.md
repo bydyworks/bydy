@@ -4,18 +4,17 @@
 
 ## 소리
 
-모두 Artlist 의 효과음을 받아 게임에 맞게 잘라 다듬은 것입니다 (발소리는 한 걸음씩 자르고, 배경 소리는 끊김 없이 돌도록 이었습니다).
+모든 효과음과 배경 소리는 이드가 코드로 직접 만든 것입니다 (`tests/sounds.py`, 녹음이나 남의 소리를 쓰지 않았습니다).
+트리 오르골의 캐롤은 저작권이 끝난 옛 캐롤의 가락을 코드로 연주합니다 (`js/carols.js`).
 
-| 파일 | 원본 | 만든 이 |
-| --- | --- | --- |
-| `audio/steps-fresh.mp3` | Ice Cold - Stepping in The Pace, Jumping in The Place, Frozen Snow | Ivo Vicic |
-| `audio/steps-packed.mp3` | (같은 녹음을 더 짧고 둔하게 다듬은 것) | Ivo Vicic |
-| `audio/snowfall.mp3` | Ruthless Winter - Forest Ambience, Snow Falling On Branches, Crackling, Light Wind | Sonophile Audio |
-| `audio/blizzard.mp3` | Extreme Climate - Blizzard Ambience, Wind Howling | Unrealsfx |
-| `audio/fire.mp3` | Fire Experiments - Bonfire Burning, Pop, Crackle | Blackguard Sound |
-| `audio/fx.mp3` | Foley body falling in the snow / Mixed Materials - Shoveling Snow, Crunchy | re:focus / InspectorJ |
-
-이 소리들은 Artlist 구독 라이선스로 받은 것입니다. 이 게임 밖에서 따로 내려받아 쓰면 안 됩니다.
+| 파일 | 소리 |
+| --- | --- |
+| `audio/steps-fresh.mp3` | 새 눈 밟는 소리 열네 가지 |
+| `audio/steps-packed.mp3` | 밟힌 눈 밟는 소리 여덟 가지 |
+| `audio/snowfall.mp3` | 눈 내리는 소리 (돌려 튼다) |
+| `audio/blizzard.mp3` | 눈보라 바람 (돌려 튼다) |
+| `audio/fire.mp3` | 모닥불·장작 타는 소리 (돌려 튼다) |
+| `audio/fx.mp3` | 눈에 풀썩 눕는 소리, 눈을 쓰는 소리 |
 
 ## 코드
 
