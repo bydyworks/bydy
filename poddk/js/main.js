@@ -10,7 +10,7 @@ import { createSnowballs } from './snowball.js';
 import { buildSnowman, makeRollBall, paint, packPoints, PAD, INKS, WIDTHS, MAX_POINTS } from './snowman.js';
 import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
-import { createFlakes, makeFlake } from './flakes.js';
+import { createFlakes, makeFlake, makeHeadStar, bobHeadStar } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
 import { createCampfire, makeStick, CAMPFIRE, STUMP_BLOCKS, STUMP_SEAT_Y, ROAST_REACH, STICK_LEN, donenessAt, marshmallowColor } from './campfire.js';
 import { createAurora, auroraAt, nightId } from './aurora.js';
@@ -146,6 +146,7 @@ function restore() {
       me.x = c.x; me.z = c.z; me.yaw = saved.yaw; me.camYaw = Number.isFinite(saved.camYaw) ? saved.camYaw : saved.yaw;
       if (Number.isFinite(saved.camDist)) me.camDist = THREE.MathUtils.clamp(saved.camDist, CAM_DIST_MIN, CAM_DIST_MAX);
     }
+    if (saved.star != null && saved.star === nightId(clock.now())) me.star = true;      // (같은 밤이면 주운 별이 그대로 머리 위에)
     tracks.restore(saved.tracks, clock.now());
   } catch { /* 저장된 것이 깨졌으면 새로 시작한다 */ }
 }
@@ -153,7 +154,7 @@ function save() {
   if (TEST_MODE) return;
   try {
     const at = me.inside !== null && me.outside ? me.outside : me;      // 이글루 안에 있으면 들어가기 전의 자리를 적는다
-    localStorage.setItem(SAVE_KEY, JSON.stringify({ x: at.x, z: at.z, yaw: at.yaw, camYaw: me.camYaw, camDist: me.inside !== null && me.camOut ? me.camOut : me.camDist, tracks: tracks.dump(clock.now()) }));
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ x: at.x, z: at.z, yaw: at.yaw, camYaw: me.camYaw, camDist: me.inside !== null && me.camOut ? me.camOut : me.camDist, star: me.star ? nightId(clock.now()) : null, tracks: tracks.dump(clock.now()) }));
   } catch { /* 저장소가 꽉 찼거나 막혀 있으면 그냥 넘어간다 */ }
 }
 const TITLE_VIEW = { x: me.x, z: me.z, camYaw: me.camYaw, pitch: me.camPitch, dist: me.camDist };      // 타이틀 화면의 카메라 (처음 들어오는 자리, 저장된 자리를 불러오기 전 값)
@@ -260,6 +261,7 @@ function startFishing() {
 const ROAST = { sit: 0.7, eat: 1.2, stand: 0.55, tilt: 1.45 };
 let roastTurn = 0;               // 앉으며 카메라가 마저 돌아야 할 각: 옆에서 불과 펭귄이 함께 보이게
 const roastStick = makeStick(); roastStick.visible = false; penguin.add(roastStick);
+const headStar = makeHeadStar(); penguin.add(headStar);      // 밤에 주운 별 눈송이 (머리 위)
 const canRoast = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !me.roll && !me.roast && !fishing.active && !me.seat && !me.wave && campfire.dist(me.x, me.z) < ROAST_REACH;
 /** 그루터기 의자에 앉는다 (가장 가까운 것) */
 function startRoast() {
@@ -1095,7 +1097,7 @@ $('#dice .quit').addEventListener('click', () => closeDice());
 function myState() {
   const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? (me.roast.phase === 'cook' ? ACT.roast : me.roast.phase === 'seated' || me.roast.phase === 'eat' ? ACT.sit : ACT.stand) : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
   const st = me.seat && me.seat.phase === 'sat' && me.status ? STATUSES.findIndex((x) => x[1] === me.status[1]) : -1;
-  return { x: me.x, z: me.z, yaw: me.yaw, w: Math.min(1, Math.max(0, me.walk)), a, i: me.inside === null ? -1 : me.inside, k: me.seat ? me.seat.k : -1, st, f: worn(penguin) };
+  return { x: me.x, z: me.z, yaw: me.yaw, w: Math.min(1, Math.max(0, me.walk)), a, i: me.inside === null ? -1 : me.inside, k: me.seat ? me.seat.k : -1, st, f: worn(penguin), g: me.star ? 1 : 0 };
 }
 
 // ---------- 크리스마스 선물 ----------
@@ -1303,6 +1305,7 @@ function placeSealSay() {
 // ---------- 특별한 눈송이: 주우면 카드가 잠깐 뜬다 (낚은 것 카드와 같은 자리) ----------
 function flakeFound(g) {
   found('flake');
+  if (g.f.id === 'star') { me.star = true; setTimeout(() => toast('🌟 별 눈송이가 머리 위에서 반짝여요! 밤이 끝날 때까지 함께해요', 3600), 3200); }      // (주운 별은 아침까지 머리 위에 떠 있다 — 다른 펭귄에게도 보인다)
   crumble.puff(g.x, g.z, 0.4);
   const el = $('#catch');
   el.querySelector('.name').textContent = (g.f.night ? '🌟 ' : '❄️ ') + g.f.name + '를 주웠어요!';
@@ -1614,6 +1617,8 @@ function tick(t) {
   const dusk = night > 0.6 || q.has('night');
   rabbit.update(dt, dusk, me.inside === null ? me : null, now);
   seals.update(dt); placeSealSay();
+  if (me.star && !dusk) { me.star = false; }      // 아침이 오면 별은 하늘로 돌아간다
+  headStar.visible = !!me.star && me.inside === null && me.pop < 1; if (headStar.visible) bobHeadStar(headStar, seconds, camera);
   const got = flakes.update(dt, dusk, started && me.inside === null ? me : null);
   if (got) flakeFound(got);
   if (me.roll) placeRollBall();

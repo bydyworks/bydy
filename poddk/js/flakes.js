@@ -58,6 +58,24 @@ export function makeFlake(f) {
 }
 
 /** 반짝임 (멀리서도 보이게, 밤 눈송이는 크게 빛난다) */
+/** 머리 위에 떠 있는 별 눈송이 (밤에 별 눈송이를 주우면 아침까지): 작은 별과 둘레의 노란 빛 */
+export function makeHeadStar() {
+  const g = new THREE.Group();
+  const star = makeFlake(FLAKES.find((f) => f.id === 'star'));
+  star.scale.setScalar(0.36); star.rotation.x = Math.PI / 2;      // (눈송이는 눕혀 만들어져 있다: 세워서 앞을 보게)
+  const spin = new THREE.Group(); spin.add(star); g.add(spin);
+  const glow = glintSprite('rgba(255,215,94,0.85)', true); glow.scale.setScalar(0.62); g.add(glow);
+  g.userData.star = spin;
+  g.visible = false;
+  return g;
+}
+const _q = new THREE.Quaternion();
+/** 머리 위 별을 한 박자 움직인다: 늘 화면 쪽을 보며(옆으로 납작해 보이지 않게) 천천히 돌고, 살랑 떠오르내린다 */
+export function bobHeadStar(g, time, camera, head = 1.72) {
+  g.position.y = head + Math.sin(time * 2.1) * 0.05;
+  if (camera && g.parent) { g.parent.getWorldQuaternion(_q); g.quaternion.copy(_q.invert()).multiply(camera.quaternion); }
+  g.userData.star.rotation.set(0, Math.sin(time * 1.3) * 0.35, time * 0.7);
+}
 function glintSprite(color, big) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
   const r = x.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.3, color); r.addColorStop(1, 'rgba(255,255,255,0)');

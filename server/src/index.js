@@ -109,7 +109,7 @@ export class Field {
     if (!m || typeof m !== 'object') return;
     if (m.t === 's') {
       // 지금의 모습: 자리, 방향, 걷는 정도, 하는 일, 이글루 안(-1 이면 밖), 앉은 방석, 고른 상태
-      const s = { x: m.x, z: m.z, yaw: m.yaw, w: m.w, a: m.a, i: m.i, k: m.k, st: m.st, f: m.f === undefined ? [-1, -1, -1] : m.f };      // f: 쓰고 있는 [안경, 모자, 귀마개] (예전 게임은 보내지 않는다)
+      const s = { x: m.x, z: m.z, yaw: m.yaw, w: m.w, a: m.a, i: m.i, k: m.k, st: m.st, f: m.f === undefined ? [-1, -1, -1] : m.f, g: m.g === 1 ? 1 : 0 };      // g: 머리 위에 별 눈송이가 떠 있는가      // f: 쓰고 있는 [안경, 모자, 귀마개] (예전 게임은 보내지 않는다)
       if (!num(s.x, -3000, 3000) || !num(s.z, -3000, 3000) || !where(s.x, s.z) || !num(s.yaw, -100, 100) || !num(s.w, 0, 1) || !int(s.a, 0, ACTIONS - 1) || !int(s.i, -1, IGLOOS - 1) || !int(s.k, -1, SEATS - 1) || !int(s.st, -1, STATUSES - 1) || !(s.i < 0 ? Math.hypot(s.x, s.z) <= FIELD_R : Math.hypot(s.x - (DEN.x + s.i * DEN.step), s.z - DEN.z) <= DEN.r) || !Array.isArray(s.f) || s.f.length !== 3 || !s.f.every((v, j) => int(v, -1, OUTFIT[j] - 1))) return;
       s.x = r2(s.x); s.z = r2(s.z); s.yaw = r2(s.yaw); s.w = r2(s.w); s.f = s.f.slice();
       me.s = s;

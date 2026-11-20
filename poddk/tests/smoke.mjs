@@ -1393,6 +1393,15 @@ try {
     assert(night > 0, '밤인데 별 눈송이가 없다');
     const day = await snow(p, async () => { const s = window.__snow; s.clock.setTime('13:00'); for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r)); return s.flakes.live.filter((o) => o.id === 'star').length; });
     assert(day === 0, '낮인데 별 눈송이가 남아 있다');
+    // 밤에 별 눈송이를 주우면 머리 위에 떠 있고 (다른 펭귄에게도 알린다), 아침이 오면 사라진다
+    const star = await snow(p, async () => {
+      const s = window.__snow; s.clock.setTime('21:30'); s.teleport(-20, 25); s.sim(0.1); s.flakes.drop('star', -20, 26.5); s.teleport(-20, 26.3);
+      for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r));
+      const on = { star: !!s.me.star, g: s.myState().g, shown: s.penguin.children.some((c) => c.visible && c.userData.star) };
+      s.clock.setTime('12:00'); for (let i = 0; i < 20; i++) await new Promise((r) => requestAnimationFrame(r));
+      return { on, after: !!s.me.star };
+    });
+    assert(star.on.star && star.on.g === 1 && star.on.shown && !star.after, '머리 위 별 눈송이: ' + JSON.stringify(star));
   });
 
   await test('썰매 길 출발 자리에서 배 썰매를 타면 미끄러진 거리를 재고, 걸어오던 기세를 살리면 더 멀리 간다. 길 위에는 자국이 남지 않는다', async () => {

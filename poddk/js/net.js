@@ -9,6 +9,7 @@ import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, COLO
 import { STATUSES } from './den.js';
 import { ROD_LEN, ROD_TILT, SEAT as FISH_SEAT, FLOAT_Y } from './fishing.js';
 import { makeStick, STUMP_SEAT_Y } from './campfire.js';
+import { makeHeadStar, bobHeadStar } from './flakes.js';
 import { SLOTS, wear } from './outfit.js';
 import { heightAt } from './hill.js';
 
@@ -79,7 +80,8 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     // 마시멜로 막대 (모닥불 곁에서 굽는 동안에만 보인다)
     const mallow = makeStick(); mallow.position.copy(ROD_GRIP); mallow.position.y -= 0.09; mallow.rotation.set(1.45, 0, 0.1); mallow.visible = false;
     mallow.userData.mallow.material.color.set('#f2c98a'); root.add(mallow);
-    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, mallow, tag: null, threw: 9, wavedTo: '', wavedT: 9 };
+    const star = makeHeadStar(); root.add(star);      // 머리 위의 별 눈송이 (밤에 주웠으면)
+    const p = { root, name: nm, s: null, x: 0, z: 0, yaw: 0, phase: 0, walk: 0, bubble: null, act: ACT.stand, k: 0, rod, line, float, mallow, tag: null, threw: 9, wavedTo: '', wavedT: 9, star };
     peers.set(id, p);
     return p;
   }
@@ -218,6 +220,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
           q.setXYZ(0, tip.x, tip.y, tip.z); q.setXYZ(1, fx, FLOAT_Y + 0.02, fz); q.needsUpdate = true;
         }
         p.mallow.visible = p.act === ACT.roast && ease > 0.5;
+        p.star.visible = s.g === 1 && s.i === -1; if (p.star.visible) bobHeadStar(p.star, time + p.x, camera);
         // 이글루에서 앉아 고른 상태: 머리 위 말풍선
         const say = s.a === ACT.sit && s.st >= 0 ? STATUSES[s.st] : null;
         if (say && !p.bubble) { p.bubble = document.createElement('div'); p.bubble.className = 'peer-say'; document.body.append(p.bubble); }
