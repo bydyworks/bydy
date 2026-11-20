@@ -155,6 +155,7 @@ function save() {
     localStorage.setItem(SAVE_KEY, JSON.stringify({ x: at.x, z: at.z, yaw: at.yaw, camYaw: me.camYaw, camDist: me.inside !== null && me.camOut ? me.camOut : me.camDist, tracks: tracks.dump(clock.now()) }));
   } catch { /* 저장소가 꽉 찼거나 막혀 있으면 그냥 넘어간다 */ }
 }
+const TITLE_VIEW = { x: me.x, z: me.z, camYaw: me.camYaw, pitch: me.camPitch, dist: me.camDist };      // 타이틀 화면의 카메라 (처음 들어오는 자리, 저장된 자리를 불러오기 전 값)
 restore();
 
 // ---------- 안내 글 ----------
@@ -1440,6 +1441,13 @@ function placeCamera(dt) {
     viewYaw = Math.atan2(me.x - camera.position.x, me.z - camera.position.z);
     const low = 1 - THREE.MathUtils.clamp((pitch - DEN_CAM.low) / 0.4, 0, 1);      // 낮게 내려올수록 펭귄 얼굴 높이를 본다
     lookAt.set(me.x + Math.sin(me.camYaw) * 0.6 * (1 - low), 0.7 + low * 0.35, me.z + Math.cos(me.camYaw) * 0.6 * (1 - low));
+    camera.lookAt(lookAt);
+    return;
+  }
+  if (!started) {      // 타이틀 화면: 마지막에 있던 자리와 상관없이 늘 들어오는 자리에서 트리를 크게 올려다본다 (카드 위로 트리가 보이게)
+    const T = TITLE_VIEW, tf = { x: Math.sin(T.camYaw), z: Math.cos(T.camYaw) };
+    camera.position.set(T.x - tf.x * T.dist * Math.cos(T.pitch), CAM_TARGET_H + T.dist * Math.sin(T.pitch), T.z - tf.z * T.dist * Math.cos(T.pitch));
+    lookAt.set(T.x + tf.x * 2.4, CAM_TARGET_H + 0.55, T.z + tf.z * 2.4);
     camera.lookAt(lookAt);
     return;
   }
