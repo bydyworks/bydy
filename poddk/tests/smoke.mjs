@@ -210,6 +210,7 @@ try {
     await p.keyboard.down('ArrowUp');
     await until(async () => { const b = await state(p); return Math.hypot(b.x - a.x, b.z - a.z) > 0.4; }, { what: '걷기', timeout: 30000 });
     await p.keyboard.up('ArrowUp');
+    await snow(p, () => { const s = window.__snow; s.teleport(-20, 25); s.me.yaw = s.me.camYaw = Math.PI / 2; s.sim(0.1); });      // (트리 곁의 우체통·소원판에서 떨어진 빈 눈밭에서: 거기서는 스페이스가 그것들을 연다)
     await p.keyboard.press('Space');
     assert(await p.evaluate(() => !!window.__snow.me.slide), '스페이스를 눌러도 배 썰매가 시작되지 않았다');
     await walk(p, 0, 0, 5);
