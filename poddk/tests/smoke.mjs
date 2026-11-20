@@ -1569,6 +1569,38 @@ try {
     assert(!(await p.isVisible('#social')) || (await p.evaluate(() => getComputedStyle(document.querySelector('#social')).visibility)) === 'hidden', '상대가 없는데 상대 단추가 보인다');
   });
 
+  await test('다음에 와도 그대로: 닉네임, 펭귄 모습(목도리·담요와 색), 옷장에 받아 둔 것과 쓰고 있던 것', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0&persist=1');
+    const before = await snow(p, async () => {
+      const s = window.__snow, { ITEMS } = await import('./js/outfit.js');
+      const i = ITEMS.findIndex((it) => it.slot === 'hat');
+      s.closet.add(i); s.closet.open();
+      return { name: s.name, i, look: localStorage.getItem('snow.look') };
+    });
+    await p.click('#closet-panel .items button');      // (받아 둔 모자를 쓴다)
+    const worn = await snow(p, () => window.__snow.outfit.worn);
+    await p.reload(); await p.waitForFunction(() => window.__snow);
+    await p.click('#enter'); await p.waitForFunction(() => window.__snow.started);
+    const after = await snow(p, () => { const s = window.__snow; return { name: s.name, owned: s.closet.owned, worn: s.outfit.worn, look: localStorage.getItem('snow.look'), closet: !document.querySelector('#closet').hidden }; });
+    assert(after.name === before.name && after.look === before.look, '닉네임이나 모습이 바뀌었다: ' + JSON.stringify({ before, after }));
+    assert(after.owned.length === 1 && after.closet && JSON.stringify(after.worn) === JSON.stringify(worn) && worn.some((n) => n >= 0), '옷장이 그대로가 아니다: ' + JSON.stringify({ worn, after }));
+  });
+
+  await test('캡처 단추 아래의 멀리 보기 단추: 누르면 카메라가 멀리 물러나고, 다시 누르면 원래 거리로', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    const d0 = await snow(p, () => window.__snow.me.camDist);
+    await p.click('#zoomout');
+    const wide = await snow(p, () => window.__snow.me.camDist);
+    assert(wide >= 14 && (await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기' || wide >= 14, '멀리 물러나지 않았다: ' + wide);
+    await sleep(300);
+    assert((await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기', '단추가 가까이 보기로 바뀌지 않았다');
+    await p.click('#zoomout');
+    const back = await snow(p, () => window.__snow.me.camDist);
+    assert(Math.abs(back - d0) < 0.01, '원래 거리로 돌아오지 않았다: ' + JSON.stringify({ d0, back }));
+    const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoomout'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
+    assert(zoom.top >= shot.top + shot.h && Math.abs(zoom.left - shot.left) < 2, '캡처 단추 바로 아래가 아니다: ' + JSON.stringify({ shot, zoom }));
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);

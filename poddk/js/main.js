@@ -107,12 +107,13 @@ function chooseLook() {
     const color = COLORS[Math.abs(Number(q.get('color')) || 0) % COLORS.length];
     return { scarf: forced === 'scarf', blanket: forced === 'blanket', color };
   }
+  const store = TEST_MODE ? sessionStorage : localStorage;      // 다음에 와도 같은 모습 (점검 중에는 이번 창에서만)
   try {
-    const saved = JSON.parse(sessionStorage.getItem('snow.look') || 'null');
-    if (saved && COLORS.includes(saved.color)) return { scarf: !saved.blanket, blanket: !!saved.blanket, color: saved.color };
+    const saved = JSON.parse(store.getItem('snow.look') || sessionStorage.getItem('snow.look') || 'null');
+    if (saved && COLORS.includes(saved.color)) { store.setItem('snow.look', JSON.stringify(saved)); return { scarf: !saved.blanket, blanket: !!saved.blanket, color: saved.color }; }
   } catch { /* 저장소를 못 쓰면 새로 뽑는다 */ }
   const look = randomLook();
-  try { sessionStorage.setItem('snow.look', JSON.stringify(look)); } catch { /* 무시 */ }
+  try { store.setItem('snow.look', JSON.stringify(look)); } catch { /* 무시 */ }
   return look;
 }
 const look = chooseLook();
@@ -1155,7 +1156,7 @@ function tapGift() {
   setTimeout(() => { if (giftOpen === o) showcase.show(view, makeItem(item.slot, item.n), { tilt: 0.2 }); }, three ? 420 : 0);
   el.querySelector('.emoji').textContent = { glasses: '🕶️', hat: '🎩', ear: '🎧' }[item.slot];
   wear(penguin, item.slot, item.n);
-  addToCloset(item);
+  addToCloset(item); saveCloset();
   el.className = 'opened' + (three ? ' three' : '');
   audio.snowFx('tear');
   setTimeout(() => audio.snowFx('ding'), 260);
@@ -1206,14 +1207,21 @@ function tickTip(t) {
 }
 
 // ---------- 옷장: 이번 산책에서 받은 아이템을 골라 입고 벗는다 ----------
-// (다시 들어오면 비어 있다. 처음 선물을 받으면 오른쪽 위에 옷장 단추가 뿅 나타난다)
+// (받은 것과 쓰고 있던 것은 이 기기에 저장해 두어, 다음에 와도 그대로다. 처음 선물을 받으면 오른쪽 위에 옷장 단추가 뿅 나타난다)
 const owned = [];                // 받은 차례대로 ITEMS 의 것들
 const thumbs = new Map();        // 아이템 → 작은 그림 주소
 const SLOT_NAME = { glasses: '안경', hat: '모자', ear: '귀마개' };
-function addToCloset(item) {
+const CLOSET_KEY = 'poddk.closet.v1';
+function saveCloset() {
+  if (TEST_MODE) return;
+  try { localStorage.setItem(CLOSET_KEY, JSON.stringify({ owned: owned.map((it) => ITEMS.indexOf(it)), worn: worn(penguin) })); } catch { /* 이번 방문 동안만 */ }
+}
+function addToCloset(item, quiet = false) {
   if (owned.includes(item)) return;
   owned.push(item);
+  saveCloset();
   const b = $('#closet'); b.hidden = false;
+  if (quiet) return;
   b.classList.remove('new'); void b.offsetWidth; b.classList.add('new');      // (받을 때마다 통 튄다)
   b.addEventListener('animationend', () => b.classList.remove('new'), { once: true });      // (끝나면 떼어 말풍선의 두근거림이 보이게)
   if (!$('#closet-panel').hidden) drawCloset();
@@ -1236,7 +1244,7 @@ function drawCloset() {
         const src = thumbs.get(it);
         if (src) { const img = document.createElement('img'); img.src = src; img.alt = ''; btn.append(img); }
         btn.append(document.createTextNode(it.name));
-        btn.addEventListener('click', () => { const on = worn(penguin)[SLOTS.indexOf(slot)] === it.n; wear(penguin, slot, on ? -1 : it.n); audio.snowFx(on ? 'paper' : 'ding'); drawCloset(); });
+        btn.addEventListener('click', () => { const on = worn(penguin)[SLOTS.indexOf(slot)] === it.n; wear(penguin, slot, on ? -1 : it.n); saveCloset(); audio.snowFx(on ? 'paper' : 'ding'); drawCloset(); });
         list.append(btn);
       }
       shelf.append(list);
@@ -1244,9 +1252,27 @@ function drawCloset() {
     box.append(shelf);
   }
 }
+// 지난번에 받아 둔 것과 쓰고 있던 것을 되살린다
+(function restoreCloset() {
+  if (TEST_MODE) return;
+  try {
+    const s = JSON.parse(localStorage.getItem(CLOSET_KEY) || 'null'); if (!s) return;
+    for (const i of s.owned || []) if (ITEMS[i]) addToCloset(ITEMS[i], true);
+    (s.worn || []).forEach((n, j) => { if (Number.isInteger(n) && n >= 0 && owned.some((it) => it.slot === SLOTS[j] && it.n === n)) wear(penguin, SLOTS[j], n); });
+  } catch { /* 깨졌으면 빈 옷장으로 */ }
+})();
 function openCloset() { drawCloset(); $('#closet-panel').hidden = false; }
 function closeCloset() { $('#closet-panel').hidden = true; }
 $('#closet').addEventListener('click', () => ($('#closet-panel').hidden ? openCloset() : closeCloset()));
+// 멀리 보기 ⇄ 가까이 보기: 한 번 누르면 카메라가 멀리 물러나 둘레가 넓게 보이고, 다시 누르면 원래 거리로 (이글루 안에서는 방 크기에 맞춰)
+const ZOOM_WIDE = { out: 15, den: DEN_CAM.far };
+const isWide = () => me.camDist >= (me.inside !== null ? ZOOM_WIDE.den - 0.5 : ZOOM_WIDE.out - 1);
+$('#zoomout').addEventListener('click', () => {
+  if (!started) return;
+  const wide = isWide();
+  me.camDist = me.inside !== null ? (wide ? DEN_CAM.start : ZOOM_WIDE.den) : (wide ? CAM_DIST * (innerWidth < innerHeight ? 1.08 : 1) : ZOOM_WIDE.out);
+  audio.snowFx('pop');
+});
 $('#closet-panel .close').addEventListener('click', closeCloset);
 
 // ---------- 트리 옆 우체통: 친구에게 엽서 ----------
@@ -1649,6 +1675,7 @@ function tick(t) {
     spotTips(t);
   }
   showAction();
+  { const w = isWide(), b = $('#zoomout'); if (b.classList.contains('wide') !== w) { b.classList.toggle('wide', w); b.setAttribute('aria-label', w ? '가까이 보기' : '멀리 보기'); } }
   nudge.update(t);
   { // 내 펭귄 머리 위의 내 이름 (다른 펭귄들에게 보이는 이름과 같다). 이글루 안·창이 떠 있을 때는 감춘다
     const el = $('#me-name'), show = started && me.inside === null && !modal() && !giftOpen && !postOpen && !me.angel && !me.slide;
@@ -1738,9 +1765,9 @@ $('#mute').addEventListener('click', () => {
 });
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
-for (const el of document.querySelectorAll('#mute, #shot, #closet, #act, #social, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+for (const el of document.querySelectorAll('#mute, #shot, #zoomout, #closet, #act, #social, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
 // (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
-for (const el of document.querySelectorAll('#mute, #shot, #act, #social, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
+for (const el of document.querySelectorAll('#mute, #shot, #zoomout, #act, #social, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
 
 // 누른 단추는 살짝 커졌다가 제자리로 돌아온다 (0.2초쯤)
 for (const el of document.querySelectorAll('#mute, #shot, #act, #social, #slide, #angel, #flap, #enter')) {
