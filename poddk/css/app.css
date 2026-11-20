@@ -181,6 +181,8 @@ body.in #start { opacity: 0; pointer-events: none; }
 #enter:active { transform: scale(0.95); transition-duration: .08s; }
 .start-card .hint { margin: 14px 0 0; font-size: 12.5px; font-weight: 700; color: var(--brown-soft); display: flex; align-items: center; justify-content: center; gap: 5px; }
 .start-card .hint .g { width: 17px; height: 17px; color: var(--brown-soft); }
+.start-card .hint.ios-mute { margin-top: 6px; font-size: 11.5px; opacity: 0.85; }
+.start-card .hint[hidden] { display: none; }
 /* 홈 화면에 추가하기: 들어가기 단추 아래 작은 글자 단추 (이미 앱으로 열었으면 보이지 않는다) */
 #install { margin: 10px auto 0; display: block; height: 34px; padding: 0 16px; border-radius: 17px; font-size: 13px; font-weight: 800; color: var(--brown); background: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 6px rgba(80, 58, 36, 0.12); transition: transform .28s var(--squish); }
 #install[hidden] { display: none; }
@@ -541,7 +543,10 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .peer-name { position: fixed; left: 0; top: 0; z-index: 1; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 800; color: #27405f; white-space: nowrap; pointer-events: none;
   background: rgba(255, 255, 255, 0.82); box-shadow: 0 4px 10px rgba(36, 64, 110, 0.16); transform: translate(-50%, -100%); transition: opacity .5s; }
 .peer-name[hidden] { display: none; }
-.peer-name.fade { opacity: 0; }
+.peer-name.self { opacity: 0.8; background: rgba(255, 255, 255, 0.6); color: #3b5478; }      /* 내 이름은 조금 옅게 */
+.peer-name.far { opacity: 0.55; font-size: 10.5px; padding: 2px 8px; }      /* 멀리 있는 펭귄의 이름은 작고 흐리게 */
+.peer-name.wave { background: #fff3c4; color: #7a4b00; }      /* 손을 흔드는 동안 */
+.peer-name.me { background: #ffd65e; color: #5a3600; box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(160, 110, 20, 0.3); }      /* 나에게 인사하는 중 */
 /* 옷장 단추 (캡쳐 단추 아래)와 옷장 */
 #closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px)); width: 40px; height: 40px; }
 #closet[hidden] { display: none; }

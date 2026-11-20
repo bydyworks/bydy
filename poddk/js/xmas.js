@@ -185,6 +185,8 @@ export function createXmas(scene, { free, nearTree = () => false, crumble }) {
     santaHead: new THREE.Vector3(SANTA_AT.x, 2.75, SANTA_AT.z),
     santaAt: SANTA_AT,
     /** 펭귄이 닿은, 아직 열지 않은 선물 (없으면 null) */
+    /** 가장 가까운 (열지 않은) 선물까지의 거리 */
+    nearest(x, z) { if (!on || wasBuried) return Infinity; let d = Infinity; for (const g of pool) if (!g.off && !g.open) d = Math.min(d, Math.hypot(g.x - x, g.z - z)); return d; },
     touch(x, z) { if (!on || wasBuried) return null; for (const g of pool) if (!g.off && !g.open && Math.hypot(g.x - x, g.z - z) < TOUCH) return g; return null; },
     /** 그 선물을 연 것으로 친다: 상자는 눈가루와 함께 사라지고, 얼마 뒤 다른 곳에 새로 놓인다. 무엇이 나왔는지 돌려준다 */
     open(g) {

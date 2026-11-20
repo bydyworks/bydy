@@ -344,6 +344,7 @@ function stepRoast(dt, wantWalk, looked = false) {
  *   평소 눈 천사 → 낚시 구멍 곁에서는 물고기(낚시하기) → 낚시 중에는 ✕(그만두기) → 입질이 오면 두근거리는 물고기(낚아 올리기)
  */
 let actionShown = '', socialShown = '';
+const meHead = new THREE.Vector3();
 function showAction() {
   const slideOff = (fishing.active || !!me.roast) || !!me.angel || !!me.flap || !!me.roll || me.inside !== null;          // 낚시나 눈 천사를 하는 동안에는 미끄러질 수 없다
   if ($('#slide').classList.contains('off') !== slideOff) $('#slide').classList.toggle('off', slideOff);
@@ -649,7 +650,7 @@ function startWave() {
   else if (t.kind === 'rabbit') rabbit.greet(me);
   else if (t.kind === 'seal') seals.greet(me);
   else if (t.kind === 'santa') { xmas.greet(() => audio.snowFx('hohoho')); santaLine('안녕~ 허허허!', 3200); }
-  if (t.kind === 'peer') toast(`👋 ${t.who}에게 인사했어요`, 2000);
+  if (t.kind === 'peer') { toast(`👋 ${t.who}에게 인사했어요`, 2000); if (net.connected) net.wave(t.obj); }
   found('wave');      // (상대 화면에서도 내 펭귄이 손을 흔든다)
   stats.waves++;
 }
@@ -972,6 +973,7 @@ $('#rename').addEventListener('click', () => { name = rename(!TEST_MODE); showNa
 
 // ---------- 함께 걷는 눈밭 ----------
 const net = createNet({
+  onWave: (m) => { if (m.me && started) { toast(`👋 ${subject(m.name)} 나에게 인사했어요! 위 단추로 답인사해 봐요`, 2800); audio.snowFx('ding'); } },      // 나에게 한 인사만 알린다 (다른 펭귄끼리의 인사는 머리 위 👋 로 보인다)
   url: q.get('server') === 'off' ? '' : (q.get('server') || SERVER_URL), scene, camera, tracks, look, name: () => name,
   onCount: (n) => { $('#peers').textContent = `함께 걷는 펭귄 ${n}마리`; $('#peer-row').hidden = n === 0; xmas.setPeers(n); },
   onGame: (m) => diceMessage(m),
@@ -1369,6 +1371,7 @@ const NUDGE = {
   slide: ['#slide', '배를 깔고 쭉 미끄러져요. 얼음 위나 언덕에서는 더 멀리!'],
   angel: ['#angel', '눈에 누워 팔을 휘저어 눈 천사를 만들어요'],
   flap: ['#flap', '파닥파닥! 날개를 퍼덕여요'],
+  closet: ['#closet', '👒 선물에서 나온 모자·선글라스는 여기 옷장에서 쓰고 벗어요'],
 };
 const nudge = {
   key: null, until: 0, next: 0,
@@ -1399,11 +1402,12 @@ const nudge = {
   /** 매 박자: 시간이 다 됐거나 단추가 숨으면 접는다. 걷기 길잡이가 끝나고 가만히 서 있으면 아래 단추를 하나씩 알려 준다 */
   update(now) {
     if (this.key) { if (now > this.until || $(NUDGE[this.key][0]).classList.contains('idle') || modal() || giftOpen || postOpen) this.hide(); else this.place(); return; }
+    if (owned.length && !hints['nudge-closet'] && !giftOpen && !modal() && now > this.next) { this.show('closet'); return; }      // 처음 선물을 받으면 옷장을 알려 준다
     if (now < this.next || coach.on || !hints.coach || !free() || me.idle < 3) return;
     for (const k of ['slide', 'angel', 'flap']) if (!hints['nudge-' + k]) { this.show(k); break; }
   },
 };
-for (const sel of ['#act', '#social', '#slide', '#angel', '#flap']) $(sel).addEventListener('click', () => { if (nudge.key && NUDGE[nudge.key][0] === sel) nudge.hide(); });
+for (const sel of ['#act', '#social', '#slide', '#angel', '#flap', '#closet']) $(sel).addEventListener('click', () => { if (nudge.key && NUDGE[nudge.key][0] === sel) nudge.hide(); });
 
 // ---------- 한 박자 ----------
 const fwd = new THREE.Vector3(), camGoal = new THREE.Vector3(), lookAt = new THREE.Vector3(), focus = new THREE.Vector3();
@@ -1635,12 +1639,16 @@ function tick(t) {
   }
   showAction();
   nudge.update(t);
-  // 다른 펭귄이 곁에서 손을 흔들면 알려 준다 (한 번 흔들 때마다 한 번)
-  for (const p of net.peers.values()) {
-    const waving = !!p.s && p.s.a === ACT.wave && p.root.visible && me.inside === null && Math.hypot(p.x - me.x, p.z - me.z) < 6;
-    if (waving && !p.wavedSeen && started) { p.wavedSeen = true; toast(`${subject(p.name)} 손을 흔들어요 👋`, 2200); }
-    if (!(p.s && p.s.a === ACT.wave)) p.wavedSeen = false;
+  { // 내 펭귄 머리 위의 내 이름 (다른 펭귄들에게 보이는 이름과 같다). 이글루 안·창이 떠 있을 때는 감춘다
+    const el = $('#me-name'), show = started && me.inside === null && !modal() && !giftOpen && !postOpen && !me.angel && !me.slide;
+    if (show) {
+      meHead.set(me.x, 1.95 + heightAt(me.x, me.z) + (me.roast ? me.roast.lift : 0), me.z).project(camera);
+      if (el.textContent !== name) el.textContent = name;
+      el.style.left = ((meHead.x + 1) / 2 * innerWidth) + 'px'; el.style.top = ((1 - meHead.y) / 2 * innerHeight) + 'px';
+    }
+    el.hidden = !show;
   }
+
   if (started && t - saveAt > 8000) { saveAt = t; save(); }
   renderer.render(scene, camera);
   raf = document.hidden ? 0 : requestAnimationFrame(tick);
@@ -1658,6 +1666,30 @@ const SPOTS = [
   { key: 'fire', near: () => campfire.dist(me.x, me.z) < ROAST_REACH, say: '모닥불이에요. 그루터기에 앉아 마시멜로 구워 볼래요? 🔥' },
 ];
 const spotWas = {}, spotAt = {};
+// 멀리서 처음 보이면 한 번씩: 저기 무엇이 있고 거기서 무엇을 할 수 있는지 (기기마다 한 번, 화면 앞쪽에 보일 때만)
+const nearestOf = (list) => Math.min(...list.map((p) => Math.hypot(p.x - me.x, p.z - me.z)));
+const inView = (x, z) => { const dx = x - me.x, dz = z - me.z, d = Math.hypot(dx, dz) || 1; return (dx * Math.sin(me.camYaw) + dz * Math.cos(me.camYaw)) / d > 0.55; };
+const nearestPt = (list) => list.reduce((b, p) => (Math.hypot(p.x - me.x, p.z - me.z) < Math.hypot(b.x - me.x, b.z - me.z) ? p : b));
+const SIGHTS = [
+  { key: 'postbox', far: 13, at: () => POSTBOX, say: '트리 옆 빨간 우체통 보여요? 거기서 친구에게 같이 걷자고 엽서를 보낼 수 있어요 💌' },
+  { key: 'wishboard', far: 13, at: () => WISHBOARD, say: '트리 뒤 나무 소원판에는 크리스마스 소원을 붙일 수 있어요 🎄' },
+  { key: 'igloo', far: 18, at: () => nearestPt(IGLOOS), say: '저기 눈집 이글루가 보여요! 문 앞에서 들어가면 친구랑 앉아 쉴 수 있어요 🏠' },
+  { key: 'pond', far: 18, at: () => nearestPt(PONDS), say: '저기 얼음 연못에서는 낚시를 할 수 있어요 🎣 구멍 곁으로 가 봐요' },
+  { key: 'hill', far: 22, at: () => HILL, say: '저 언덕은 계단으로 올라가서 슬라이딩으로 쌩 내려올 수 있어요 🐧' },
+  { key: 'lane', far: 16, at: () => LANE.start, say: '얼음 썰매 길이 있어요! 출발선에서 슬라이딩하면 얼마나 갔는지 재요 🏁' },
+  { key: 'campfire', far: 14, at: () => CAMPFIRE, say: '모닥불이 보여요! 그루터기에 앉아 마시멜로를 구울 수 있어요 🔥' },
+  { key: 'gift', far: 11, dist: () => xmas.nearest(me.x, me.z), say: '반짝이는 선물 상자! 다가가서 열면 모자나 선글라스가 나올지도 몰라요 🎁' },
+];
+let sightAt = -Infinity;
+function sightTips(t) {
+  if (t - sightAt < 25000 || t < toastUntil || coach.on) return;
+  for (const s of SIGHTS) {
+    if (hints['sight-' + s.key]) continue;
+    const p = s.at ? s.at() : null, d = s.dist ? s.dist() : Math.hypot(p.x - me.x, p.z - me.z);
+    if (d > s.far || d < 2.5 || (p && !inView(p.x, p.z))) continue;
+    firstTime('sight-' + s.key); sightAt = t; toast(s.say, 4200); return;
+  }
+}
 function spotTips(t) {
   if (!started) return;      // (시작하기 전에는 아무것도 기억하지 않는다)
   const free = !busyDoor && me.inside === null && !(fishing.active || !!me.roast) && !me.slide && !me.angel && !me.seat && !giftOpen && !postOpen && !modal();
@@ -1668,6 +1700,7 @@ function spotTips(t) {
     if (near && !spotWas[s.key] && !(t - (spotAt[s.key] ?? -Infinity) < 90000)) { spotAt[s.key] = t; toast(s.say, 3600); }
     spotWas[s.key] = near;
   }
+  sightTips(t);
 }
 
 // ---------- 시작 ----------
