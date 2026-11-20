@@ -13,7 +13,7 @@ import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
 import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
 import { createCampfire, makeStick, CAMPFIRE, STUMP_BLOCKS, ROAST_REACH, ROAST_SEAT, STICK_LEN, donenessAt, marshmallowColor } from './campfire.js';
-import { createAurora, auroraAt } from './aurora.js';
+import { createAurora, auroraAt, nightId } from './aurora.js';
 import { createHill, heightAt, onHill, canWalk, slidesOff, nearStairFoot, onTop, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
@@ -72,7 +72,7 @@ const hill = createHill(scene);            // 슬라이딩 언덕
 const campfire = createCampfire(scene);    // 들판의 모닥불 (마시멜로 굽기)
 const aurora = createAurora(scene);        // 어떤 밤에 뜨는 오로라
 const AURORA_FORCED = q.has('aurora');     // 주소에 ?aurora: 그날 밤이 아니어도 띄운다 (구경용)
-let auroraSaid = false;
+let auroraSaid = null;                     // 오로라 알림을 띄운 밤 (한 밤에 한 번만)
 const postbox = createPostbox(scene);      // 트리 옆 우체통 (친구에게 엽서 보내기)
 const camp = createCamp(scene);            // 이글루 셋과 얼음 낚시터 셋
 const dens = createDens(scene);            // 이글루 셋의 안쪽 방 (들판 밖 먼 곳에 지어 둔다)
@@ -245,7 +245,9 @@ const roastStick = makeStick(); roastStick.visible = false; penguin.add(roastSti
 const canRoast = () => started && me.inside === null && !me.angel && !me.slide && !me.flap && !me.roll && !me.roast && !fishing.active && !me.seat && !me.wave && campfire.dist(me.x, me.z) < ROAST_REACH;
 function startRoast() {
   if (!canRoast()) return;
-  const d = campfire.dist(me.x, me.z) || 1, ux = (me.x - CAMPFIRE.x) / d, uz = (me.z - CAMPFIRE.z) / d;
+  let a = Math.atan2(me.x - CAMPFIRE.x, me.z - CAMPFIRE.z);      // 불에서 본 펭귄 쪽. 그루터기 자리면 옆 빈자리로 비켜 앉는다 (그루터기를 뚫고 미끄러지지 않게)
+  for (const b of STUMP_BLOCKS) { const sa = Math.atan2(b.x - CAMPFIRE.x, b.z - CAMPFIRE.z), dd = angleDiff(a, sa); if (Math.abs(dd) < 0.42) a = sa + (dd >= 0 ? 0.42 : -0.42); }
+  const ux = Math.sin(a), uz = Math.cos(a);
   const to = field.confine(CAMPFIRE.x + ux * ROAST_SEAT, CAMPFIRE.z + uz * ROAST_SEAT);      // (그루터기 자리면 조금 비켜 앉는다)
   me.roast = { phase: 'sit', t: 0, cook: 0, k: 0, from: { x: me.x, z: me.z, yaw: me.yaw }, to: { x: to.x, z: to.z, yaw: Math.atan2(CAMPFIRE.x - to.x, CAMPFIRE.z - to.z) }, hinted: 0 };
   roastStick.userData.mallow.visible = true;
@@ -1024,7 +1026,7 @@ $('#dice .again').addEventListener('click', () => { closeDice(false); inviteDice
 $('#dice .quit').addEventListener('click', () => closeDice());
 /** 내 모습을 서버에 보낼 꼴로 */
 function myState() {
-  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? ACT.roast : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
+  const a = me.wave ? ACT.wave : me.angel ? ACT.angel : me.slide ? ACT.slide : me.flap ? ACT.flap : fishing.active ? ACT.fish : me.roast ? (me.roast.phase === 'sit' || me.roast.phase === 'cook' ? ACT.roast : ACT.sit) : me.seat ? ACT.sit : me.pop >= 1 ? ACT.snowman : ACT.stand;
   const st = me.seat && me.seat.phase === 'sat' && me.status ? STATUSES.findIndex((x) => x[1] === me.status[1]) : -1;
   return { x: me.x, z: me.z, yaw: me.yaw, w: Math.min(1, Math.max(0, me.walk)), a, i: me.inside === null ? -1 : me.inside, k: me.seat ? me.seat.k : -1, st, f: worn(penguin) };
 }
@@ -1454,8 +1456,7 @@ function tick(t) {
     const dark = Math.min(1, Math.max(0, (-6 - palette.elev) / 8));
     const level = me.inside === null ? auroraAt(now, snowfall, AURORA_FORCED) * dark : 0;
     aurora.update(seconds, level, focus);
-    if (level > 0.5 && !auroraSaid && started) { auroraSaid = true; toast('하늘에 오로라가 떴어요! ✨ 오늘 밤엔 오로라 빙어가 낚여요', 4500); }
-    if (auroraAt(now, snowfall, AURORA_FORCED) === 0) auroraSaid = false;
+    if (level > 0.5 && started && auroraSaid !== nightId(now)) { auroraSaid = nightId(now); toast('하늘에 오로라가 떴어요! ✨ 오늘 밤엔 오로라 빙어가 낚여요', 4500); }
   }
   weather.update(seconds, camera, snowfall, palette.flake, renderer.domElement.height);
   weather.points.visible = me.inside === null;              // 이글루 안에는 눈이 내리지 않는다

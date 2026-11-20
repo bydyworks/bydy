@@ -9,6 +9,8 @@ import { kst } from './clock.js';
 const HOUR = 3600 * 1000;
 /** 그 밤(저녁~새벽)의 번호: 정오에서 다음 날 정오까지를 한 밤으로 친다 */
 const nightKey = (ms) => kst(ms - 12 * HOUR).dayStart / (24 * HOUR);
+/** 그 밤의 번호 (정수) */
+export const nightId = (ms) => Math.round(nightKey(ms));
 /** 그 밤에 오로라가 뜨는가 (날짜로 정해진다) */
 export function auroraNight(ms) {
   const n = Math.round(nightKey(ms));

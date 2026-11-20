@@ -332,9 +332,12 @@ export function createAudio(baseUrl = 'audio/') {
     },
     /** 들판 모닥불까지의 거리: 가까이 가면 바깥에서도 장작 타는 소리가 들린다 */
     setCampfireDistance(d) {
-      const level = campLevel(d);
-      if (Math.abs(level - campLevel(campDist)) < 0.005 && (level === 0 || fire || !ctx)) { campDist = d; return; }
-      campDist = d; applyFire(0.4);
+      campDist = d;
+      const level = indoor ? INDOOR.fire : campLevel(d);
+      if (!ctx) return;
+      const same = level === 0 ? stats.fire === 0 : Math.abs(level - stats.fire) < 0.005 && !!fire;      // (마지막으로 맞춘 세기와 견준다: 조금씩 멀어져도 결국 0 까지 줄어든다)
+      if (same) return;
+      applyFire(0.4);
     },
     /** 눈발의 세기 0..1 */
     setWeather(snowfall) { if (Math.abs(snowfall - weather) > 0.01) { weather = snowfall; applyWeather(); } },

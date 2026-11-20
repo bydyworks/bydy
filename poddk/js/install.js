@@ -14,10 +14,12 @@ export function howTo(ua = navigator.userAgent, touch = navigator.maxTouchPoints
   const android = /Android/.test(ua);
   if (inApp && /NAVER/i.test(ua)) return '네이버 앱에서는 아래쪽 <b>≡ 메뉴</b>에서 <b>‘홈 화면에 추가’</b>를 눌러요.<br>메뉴에 없으면 <b>사파리</b>나 <b>크롬</b>으로 열어서 추가해 주세요.';
   if (inApp) return '이 앱 안에서는 바로 추가할 수 없어요.<br>오른쪽 위 메뉴에서 <b>‘다른 브라우저로 열기’</b>를 누른 뒤, 거기서 홈 화면에 추가해 주세요.';
-  if (ios && !/CriOS|FxiOS|EdgiOS/.test(ua)) return '아래쪽의 <b>공유 단추</b>(네모에서 화살표가 나온 모양)를 누르고, <b>‘홈 화면에 추가’</b>를 골라요.';
+  if (ios && !/CriOS|FxiOS|EdgiOS/.test(ua)) return '<b>공유 단추</b>(네모에서 화살표가 나온 모양)를 누르고 <b>‘홈 화면에 추가’</b>를 골라요.<br>공유 단추가 안 보이면 주소창 옆의 <b>···</b>을 먼저 눌러요.';
   if (ios) return '오른쪽 위(또는 아래)의 <b>공유 단추</b>를 누르고 <b>‘홈 화면에 추가’</b>를 골라요.<br>없으면 <b>사파리</b>로 열어서 추가해 주세요.';
   if (android && /SamsungBrowser/.test(ua)) return '아래쪽 <b>≡ 메뉴</b>에서 <b>‘현재 페이지 추가’</b> → <b>‘홈 화면’</b>을 골라요.';
   if (android) return '오른쪽 위 <b>⋮ 메뉴</b>에서 <b>‘홈 화면에 추가’</b> 또는 <b>‘앱 설치’</b>를 눌러요.';
+  if (/Firefox\//.test(ua)) return '파이어폭스에서는 홈 화면에 추가할 수 없어요.<br><b>크롬</b>이나 <b>엣지</b>로 열면 주소창의 <b>설치 아이콘</b>으로 추가할 수 있어요.';
+  if (/Safari\//.test(ua) && !/Chrome|Chromium|Edg\//.test(ua)) return '사파리 <b>파일 메뉴</b>에서 <b>‘Dock에 추가’</b>를 골라요.';
   return '주소창 오른쪽의 <b>설치 아이콘</b>을 누르거나, 브라우저 메뉴에서 <b>‘앱 설치’</b>를 골라요.';
 }
 
