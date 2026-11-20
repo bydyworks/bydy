@@ -11,10 +11,10 @@ const toward = (p, d) => { const r = Math.hypot(p.x, p.z); return { x: p.x - p.x
 const IGLOO_RADIUS = 2.5, POND_RADIUS = 5.2, HOLE_RADIUS = 0.42;
 // 여섯 곳을 트리 둘레에 번갈아 놓는다 (이글루 – 낚시터 – 이글루 – …). 거리는 저마다 달라서 한 바퀴 빙 둘러선 것처럼 보이지 않는다
 /** 이글루 셋: 문은 트리 쪽을 본다 */
-export const IGLOOS = [at(130, 40), at(250, 36), at(10, 50)].map((p) => ({ ...p, radius: IGLOO_RADIUS, yaw: Math.atan2(-p.x, -p.z) }));
+export const IGLOOS = [at(130, 34), at(250, 31), at(10, 42)].map((p) => ({ ...p, radius: IGLOO_RADIUS, yaw: Math.atan2(-p.x, -p.z) }));
 const HOLES_PER_POND = 5, HOLE_RING = 2.6;      // 연못마다 구멍 다섯 개를 가운데에서 이만큼 떨어진 둘레에 고루 놓는다 (이웃한 구멍 사이는 약 3)
 /** 낚시터 셋: 언 연못과, 그 위에 둥글게 뚫린 낚시 구멍 다섯. hole 은 그 가운데 트리 쪽에 있는 첫 구멍 */
-export const PONDS = [at(60, 30), at(190, 46), at(310, 38)].map((p) => {
+export const PONDS = [at(60, 26), at(190, 39), at(310, 32)].map((p) => {
   const base = Math.atan2(-p.x, -p.z);                // 트리 쪽
   const holes = Array.from({ length: HOLES_PER_POND }, (_, i) => {
     const a = base + i * Math.PI * 2 / HOLES_PER_POND;

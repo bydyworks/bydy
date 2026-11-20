@@ -137,11 +137,11 @@ export class Field {
     }
     if (m.t === 'g') { this.game(ws, me, m, now); ws.serializeAttachment(me); return; }
     if (m.t === 'race') {
-      // 썰매 경주 기록: 0~40 걸음, 들판에 있을 때, 3초에 한 번까지. 오늘(한국 날짜)의 기록 다섯을 모두에게 알린다
+      // 썰매 경주 기록: 0~40 걸음, 들판에 있을 때, 3초에 한 번까지. 역대 기록 셋을 모두에게 알린다
       if (me.s && me.s.i === -1 && num(m.d, 0.5, 40) && now - (me.raceAt || 0) > 3000) {
         me.raceAt = now; ws.serializeAttachment(me);
         this.sql.exec('INSERT INTO races (name, device, dist, day, birth) VALUES (?, ?, ?, ?, ?)', me.name, me.device, Math.round(m.d * 10) / 10, kday(now), now);
-        this.sql.exec('DELETE FROM races WHERE day < ?', kday(now) - 2);
+        this.sql.exec('DELETE FROM races WHERE rowid NOT IN (SELECT rowid FROM races ORDER BY dist DESC LIMIT 300)');      // (좋은 기록 삼백만 남긴다)
         this.broadcast({ t: 'top', top: this.raceTop(now) });
       }
       return;
@@ -157,8 +157,8 @@ export class Field {
     ws.serializeAttachment(me);
   }
 
-  /** 오늘의 썰매 기록 다섯 (한 기기에 가장 좋은 것 하나씩) */
-  raceTop(now) { return this.sql.exec('SELECT name, MAX(dist) AS dist FROM races WHERE day = ? GROUP BY device ORDER BY dist DESC LIMIT 5', kday(now)).toArray().map((r) => ({ name: r.name, dist: r.dist })); }
+  /** 역대 썰매 기록 셋 (한 기기에 가장 좋은 것 하나씩) */
+  raceTop() { return this.sql.exec('SELECT name, MAX(dist) AS dist FROM races GROUP BY device ORDER BY dist DESC LIMIT 3').toArray().map((r) => ({ name: r.name, dist: r.dist })); }
 
   // ---------- 크리스마스 소원판 ----------
   // 짧은 소원을 익명으로 붙인다 (한 기기에 한 철 한 번). 욕·성적인 말·연락처는 받지 않는다 (filter.js)

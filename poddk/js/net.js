@@ -9,6 +9,7 @@ import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, COLO
 import { STATUSES } from './den.js';
 import { ROD_LEN, ROD_TILT, SEAT as FISH_SEAT, FLOAT_Y } from './fishing.js';
 import { SLOTS, wear } from './outfit.js';
+import { heightAt } from './hill.js';
 
 /** 하는 일의 번호 (서버와 같은 약속) */
 export const ACT = { stand: 0, angel: 1, slide: 2, flap: 3, fish: 4, sit: 5, snowman: 6, wave: 7 };
@@ -160,7 +161,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
         p.phase = (p.phase + moved / 1.04) % 1;
         p.walk += ((s.a === ACT.stand ? s.w : 0) - p.walk) * k;
         const r = p.root;
-        r.position.set(p.x, 0, p.z); r.rotation.y = p.yaw;
+        r.position.set(p.x, s.i === -1 ? heightAt(p.x, p.z) : 0, p.z); r.rotation.y = p.yaw;
         pose(r, p.phase, p.walk);
         // 자세는 한 번에 하나만 그린다 (자세마다 몸의 높이와 기울기를 저마다 정하므로, 여럿을 잇달아 부르면 나중 것이 앞의 것을 덮는다).
         // 하는 일이 바뀌면 하던 자세에서 천천히 빠져나온 다음 새 자세로 들어간다
@@ -190,7 +191,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
           const sayOn = !!(p.bubble && !p.bubble.hidden);
           let on = !!tagText && !sayOn;
           if (on) {
-            head.set(p.x, 1.95, p.z).project(camera);
+            head.set(p.x, 1.95 + (s.i === -1 ? heightAt(p.x, p.z) : 0), p.z).project(camera);
             on = head.z < 1 && Math.abs(head.x) < 1.1 && Math.abs(head.y) < 1.1;
             if (on) { if (p.tag.textContent !== tagText) p.tag.textContent = tagText; p.tag.style.left = ((head.x + 1) / 2 * innerWidth) + 'px'; p.tag.style.top = ((1 - head.y) / 2 * innerHeight) + 'px'; p.tag.classList.toggle('fade', !waving && p.tagT > NAME_SHOW - 0.5); }
           }

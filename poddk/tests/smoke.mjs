@@ -1412,6 +1412,51 @@ try {
     assert(a.marks === 0 && b.best >= b.along - 0.01, '길 위의 자국, 최고 기록: ' + JSON.stringify([a, b]));
   });
 
+  await test('눈썰매 언덕: 언덕 위에서는 그 높이에 서고, 꼭대기에서 배 썰매를 타면 비탈을 따라 평지보다 훨씬 멀리 미끄러진다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    const H = await snow(p, async () => ({ ...(await import('./js/hill.js')).HILL }));
+    const up = await snow(p, async (H) => { const s = window.__snow; s.teleport(H.x + 2, H.z); for (let i = 0; i < 5; i++) await new Promise((r) => requestAnimationFrame(r)); return s.penguin.position.y; }, H);
+    assert(up > 1.5, '언덕 위인데 땅에 서 있다: ' + up.toFixed(2));
+    const run = (fromTop) => snow(p, (a) => { const [H, fromTop] = a, s = window.__snow; if (fromTop) s.teleport(H.x, H.z); else s.teleport(-20, 25); s.me.yaw = 0.4; s.me.recent = 0; s.sim(0.2); const p0 = { x: s.me.x, z: s.me.z }; s.slide(); for (let i = 0; i < 1500 && s.me.slide; i++) s.sim(1 / 60); return Math.hypot(s.me.x - p0.x, s.me.z - p0.z); }, [H, fromTop]);
+    const flat = await run(false), hill = await run(true);
+    assert(hill > flat * 1.8, '언덕에서 더 멀리 가야 한다: ' + JSON.stringify({ flat, hill }));
+  });
+
+  await test('눈썰매 언덕은 한쪽 계단으로만 걸어 오른다: 비탈로 걸어 오르면 언덕 가장자리에서 막히고, 계단으로는 꼭대기까지 간다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    const H = await snow(p, async () => ({ ...(await import('./js/hill.js')).HILL }));
+    const r = await snow(p, async (H) => {
+      const s = window.__snow;
+      const toward = async (a) => { s.teleport(H.x + Math.sin(a) * 13, H.z + Math.cos(a) * 13); s.me.yaw = s.me.camYaw = a + Math.PI; s.controls.debugMove(0, 1); s.sim(9); s.controls.debugMove(0, 0); for (let i = 0; i < 4; i++) await new Promise((r) => requestAnimationFrame(r)); return { d: Math.hypot(s.me.x - H.x, s.me.z - H.z), y: s.penguin.position.y }; };
+      return { slope: await toward(Math.atan2(-H.x, -H.z)), stairs: await toward((100 + 90) * Math.PI / 180) };
+    }, H);
+    assert(r.slope.d > H.r - 0.3 && r.slope.y < 0.3, '비탈로 걸어 올라갔다: ' + JSON.stringify(r.slope));
+    assert(r.stairs.d < H.top + 1 && r.stairs.y > H.h - 0.3, '계단으로 꼭대기에 못 갔다: ' + JSON.stringify(r.stairs));
+  });
+
+  await test('언덕 꼭대기에서 비탈 쪽으로 걸어 나가면 저절로 슬라이딩해서 언덕 아래까지 내려간다 (계단 쪽으로는 걸어 내려간다)', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    const H = await snow(p, async () => ({ ...(await import('./js/hill.js')).HILL }));
+    const r = await snow(p, (H) => {
+      const s = window.__snow, a = Math.atan2(-H.x, -H.z);
+      s.teleport(H.x, H.z); s.me.yaw = s.me.camYaw = a + Math.PI; s.me.recent = 0;
+      s.controls.debugMove(0, 1);
+      let slid = false; for (let i = 0; i < 240 && !s.me.slide; i++) s.sim(1 / 60); slid = !!s.me.slide;
+      s.controls.debugMove(0, 0);
+      for (let i = 0; i < 1500 && s.me.slide; i++) s.sim(1 / 60);
+      const down = Math.hypot(s.me.x - H.x, s.me.z - H.z);
+      s.teleport(H.x, H.z); const sa = (100 + 90) * Math.PI / 180; s.me.yaw = s.me.camYaw = sa;      // 계단 쪽으로 걸어 나가기
+      s.controls.debugMove(0, 1); let stairSlide = false; for (let i = 0; i < 180; i++) { s.sim(1 / 60); if (s.me.slide) stairSlide = true; } s.controls.debugMove(0, 0);
+      return { slid, down, stairSlide, stairD: Math.hypot(s.me.x - H.x, s.me.z - H.z) };
+    }, H);
+    assert(r.slid, '꼭대기에서 비탈로 걸어 나갔는데 슬라이딩하지 않았다');
+    assert(r.down > H.r, '언덕 아래까지 내려오지 않았다: ' + r.down.toFixed(2));
+    assert(!r.stairSlide && r.stairD > H.top, '계단 쪽으로는 걸어 내려가야 한다: ' + JSON.stringify(r));
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);

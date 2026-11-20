@@ -1,9 +1,9 @@
 // 썰매 경주 길: 들판 한쪽에 곧게 뻗은 매끈한 얼음 길. 출발 자리에서 배 썰매를 타면 얼마나 멀리 미끄러졌는지 잰다.
 // 걸어오던 기세를 살려 미끄러지면 더 멀리 가고, 길에서 비껴 나가면 눈 위에서 금세 멈춘다.
-// 오늘(한국 시각)의 기록 다섯은 서버가 모아 두고, 출발 자리 옆 기록판에 보여 준다.
+// 역대 기록 셋은 서버가 모아 두고, 출발 자리 옆 기록판에 보여 준다.
 import * as THREE from 'three';
 
-const DEG = 280, FROM = 44, LEN = 30, HALF = 1.6;        // 트리에서 본 방향(도), 출발선까지의 거리, 길이, 길 너비의 반
+const DEG = 280, FROM = 40, LEN = 30, HALF = 1.6;        // 트리에서 본 방향(도), 출발선까지의 거리, 길이, 길 너비의 반
 const dir = { x: Math.sin(DEG * Math.PI / 180), z: Math.cos(DEG * Math.PI / 180) };      // 길이 뻗은 쪽 (트리에서 멀어지는 쪽)
 export const LANE = {
   start: { x: dir.x * FROM, z: dir.z * FROM }, dir, len: LEN, half: HALF,
@@ -72,11 +72,11 @@ export function createSled(scene) {
   function drawBoard() {
     const b = bc.getContext('2d');
     b.fillStyle = '#fffaf0'; b.fillRect(0, 0, 256, 200);
-    b.fillStyle = '#7a3b22'; b.font = '900 24px sans-serif'; b.textAlign = 'center'; b.fillText('🛷 오늘의 기록', 128, 32);
-    b.textAlign = 'left'; b.font = '800 17px sans-serif';
+    b.fillStyle = '#7a3b22'; b.font = '900 24px sans-serif'; b.textAlign = 'center'; b.fillText('🏆 역대 기록', 128, 34);
+    b.textAlign = 'left'; b.font = '800 20px sans-serif';
     const rows = top.length ? top : [];
     if (!rows.length) { b.fillStyle = '#9a7b62'; b.textAlign = 'center'; b.fillText('첫 기록을 세워 봐요!', 128, 100); }
-    rows.slice(0, 5).forEach((r, i) => { b.fillStyle = ['#c9922a', '#8a96a8', '#b07040', '#4a3d35', '#4a3d35'][i]; b.fillText(`${i + 1}. ${r.name}`, 16, 66 + i * 26); b.textAlign = 'right'; b.fillText(r.dist.toFixed(1) + 'm', 240, 66 + i * 26); b.textAlign = 'left'; });
+    rows.slice(0, 3).forEach((r, i) => { b.fillStyle = ['#c9922a', '#7d8a9e', '#b07040'][i]; b.fillText(`${['🥇', '🥈', '🥉'][i]} ${r.name}`, 14, 80 + i * 40); b.textAlign = 'right'; b.fillText(r.dist.toFixed(1) + 'm', 244, 80 + i * 40); b.textAlign = 'left'; });
     btex.needsUpdate = true;
   }
   drawBoard();
@@ -84,8 +84,8 @@ export function createSled(scene) {
     group: g,
     get best() { return best; },
     get top() { return top; },
-    /** 오늘의 기록 (서버에서) */
-    setTop(list) { top = Array.isArray(list) ? list.filter((r) => r && typeof r.name === 'string' && Number.isFinite(r.dist)).slice(0, 5) : []; drawBoard(); },
+    /** 역대 기록 셋 (서버에서) */
+    setTop(list) { top = Array.isArray(list) ? list.filter((r) => r && typeof r.name === 'string' && Number.isFinite(r.dist)).slice(0, 3) : []; drawBoard(); },
     /** 내 기록 하나: 내 최고 기록이면 true */
     record(dist) { if (dist > best) { best = dist; try { localStorage.setItem('poddk.sled.best', String(best)); } catch { /* 이번만 */ } return true; } return false; },
   };
