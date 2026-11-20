@@ -627,3 +627,18 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #sculpt .dress button img { width: 100%; height: 100%; }
 #sculpt .dress button[aria-pressed="true"] { box-shadow: 0 0 0 3px #fff, 0 0 0 5.5px #2f6fc4; }
 .seal-say { z-index: 1; }
+
+/* 단추 말풍선: 단추 왼쪽에 크림색 말풍선, 오른쪽 꼬리가 단추를 가리킨다. 그동안 단추는 살짝 두근거린다 */
+#nudge { position: fixed; z-index: 3; max-width: min(62vw, 260px); padding: 9px 13px; border-radius: 16px; font-size: 13.5px; font-weight: 800; line-height: 1.45; color: var(--brown); word-break: keep-all;
+  background: var(--cream); box-shadow: 0 6px 16px rgba(80, 58, 36, 0.2); transform: translateY(-50%); pointer-events: none; animation: nudge-in .3s cubic-bezier(.3, 1.6, .6, 1); }
+#nudge[hidden] { display: none; }
+#nudge::after { content: ''; position: absolute; right: -7px; top: 50%; margin-top: -7px; border: 7px solid transparent; border-right: 0; border-left-color: var(--cream); }
+@keyframes nudge-in { from { opacity: 0; transform: translate(10px, -50%) scale(0.9); } to { opacity: 1; transform: translateY(-50%); } }
+.round.nudged { animation: nudged 1.1s ease-in-out infinite; }
+@keyframes nudged { 0%, 100% { box-shadow: 0 0 0 3px var(--cream), 0 5px 12px rgba(80, 58, 36, 0.16); } 50% { box-shadow: 0 0 0 3px var(--cream), 0 0 0 9px rgba(255, 214, 102, 0.55), 0 5px 12px rgba(80, 58, 36, 0.16); } }
+/* 새 놀이 발견 쪽지: 위쪽 가운데에 뿅 내려왔다가 올라간다 */
+#found { position: fixed; left: 50%; top: calc(118px + var(--safe-t)); z-index: 3; padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 800; color: #6b4a12; white-space: nowrap; pointer-events: none;
+  background: linear-gradient(135deg, #fff6d6, #ffe7a3); box-shadow: 0 6px 16px rgba(160, 110, 20, 0.22); opacity: 0; transform: translate(-50%, -14px) scale(0.92); transition: opacity .25s, transform .35s cubic-bezier(.3, 1.6, .6, 1); }
+#found.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+#found b { color: #8a4b00; }
+#found small { margin-left: 4px; font-size: 11px; font-weight: 800; color: #a07a30; }

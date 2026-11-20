@@ -116,9 +116,9 @@ function santaMesh() {
 
 /**
  * @param {THREE.Scene} scene
- * @param {{ free: (x: number, z: number) => boolean, crumble: { puff: Function } }} o  free: 그 자리에 선물을 둘 수 있는가 (얼음, 이글루, 나무가 아닌 눈 위인가)
+ * @param {{ free: (x: number, z: number) => boolean, nearTree?: (x: number, z: number) => boolean, crumble: { puff: Function } }} o  free: 그 자리에 선물을 둘 수 있는가 (얼음, 이글루, 나무가 아닌 눈 위인가). nearTree: 트리 둘레 그 자리에 둘 수 있는가
  */
-export function createXmas(scene, { free, crumble }) {
+export function createXmas(scene, { free, nearTree = () => false, crumble }) {
   const group = new THREE.Group(); scene.add(group);
   const pool = [];                   // { mesh, x, z, open: false, back: 남은 시간, off: 놓지 않은 상자 }
   let want = COUNT;
@@ -126,6 +126,13 @@ export function createXmas(scene, { free, crumble }) {
   let rng = (Date.now() % 100000) + 1;
   const rand = () => { rng = (rng * 16807) % 2147483647; return rng / 2147483647; };
   function spot() {
+    // 셋에 하나쯤은 트리 둘레에 (트리 밑에 놓인 선물처럼)
+    if (rand() < 0.3 && pool.filter((g) => !g.off && !g.open && Math.hypot(g.x, g.z) < 7).length < 3) {
+      for (let k = 0; k < 60; k++) {
+        const a = rand() * Math.PI * 2, r = 3.4 + rand() * 2.6, x = Math.sin(a) * r, z = Math.cos(a) * r;
+        if (nearTree(x, z) && Math.hypot(x - SANTA_AT.x, z - SANTA_AT.z) > 2.4 && !pool.some((g) => !g.off && !g.open && Math.hypot(g.x - x, g.z - z) < 2.6)) return { x, z };
+      }
+    }
     for (let k = 0; k < 200; k++) {
       const a = rand() * Math.PI * 2, r = 9 + Math.sqrt(rand()) * 62;
       const x = Math.sin(a) * r, z = Math.cos(a) * r;
@@ -137,12 +144,18 @@ export function createXmas(scene, { free, crumble }) {
   }
   for (let i = 0; i < MAX; i++) {
     const mesh = giftMesh(i), off = i >= COUNT, p = off ? { x: 0, z: 0 } : spot();
-    mesh.position.set(p.x, 0, p.z); mesh.rotation.y = rand() * Math.PI * 2; mesh.scale.setScalar(1.3); mesh.visible = !off;
+    mesh.position.set(p.x, 0, p.z); mesh.rotation.y = rand() * Math.PI * 2; mesh.scale.setScalar(0.9); mesh.visible = !off;
     group.add(mesh);
     pool.push({ mesh, x: p.x, z: p.z, open: false, back: 0, i, off });
   }
   // 반짝임: 상자 위에 작은 별빛 하나가 깜빡여 멀리서도 눈에 띈다
   const glint = new THREE.SpriteMaterial({ map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,250,220,1)'); r.addColorStop(0.25, 'rgba(255,235,160,0.8)'); r.addColorStop(1, 'rgba(255,235,160,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); g.fillStyle = 'rgba(255,255,240,0.95)'; g.fillRect(30, 4, 4, 56); g.fillRect(4, 30, 56, 4); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })(), transparent: true, depthWrite: false, opacity: 0.9 });
+  // 트리 밑에 쌓인 장식 선물 (열리지는 않는다): 둥치 둘레에 크고 작은 상자 여덟
+  for (let k = 0; k < 8; k++) {
+    const m = giftMesh(k + 3), a = k / 8 * Math.PI * 2 + 0.35 + (k % 2) * 0.18, r = 1.45 + (k % 3) * 0.17;
+    m.position.set(Math.sin(a) * r, 0, Math.cos(a) * r); m.rotation.y = a * 2.3; m.scale.setScalar(0.62 + (k % 3) * 0.12);
+    group.add(m);
+  }
   for (const g of pool) { const s = new THREE.Sprite(glint); s.scale.setScalar(0.5); s.position.y = g.mesh.userData.height + 0.42; g.mesh.add(s); g.glint = s; }
 
   const santa = santaMesh();

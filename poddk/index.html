@@ -33,13 +33,13 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=de65ef1c">
-<link rel="stylesheet" href="css/app.css?v=de65ef1c">
+<link rel="stylesheet" href="css/fonts.css?v=778f5bc0">
+<link rel="stylesheet" href="css/app.css?v=778f5bc0">
 <script>
       // 이 게임은 poddk.pages.dev 에서만 한다: 예전 주소(GitHub Pages)로 오면 그리로 옮겨 간다 (주소 뒤의 ?… 는 그대로)
       if (/(^|\.)github\.io$/.test(location.hostname)) location.replace('https://poddk.pages.dev/' + location.search + location.hash);
     </script>
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=de65ef1c","./js/aurora.js":"./js/aurora.js?v=de65ef1c","./js/campfire.js":"./js/campfire.js?v=de65ef1c","./js/capture.js":"./js/capture.js?v=de65ef1c","./js/carols.js":"./js/carols.js?v=de65ef1c","./js/clock.js":"./js/clock.js?v=de65ef1c","./js/controls.js":"./js/controls.js?v=de65ef1c","./js/critters.js":"./js/critters.js?v=de65ef1c","./js/crumble.js":"./js/crumble.js?v=de65ef1c","./js/den.js":"./js/den.js?v=de65ef1c","./js/field.js":"./js/field.js?v=de65ef1c","./js/fishing.js":"./js/fishing.js?v=de65ef1c","./js/flakes.js":"./js/flakes.js?v=de65ef1c","./js/fox.js":"./js/fox.js?v=de65ef1c","./js/hill.js":"./js/hill.js?v=de65ef1c","./js/igloo.js":"./js/igloo.js?v=de65ef1c","./js/install.js":"./js/install.js?v=de65ef1c","./js/main.js":"./js/main.js?v=de65ef1c","./js/map.js":"./js/map.js?v=de65ef1c","./js/names.js":"./js/names.js?v=de65ef1c","./js/net.js":"./js/net.js?v=de65ef1c","./js/outfit.js":"./js/outfit.js?v=de65ef1c","./js/penguin.js":"./js/penguin.js?v=de65ef1c","./js/postbox.js":"./js/postbox.js?v=de65ef1c","./js/santa.js":"./js/santa.js?v=de65ef1c","./js/showcase.js":"./js/showcase.js?v=de65ef1c","./js/sky.js":"./js/sky.js?v=de65ef1c","./js/sled.js":"./js/sled.js?v=de65ef1c","./js/snowball.js":"./js/snowball.js?v=de65ef1c","./js/snowman.js":"./js/snowman.js?v=de65ef1c","./js/tracks.js":"./js/tracks.js?v=de65ef1c","./js/weather.js":"./js/weather.js?v=de65ef1c","./js/wishboard.js":"./js/wishboard.js?v=de65ef1c","./js/xmas.js":"./js/xmas.js?v=de65ef1c"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=778f5bc0","./js/aurora.js":"./js/aurora.js?v=778f5bc0","./js/campfire.js":"./js/campfire.js?v=778f5bc0","./js/capture.js":"./js/capture.js?v=778f5bc0","./js/carols.js":"./js/carols.js?v=778f5bc0","./js/clock.js":"./js/clock.js?v=778f5bc0","./js/controls.js":"./js/controls.js?v=778f5bc0","./js/critters.js":"./js/critters.js?v=778f5bc0","./js/crumble.js":"./js/crumble.js?v=778f5bc0","./js/den.js":"./js/den.js?v=778f5bc0","./js/field.js":"./js/field.js?v=778f5bc0","./js/fishing.js":"./js/fishing.js?v=778f5bc0","./js/flakes.js":"./js/flakes.js?v=778f5bc0","./js/fox.js":"./js/fox.js?v=778f5bc0","./js/hill.js":"./js/hill.js?v=778f5bc0","./js/igloo.js":"./js/igloo.js?v=778f5bc0","./js/install.js":"./js/install.js?v=778f5bc0","./js/main.js":"./js/main.js?v=778f5bc0","./js/map.js":"./js/map.js?v=778f5bc0","./js/names.js":"./js/names.js?v=778f5bc0","./js/net.js":"./js/net.js?v=778f5bc0","./js/outfit.js":"./js/outfit.js?v=778f5bc0","./js/penguin.js":"./js/penguin.js?v=778f5bc0","./js/postbox.js":"./js/postbox.js?v=778f5bc0","./js/santa.js":"./js/santa.js?v=778f5bc0","./js/showcase.js":"./js/showcase.js?v=778f5bc0","./js/sky.js":"./js/sky.js?v=778f5bc0","./js/sled.js":"./js/sled.js?v=778f5bc0","./js/snowball.js":"./js/snowball.js?v=778f5bc0","./js/snowman.js":"./js/snowman.js?v=778f5bc0","./js/tracks.js":"./js/tracks.js?v=778f5bc0","./js/weather.js":"./js/weather.js?v=778f5bc0","./js/wishboard.js":"./js/wishboard.js?v=778f5bc0","./js/xmas.js":"./js/xmas.js?v=778f5bc0"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -136,6 +136,10 @@
   </svg>
 </button>
 <div id="flash" aria-hidden="true"></div>
+<!-- 단추 말풍선: 단추가 처음 나타날 때 무엇을 하는지 옆에 짧게 -->
+<div id="nudge" role="status" hidden></div>
+<!-- 새 놀이 발견: 처음 해 본 놀이마다 위쪽에 작은 쪽지 -->
+<div id="found" role="status"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <!-- 크리스마스 선물: 눈밭에서 상자에 닿으면 뜬다. 톡톡톡 세 번 두드리면 포장이 뜯어지고 선물이 나온다 -->
 <!-- 트리 옆 우체통의 엽서: 친구에게 같이 걷자고 보낸다 -->
@@ -325,6 +329,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=de65ef1c"></script>
+<script type="module" src="js/main.js?v=778f5bc0"></script>
 </body>
 </html>
