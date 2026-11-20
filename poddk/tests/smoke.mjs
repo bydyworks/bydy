@@ -1380,24 +1380,17 @@ try {
     assert(!r.onPond || (r.icy === 0 && r.around > 50), '얼음 위에 여우 발자국이 남았다: ' + JSON.stringify(r));
   });
 
-  console.log('\n■ 눈송이 도감, 썰매 길, 동물 친구들');
-  await test('눈밭의 특별한 눈송이를 주우면 도감에 모이고 (다시 들어와도 남는다), 밤에는 빛나는 별 눈송이가 내려온다', async () => {
+  console.log('\n■ 특별한 눈송이, 썰매 길, 동물 친구들');
+  await test('눈밭의 특별한 눈송이를 주우면 카드가 잠깐 떴다 사라진다. 밤에는 빛나는 별 눈송이가 내려오고, 낮에는 없다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
-    await snow(p, () => { const s = window.__snow; s.flakes.reset(); s.teleport(20, 20); s.sim(0.1); s.flakes.drop('heart', 20, 21.5); });
-    await snow(p, () => { const s = window.__snow; s.teleport(20, 21.3); });
-    await until(async () => (await snow(p, () => window.__snow.flakes.count)) === 1, { what: '주운 눈송이' });
-    assert((await p.textContent('#toast')).includes('하트 눈송이'), '주웠다는 알림: ' + await p.textContent('#toast'));
-    await p.click('#book');
-    const book = await p.evaluate(() => ({ shown: !document.querySelector('#book-panel').hidden, got: document.querySelectorAll('#book-panel .cell.got').length, all: document.querySelectorAll('#book-panel .cell').length, count: document.querySelector('#book-panel .count').textContent }));
-    assert(book.shown && book.got === 1 && book.all === 20 && book.count === '1 / 20', '도감: ' + JSON.stringify(book));
-    await p.reload(); await p.waitForFunction(() => window.__snow && window.__snow.ready);
-    const q2 = p;
-    assert((await snow(q2, () => window.__snow.flakes.count)) === 1, '다시 들어오니 도감이 비었다');
-    // 밤: 별 눈송이가 저절로 내려온다 (낮에는 별 눈송이가 없다)
-    const night = await snow(q2, async () => { const s = window.__snow; s.clock.setTime('21:30'); for (let i = 0; i < 80; i++) await new Promise((r) => requestAnimationFrame(r)); return s.flakes.live; });
-    assert(night.length > 0, '밤인데 눈송이가 없다');
-    await snow(q2, async () => { const s = window.__snow; s.clock.setTime('13:00'); for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r)); });
-    const day = await snow(q2, async () => { const night = (await import('./js/flakes.js')).FLAKES.filter((f) => f.night).map((f) => f.id); return window.__snow.flakes.live.filter((o) => night.includes(o.id)).length; });
+    await snow(p, () => { const s = window.__snow; s.teleport(20, 20); s.sim(0.1); s.flakes.drop('heart', 20, 21.5); s.teleport(20, 21.3); });
+    await until(async () => p.evaluate(() => !document.querySelector('#catch').hidden && document.querySelector('#catch').dataset.kind === 'heart'), { what: '주운 눈송이 카드' });
+    assert((await p.textContent('#catch .name')).includes('하트 눈송이'), '카드 글: ' + await p.textContent('#catch .name'));
+    await until(async () => p.evaluate(() => document.querySelector('#catch').hidden), { what: '카드가 사라짐', timeout: 8000 });
+    // 밤: 별 눈송이가 저절로 내려온다. 낮이 되면 사라진다
+    const night = await snow(p, async () => { const s = window.__snow; s.clock.setTime('21:30'); for (let i = 0; i < 80; i++) await new Promise((r) => requestAnimationFrame(r)); return s.flakes.live.filter((o) => o.id === 'star').length; });
+    assert(night > 0, '밤인데 별 눈송이가 없다');
+    const day = await snow(p, async () => { const s = window.__snow; s.clock.setTime('13:00'); for (let i = 0; i < 30; i++) await new Promise((r) => requestAnimationFrame(r)); return s.flakes.live.filter((o) => o.id === 'star').length; });
     assert(day === 0, '낮인데 별 눈송이가 남아 있다');
   });
 

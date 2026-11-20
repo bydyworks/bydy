@@ -1,35 +1,18 @@
-// 눈송이 도감: 눈밭 곳곳에 가끔 특별한 눈송이가 반짝이며 내려앉는다. 다가가면 주워서 도감에 모은다 (기기에 오래 남는다).
-//   · 낮 눈송이 14가지: 흔한 것부터 아주 드문 무지개 눈송이까지
-//   · 밤 눈송이 6가지: 해가 지면 별처럼 빛나는 눈송이가 내려와 멀리서도 보인다 (밤에만)
-// 한 번에 눈밭에 있는 수: 낮 4개, 밤에는 빛나는 별 눈송이 3개가 더. 하나는 4분쯤 있다가 녹고, 얼마 뒤 다른 곳에 새로 내려온다.
+// 특별한 눈송이: 눈밭 곳곳에 가끔 반짝이며 내려앉는다. 다가가면 줍고, 선물을 찾았을 때처럼 카드가 잠깐 떴다 사라진다.
+//   · 육각 눈송이(흔하다), 하트 눈송이(드물다): 낮에도 밤에도
+//   · 별 눈송이: 해가 지면 별처럼 빛나며 내려와 멀리서도 보인다 (밤에만)
+// 한 번에 눈밭에 있는 수: 3개, 밤에는 별 눈송이 2개가 더. 하나는 4분쯤 있다가 녹고, 얼마 뒤 다른 곳에 새로 내려온다.
 import * as THREE from 'three';
 
 /** 눈송이 스무 가지: 이름, 한마디, 드문 정도(weight 가 작을수록 드물다), 밤에만 나오는가, 모양 */
 export const FLAKES = [
-  { id: 'hex', name: '육각 눈송이', say: '가장 흔하지만 가장 반듯해요', weight: 22, shape: { arms: 6, len: 1, branches: 2, plate: 0.28 }, color: '#eef6ff' },
-  { id: 'twig', name: '나뭇가지 눈송이', say: '가지가 오밀조밀 뻗었어요', weight: 18, shape: { arms: 6, len: 1, branches: 4, plate: 0.12 }, color: '#e6f2ff' },
-  { id: 'needle', name: '바늘 눈송이', say: '가늘고 뾰족해요', weight: 16, shape: { arms: 6, len: 1.15, branches: 0, plate: 0.08, thin: true }, color: '#f2f7ff' },
-  { id: 'fan', name: '부채 눈송이', say: '팔 끝이 부채처럼 펴졌어요', weight: 14, shape: { arms: 6, len: 0.9, branches: 1, plate: 0.15, tip: 'fan' }, color: '#eaf4ff' },
-  { id: 'fern', name: '고사리 눈송이', say: '고사리 잎을 닮았어요', weight: 12, shape: { arms: 6, len: 1.05, branches: 6, plate: 0.1, short: true }, color: '#e4f1ff' },
-  { id: 'plate', name: '동글 판 눈송이', say: '납작한 얼음 판 같아요', weight: 12, shape: { arms: 6, len: 0.55, branches: 0, plate: 0.55 }, color: '#f0f7ff' },
-  { id: 'crown', name: '왕관 눈송이', say: '끝마다 작은 왕관이 있어요', weight: 7, shape: { arms: 6, len: 0.95, branches: 1, plate: 0.2, tip: 'ball' }, color: '#fff6dc' },
-  { id: 'sky', name: '하늘빛 눈송이', say: '맑은 하늘색이 비쳐요', weight: 6, shape: { arms: 6, len: 1, branches: 3, plate: 0.2 }, color: '#a9d6ff' },
-  { id: 'pink', name: '분홍 눈송이', say: '노을빛에 물들었어요', weight: 6, shape: { arms: 6, len: 1, branches: 2, plate: 0.25, tip: 'ball' }, color: '#ffc9dc' },
-  { id: 'mint', name: '민트 눈송이', say: '시원한 박하 향이 날 것 같아요', weight: 6, shape: { arms: 6, len: 1, branches: 3, plate: 0.15, tip: 'fan' }, color: '#bff0dd' },
-  { id: 'lace', name: '레이스 눈송이', say: '레이스처럼 섬세해요', weight: 5, shape: { arms: 12, len: 0.9, branches: 2, plate: 0.18, thin: true }, color: '#f7f9ff' },
-  { id: 'twin', name: '쌍둥이 눈송이', say: '둘이 꼭 붙어 내려왔어요', weight: 3, twin: true, shape: { arms: 6, len: 0.8, branches: 2, plate: 0.2 }, color: '#e8f3ff' },
-  { id: 'heart', name: '하트 눈송이', say: '누가 마음을 담아 보냈나 봐요', weight: 2.5, special: 'heart', color: '#ff9fbe' },
-  { id: 'rainbow', name: '무지개 눈송이', say: '정말 드물어요! 소원을 빌어 봐요', weight: 1, rainbow: true, shape: { arms: 6, len: 1, branches: 2, plate: 0.22, tip: 'ball' }, color: '#ffffff' },
-  { id: 'gold', name: '금빛 별 눈송이', say: '밤하늘에서 떨어진 별 조각이에요', weight: 9, night: true, special: 'star', color: '#ffd75e' },
-  { id: 'silver', name: '은빛 별 눈송이', say: '달빛처럼 은은하게 빛나요', weight: 9, night: true, special: 'star', color: '#dfe8f7' },
-  { id: 'rose', name: '분홍 별 눈송이', say: '분홍빛으로 반짝반짝', weight: 6, night: true, special: 'star', color: '#ff9fc8' },
-  { id: 'aqua', name: '하늘 별 눈송이', say: '파르스름한 빛이 일렁여요', weight: 6, night: true, special: 'star', color: '#8fd8ff' },
-  { id: 'violet', name: '보랏빛 별 눈송이', say: '꿈속처럼 신비로워요', weight: 3, night: true, special: 'star', color: '#c4a3ff' },
-  { id: 'comet', name: '별똥별 눈송이', say: '꼬리를 달고 떨어졌어요! 아주 드물어요', weight: 1, night: true, special: 'comet', color: '#fff3b0' },
-];
+  { id: 'hex', name: '육각 눈송이', say: '반듯반듯 예쁜 눈 결정이에요', weight: 4, shape: { arms: 6, len: 1, branches: 2, plate: 0.28, tip: 'ball' }, color: '#eef6ff' },
+  { id: 'heart', name: '하트 눈송이', say: '누가 마음을 담아 보냈나 봐요', weight: 1, special: 'heart', color: '#ff9fbe' },
+  { id: 'star', name: '별 눈송이', say: '밤하늘에서 떨어진 별 조각이에요', weight: 1, night: true, special: 'star', color: '#ffd75e' },
+]
 const SAVE = 'poddk.flakes.v1';
 const LIFE = [200, 280], BACK = [25, 70];           // 눈밭에 있는 시간, 녹은 뒤 새로 내려오기까지 (초)
-const DAY_COUNT = 4, NIGHT_COUNT = 3, REACH = 1.0;
+const DAY_COUNT = 3, NIGHT_COUNT = 2, REACH = 1.0;
 
 function star(points, r1, r2) {
   const s = new THREE.Shape();

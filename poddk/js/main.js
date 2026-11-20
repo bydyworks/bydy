@@ -10,7 +10,7 @@ import { createSnowballs } from './snowball.js';
 import { buildSnowman, makeRollBall, paint, packPoints, PAD, INKS, WIDTHS, MAX_POINTS } from './snowman.js';
 import { createWishboard, WISHBOARD } from './wishboard.js';
 import { createSled, LANE, onLane, onPad, laneCoord } from './sled.js';
-import { createFlakes, FLAKES, makeFlake } from './flakes.js';
+import { createFlakes, makeFlake } from './flakes.js';
 import { createRabbit, createSeals } from './critters.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
@@ -81,7 +81,7 @@ const openSnow = (x, z) => {
   const f = field.confine(x, z); return Math.hypot(f.x - x, f.z - z) < 1e-6;
 };
 const xmas = createXmas(scene, { crumble: { puff: (...a) => crumble.puff(...a) }, free: openSnow });
-const flakes = createFlakes(scene, { free: openSnow });      // 눈송이 도감의 특별한 눈송이들
+const flakes = createFlakes(scene, { free: openSnow });      // 가끔 내려앉는 특별한 눈송이 (육각, 하트, 밤의 별)
 const rabbit = createRabbit(scene, tracks, { free: (x, z) => openSnow(x, z) || onLane(x, z) });      // 밤에만 나오는 눈토끼
 const seals = createSeals(scene, PONDS, { puff: (x, z, s) => crumble.puff(x, z, s) });      // 연못마다 아기 물개
 if (q.has('santa')) santa.force(clock.now() + 4000);       // 구경용: 주소에 ?santa 를 붙이면 들어오고 4초 뒤에 나무 쪽 하늘로 지나간다
@@ -1143,35 +1143,21 @@ function placeSealSay() {
     el.hidden = !on;
   });
 }
-// ---------- 눈송이 도감 ----------
-const flakeThumbs = new Map();
+// ---------- 특별한 눈송이: 주우면 카드가 잠깐 뜬다 (낚은 것 카드와 같은 자리) ----------
 function flakeFound(g) {
   crumble.puff(g.x, g.z, 0.4);
-  audio.snowFx(g.first ? 'ding' : 'paper');
-  toast(`${g.f.night ? '🌟' : '❄️'} ${g.f.name}` + (g.first ? ` · 새로 찾았어요! (${g.total}/${FLAKES.length})` : ' 또 주웠어요'), 2800);
-  const b = $('#book'); b.classList.remove('new'); void b.offsetWidth; b.classList.add('new');
-  if (g.first && g.total === FLAKES.length) setTimeout(() => toast('🎉 눈송이 도감을 다 채웠어요! 오늘부터 눈송이 박사예요', 4200), 2900);
-  if (!$('#book-panel').hidden) drawBook();
+  const el = $('#catch');
+  el.querySelector('.name').textContent = (g.f.night ? '🌟 ' : '❄️ ') + g.f.name + '를 주웠어요!';
+  el.querySelector('.say').textContent = g.f.say;
+  el.dataset.kind = g.f.id;
+  el.hidden = false; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  el.classList.toggle('rare', g.f.id !== 'hex');
+  const ok = showcase.show(el.querySelector('.view'), makeFlake(g.f), { tilt: 1.1, turn: 1.2 });
+  el.classList.toggle('flat', !ok);
+  audio.snowFx('ding');
+  clearTimeout(catchHide); catchHide = setTimeout(hideCatch, 3000);
   stats.flakes++;
 }
-function drawBook() {
-  const found = flakes.found, n = flakes.count, box = $('#book-panel .grid'); box.innerHTML = '';
-  $('#book-panel .count').textContent = `${n} / ${FLAKES.length}`;
-  $('#book-panel .done').hidden = n < FLAKES.length;
-  for (const f of FLAKES) {
-    const cell = document.createElement('div'); cell.className = 'cell' + (found[f.id] ? ' got' : '') + (f.night ? ' night' : '');
-    if (found[f.id]) {
-      if (!flakeThumbs.has(f.id)) flakeThumbs.set(f.id, showcase.snapshot(makeFlake(f), 112, { tilt: 1.15, yaw: 0.3 }));
-      const src = flakeThumbs.get(f.id); if (src) { const img = document.createElement('img'); img.src = src; img.alt = ''; cell.append(img); }
-      const nm = document.createElement('b'); nm.textContent = f.name; cell.append(nm);
-      const c = document.createElement('small'); c.textContent = (f.night ? '🌙 ' : '') + '×' + found[f.id]; cell.append(c);
-      cell.title = f.say;
-    } else { const qn = document.createElement('span'); qn.className = 'q'; qn.textContent = f.night ? '🌙' : '?'; cell.append(qn); const nm = document.createElement('b'); nm.textContent = f.night ? '밤에 빛나는 눈송이' : '아직 못 찾았어요'; cell.append(nm); }
-    box.append(cell);
-  }
-}
-$('#book').addEventListener('click', () => { if ($('#book-panel').hidden) { drawBook(); $('#book-panel').hidden = false; } else $('#book-panel').hidden = true; });
-$('#book-panel .close').addEventListener('click', () => { $('#book-panel').hidden = true; });
 
 function placeSantaSay() {
   const el = $('#santa-say');
@@ -1438,7 +1424,7 @@ $('#mute').addEventListener('click', () => {
 });
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
-for (const el of document.querySelectorAll('#mute, #shot, #book, #closet, #act, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+for (const el of document.querySelectorAll('#mute, #shot, #closet, #act, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
 // (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
 for (const el of document.querySelectorAll('#mute, #shot, #act, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
 
