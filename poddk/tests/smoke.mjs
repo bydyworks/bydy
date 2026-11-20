@@ -1233,9 +1233,9 @@ try {
     f = await fishLook(p);
     assert(!f.active && f.snow === 1 && f.hat, '그만두고 서 있으면 다시 쌓여야 한다: ' + JSON.stringify(f));
     // 무엇이 낚일지: 열두 가지가 다 나오고, 빙어가 가장 흔하고, 물고기가 엉뚱한 것보다 훨씬 많고, 보물 상자가 가장 드물다
-    const draws = await snow(p, async () => { const { CATCHES } = await import('./js/fishing.js'); const n = {}; for (let i = 0; i < 6000; i++) { const k = window.__snow.fishing.debug.draw(); n[k] = (n[k] || 0) + 1; } const junk = CATCHES.filter((c) => c.junk).reduce((a, c) => a + (n[c.id] || 0), 0); return { n, kinds: CATCHES.length, junk }; });
+    const draws = await snow(p, async () => { const { CATCHES } = await import('./js/fishing.js'); const n = {}; for (let i = 0; i < 6000; i++) { const k = window.__snow.fishing.debug.draw(); n[k] = (n[k] || 0) + 1; } const junk = CATCHES.filter((c) => c.junk).reduce((a, c) => a + (n[c.id] || 0), 0); return { n, kinds: CATCHES.filter((c) => c.weight > 0).length, aurora: n.aurora || 0, junk }; });      // (오로라 빙어는 오로라가 뜬 밤에만)
     const d = draws.n, most = Math.max(...Object.values(d));
-    assert(Object.keys(d).length === draws.kinds && draws.kinds === 12 && d.smelt === most && d.smelt / 6000 > 0.33 && d.smelt / 6000 < 0.47 && draws.junk / 6000 > 0.08 && draws.junk / 6000 < 0.16 && d.treasure === Math.min(...Object.values(d)) && d.cherry > d.trout && d.trout > d.goldcarp, '낚이는 비율: ' + JSON.stringify(draws));
+    assert(Object.keys(d).length === draws.kinds && draws.kinds === 12 && !draws.aurora && d.smelt === most && d.smelt / 6000 > 0.33 && d.smelt / 6000 < 0.47 && draws.junk / 6000 > 0.08 && draws.junk / 6000 < 0.16 && d.treasure === Math.min(...Object.values(d)) && d.cherry > d.trout && d.trout > d.goldcarp, '낚이는 비율: ' + JSON.stringify(draws));
   });
 
   await test('이글루 벽 곁이나 연못 가에서 눈 천사를 만들면 조금 비켜나서 눕고, 얼음 위에서는 만들지 않는다', async () => {
