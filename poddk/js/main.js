@@ -107,12 +107,13 @@ function chooseLook() {
     const color = COLORS[Math.abs(Number(q.get('color')) || 0) % COLORS.length];
     return { scarf: forced === 'scarf', blanket: forced === 'blanket', color };
   }
+  const store = TEST_MODE ? sessionStorage : localStorage;      // 다음에 와도 같은 모습 (점검 중에는 이번 창에서만)
   try {
-    const saved = JSON.parse(sessionStorage.getItem('snow.look') || 'null');
-    if (saved && COLORS.includes(saved.color)) return { scarf: !saved.blanket, blanket: !!saved.blanket, color: saved.color };
+    const saved = JSON.parse(store.getItem('snow.look') || sessionStorage.getItem('snow.look') || 'null');
+    if (saved && COLORS.includes(saved.color)) { store.setItem('snow.look', JSON.stringify(saved)); return { scarf: !saved.blanket, blanket: !!saved.blanket, color: saved.color }; }
   } catch { /* 저장소를 못 쓰면 새로 뽑는다 */ }
   const look = randomLook();
-  try { sessionStorage.setItem('snow.look', JSON.stringify(look)); } catch { /* 무시 */ }
+  try { store.setItem('snow.look', JSON.stringify(look)); } catch { /* 무시 */ }
   return look;
 }
 const look = chooseLook();
@@ -1155,7 +1156,7 @@ function tapGift() {
   setTimeout(() => { if (giftOpen === o) showcase.show(view, makeItem(item.slot, item.n), { tilt: 0.2 }); }, three ? 420 : 0);
   el.querySelector('.emoji').textContent = { glasses: '🕶️', hat: '🎩', ear: '🎧' }[item.slot];
   wear(penguin, item.slot, item.n);
-  addToCloset(item);
+  addToCloset(item); saveCloset();
   el.className = 'opened' + (three ? ' three' : '');
   audio.snowFx('tear');
   setTimeout(() => audio.snowFx('ding'), 260);
@@ -1206,14 +1207,21 @@ function tickTip(t) {
 }
 
 // ---------- 옷장: 이번 산책에서 받은 아이템을 골라 입고 벗는다 ----------
-// (다시 들어오면 비어 있다. 처음 선물을 받으면 오른쪽 위에 옷장 단추가 뿅 나타난다)
+// (받은 것과 쓰고 있던 것은 이 기기에 저장해 두어, 다음에 와도 그대로다. 처음 선물을 받으면 오른쪽 위에 옷장 단추가 뿅 나타난다)
 const owned = [];                // 받은 차례대로 ITEMS 의 것들
 const thumbs = new Map();        // 아이템 → 작은 그림 주소
 const SLOT_NAME = { glasses: '안경', hat: '모자', ear: '귀마개' };
-function addToCloset(item) {
+const CLOSET_KEY = 'poddk.closet.v1';
+function saveCloset() {
+  if (TEST_MODE) return;
+  try { localStorage.setItem(CLOSET_KEY, JSON.stringify({ owned: owned.map((it) => ITEMS.indexOf(it)), worn: worn(penguin) })); } catch { /* 이번 방문 동안만 */ }
+}
+function addToCloset(item, quiet = false) {
   if (owned.includes(item)) return;
   owned.push(item);
+  saveCloset();
   const b = $('#closet'); b.hidden = false;
+  if (quiet) return;
   b.classList.remove('new'); void b.offsetWidth; b.classList.add('new');      // (받을 때마다 통 튄다)
   b.addEventListener('animationend', () => b.classList.remove('new'), { once: true });      // (끝나면 떼어 말풍선의 두근거림이 보이게)
   if (!$('#closet-panel').hidden) drawCloset();
@@ -1236,7 +1244,7 @@ function drawCloset() {
         const src = thumbs.get(it);
         if (src) { const img = document.createElement('img'); img.src = src; img.alt = ''; btn.append(img); }
         btn.append(document.createTextNode(it.name));
-        btn.addEventListener('click', () => { const on = worn(penguin)[SLOTS.indexOf(slot)] === it.n; wear(penguin, slot, on ? -1 : it.n); audio.snowFx(on ? 'paper' : 'ding'); drawCloset(); });
+        btn.addEventListener('click', () => { const on = worn(penguin)[SLOTS.indexOf(slot)] === it.n; wear(penguin, slot, on ? -1 : it.n); saveCloset(); audio.snowFx(on ? 'paper' : 'ding'); drawCloset(); });
         list.append(btn);
       }
       shelf.append(list);
@@ -1244,6 +1252,15 @@ function drawCloset() {
     box.append(shelf);
   }
 }
+// 지난번에 받아 둔 것과 쓰고 있던 것을 되살린다
+(function restoreCloset() {
+  if (TEST_MODE) return;
+  try {
+    const s = JSON.parse(localStorage.getItem(CLOSET_KEY) || 'null'); if (!s) return;
+    for (const i of s.owned || []) if (ITEMS[i]) addToCloset(ITEMS[i], true);
+    (s.worn || []).forEach((n, j) => { if (Number.isInteger(n) && n >= 0 && owned.some((it) => it.slot === SLOTS[j] && it.n === n)) wear(penguin, SLOTS[j], n); });
+  } catch { /* 깨졌으면 빈 옷장으로 */ }
+})();
 function openCloset() { drawCloset(); $('#closet-panel').hidden = false; }
 function closeCloset() { $('#closet-panel').hidden = true; }
 $('#closet').addEventListener('click', () => ($('#closet-panel').hidden ? openCloset() : closeCloset()));
