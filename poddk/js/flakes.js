@@ -64,8 +64,15 @@ export function makeHeadStar() {
   const star = makeFlake(FLAKES.find((f) => f.id === 'star'));
   star.scale.setScalar(0.36); star.rotation.x = Math.PI / 2;      // (눈송이는 눕혀 만들어져 있다: 세워서 앞을 보게)
   const spin = new THREE.Group(); spin.add(star); g.add(spin);
-  const glow = glintSprite('rgba(255,215,94,0.85)', true); glow.scale.setScalar(0.62); g.add(glow);
-  g.userData.star = spin;
+  // 십자 빛줄기 없이 별 둘레에 은은하게 번지는 둥근 빛만
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const r = x.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,236,160,0.9)'); r.addColorStop(0.45, 'rgba(255,215,94,0.35)'); r.addColorStop(1, 'rgba(255,215,94,0)');
+  x.fillStyle = r; x.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.55 }));
+  glow.scale.setScalar(0.5); g.add(glow);
+  g.userData.star = spin; g.userData.glow = glow;
+  star.traverse((o) => { if (o.isMesh) { o.material = o.material.clone(); g.userData.mats = (g.userData.mats || []).concat(o.material); } });
   g.visible = false;
   return g;
 }
@@ -75,6 +82,10 @@ export function bobHeadStar(g, time, camera, head = 1.72) {
   g.position.y = head + Math.sin(time * 2.1) * 0.05;
   if (camera && g.parent) { g.parent.getWorldQuaternion(_q); g.quaternion.copy(_q.invert()).multiply(camera.quaternion); }
   g.userData.star.rotation.set(0, Math.sin(time * 1.3) * 0.35, time * 0.7);
+  // 반짝반짝: 별이 밝아졌다 어두워지고, 둘레의 빛도 함께 커졌다 작아진다
+  const tw = 0.5 + 0.5 * Math.sin(time * 4.2) * Math.sin(time * 1.7 + 1);
+  for (const m of g.userData.mats || []) m.emissiveIntensity = 0.5 + 0.9 * tw;
+  g.userData.glow.material.opacity = 0.35 + 0.4 * tw; g.userData.glow.scale.setScalar(0.42 + 0.16 * tw);
 }
 function glintSprite(color, big) {
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
