@@ -1586,6 +1586,21 @@ try {
     assert(after.owned.length === 1 && after.closet && JSON.stringify(after.worn) === JSON.stringify(worn) && worn.some((n) => n >= 0), '옷장이 그대로가 아니다: ' + JSON.stringify({ worn, after }));
   });
 
+  await test('캡처 단추 아래의 멀리 보기 단추: 누르면 카메라가 멀리 물러나고, 다시 누르면 원래 거리로', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    const d0 = await snow(p, () => window.__snow.me.camDist);
+    await p.click('#zoomout');
+    const wide = await snow(p, () => window.__snow.me.camDist);
+    assert(wide >= 14 && (await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기' || wide >= 14, '멀리 물러나지 않았다: ' + wide);
+    await sleep(300);
+    assert((await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기', '단추가 가까이 보기로 바뀌지 않았다');
+    await p.click('#zoomout');
+    const back = await snow(p, () => window.__snow.me.camDist);
+    assert(Math.abs(back - d0) < 0.01, '원래 거리로 돌아오지 않았다: ' + JSON.stringify({ d0, back }));
+    const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoomout'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
+    assert(zoom.top >= shot.top + shot.h && Math.abs(zoom.left - shot.left) < 2, '캡처 단추 바로 아래가 아니다: ' + JSON.stringify({ shot, zoom }));
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);

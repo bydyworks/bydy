@@ -1264,6 +1264,15 @@ function drawCloset() {
 function openCloset() { drawCloset(); $('#closet-panel').hidden = false; }
 function closeCloset() { $('#closet-panel').hidden = true; }
 $('#closet').addEventListener('click', () => ($('#closet-panel').hidden ? openCloset() : closeCloset()));
+// 멀리 보기 ⇄ 가까이 보기: 한 번 누르면 카메라가 멀리 물러나 둘레가 넓게 보이고, 다시 누르면 원래 거리로 (이글루 안에서는 방 크기에 맞춰)
+const ZOOM_WIDE = { out: 15, den: DEN_CAM.far };
+const isWide = () => me.camDist >= (me.inside !== null ? ZOOM_WIDE.den - 0.5 : ZOOM_WIDE.out - 1);
+$('#zoomout').addEventListener('click', () => {
+  if (!started) return;
+  const wide = isWide();
+  me.camDist = me.inside !== null ? (wide ? DEN_CAM.start : ZOOM_WIDE.den) : (wide ? CAM_DIST * (innerWidth < innerHeight ? 1.08 : 1) : ZOOM_WIDE.out);
+  audio.snowFx('pop');
+});
 $('#closet-panel .close').addEventListener('click', closeCloset);
 
 // ---------- 트리 옆 우체통: 친구에게 엽서 ----------
@@ -1666,6 +1675,7 @@ function tick(t) {
     spotTips(t);
   }
   showAction();
+  { const w = isWide(), b = $('#zoomout'); if (b.classList.contains('wide') !== w) { b.classList.toggle('wide', w); b.setAttribute('aria-label', w ? '가까이 보기' : '멀리 보기'); } }
   nudge.update(t);
   { // 내 펭귄 머리 위의 내 이름 (다른 펭귄들에게 보이는 이름과 같다). 이글루 안·창이 떠 있을 때는 감춘다
     const el = $('#me-name'), show = started && me.inside === null && !modal() && !giftOpen && !postOpen && !me.angel && !me.slide;
@@ -1755,9 +1765,9 @@ $('#mute').addEventListener('click', () => {
 });
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
-for (const el of document.querySelectorAll('#mute, #shot, #closet, #act, #social, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+for (const el of document.querySelectorAll('#mute, #shot, #zoomout, #closet, #act, #social, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
 // (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
-for (const el of document.querySelectorAll('#mute, #shot, #act, #social, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
+for (const el of document.querySelectorAll('#mute, #shot, #zoomout, #act, #social, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
 
 // 누른 단추는 살짝 커졌다가 제자리로 돌아온다 (0.2초쯤)
 for (const el of document.querySelectorAll('#mute, #shot, #act, #social, #slide, #angel, #flap, #enter')) {
