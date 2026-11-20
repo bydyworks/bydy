@@ -173,6 +173,8 @@ export function setSnow(root, hat, pop = 0) {
 
   // 눈사람이 되면 펭귄의 몸은 눈 속에 묻히고(숨긴다), 눈과 부리만 눈 겉으로 나온다
   u.skin.visible = !snowman;
+  // 쓰고 있는 아이템은 눈사람의 커다란 머리에 맞춰 키워 그대로 쓰고 있다 (머리 가운데를 축으로)
+  if (u.outfitGroup) { const k = snowman ? SNOW_HEAD.r / (u.cape ? 0.41 : 0.33) : 1; u.outfitGroup.scale.setScalar(k); u.outfitGroup.position.y = snowman ? SNOW_HEAD.y - 1.2 * k : 0; if (u.outfit && u.outfit.glasses) u.outfit.glasses.position.y = snowman ? -0.09 : 0; }      // (눈사람의 눈은 머리 가운데보다 조금 아래에 있다)
   u.feet.forEach((f) => { f.visible = !snowman; });
   u.shell.visible = snowman;
   u.eyes.forEach((eye, i) => eye.position.copy(snowman ? u.eyeOut[i] : u.eyeHome[i]));
@@ -248,7 +250,7 @@ export function wave(root, k, t = 0) {
 }
 
 /** 챙이 넓은 모자를 쓰고 엎드리거나 누우면 챙을 오므린다 (k: 누운 정도) */
-function tuckBrim(u, k) { const h = u.outfit && u.outfit.hat; if (h && h.userData.wide) h.scale.set(1 - 0.5 * k, 1, 1 - 0.5 * k); }
+function tuckBrim(u, k) { const h = u.outfit && u.outfit.hat; if (h && h.userData.wide) h.scale.set(1 - 0.72 * k, 1 - 0.3 * k, 1 - 0.72 * k); }
 export function belly(root, k, wiggle = 0) {
   const u = root.userData, g = u.body;
   tuckBrim(u, k);

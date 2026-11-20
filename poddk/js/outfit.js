@@ -57,7 +57,15 @@ export function makeItem(slot, n, R = 0.33) {
   const HY = 1.2;                                  // 머리 가운데 높이
   if (slot === 'glasses') {
     const EY = 1.265, EX = 0.12, Z = 0.335;        // 눈 높이, 눈 사이 반, 얼굴 앞
-    const arms = (m) => { for (const s of [-1, 1]) { const a = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.016, 0.26), m); a.position.set(s * 0.26, EY + 0.01, Z - 0.15); a.rotation.y = s * 0.35; g.add(a); } };
+    // 안경다리: 렌즈 바깥 끝에서 머리 겉을 따라 귀 쪽으로 (머리에 붙어서 떠 보이지 않게)
+    const arms = (m, out = EX + 0.085) => { for (const s of [-1, 1]) {
+      const rr = Math.sqrt(R * R - (EY - HY) ** 2) + 0.012, a0 = Math.asin(Math.min(0.98, out / rr)), a1 = Math.PI / 2 + 0.1;
+      for (let k = 0; k < 4; k++) {
+        const t0 = a0 + (a1 - a0) * k / 4, t1 = a0 + (a1 - a0) * (k + 1) / 4, x0 = Math.sin(t0) * rr, z0 = Math.cos(t0) * rr, x1 = Math.sin(t1) * rr, z1 = Math.cos(t1) * rr;
+        const len = Math.hypot(x1 - x0, z1 - z0) + 0.006, piece = new THREE.Mesh(new THREE.BoxGeometry(0.016, 0.016, len), m);
+        piece.position.set(s * (x0 + x1) / 2, EY + 0.012, (z0 + z1) / 2); piece.rotation.y = Math.atan2(s * (x1 - x0), z1 - z0); g.add(piece);
+      }
+    } };
     if (n === 0) {                                 // 까만 선글라스
       const lens = mat('#1d2330', { roughness: 0.12, metalness: 0.5 });
       for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.08, 0.025, 24), lens); l.rotation.x = Math.PI / 2; l.scale.set(1.25, 1, 0.92); l.position.set(s * EX, EY, Z); g.add(l); }
@@ -92,10 +100,10 @@ export function makeItem(slot, n, R = 0.33) {
     }
   } else if (slot === 'hat') {
     const knit = (c, stripes = null) => {
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(R + 0.035, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.38), mat(c, { roughness: 1 }));
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(R + 0.035, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.3), mat(c, { roughness: 1 }));
       cap.position.y = HY; g.add(cap);
-      const edge = HY + (R + 0.035) * Math.cos(Math.PI * 0.38);
-      const rim = new THREE.Mesh(new THREE.TorusGeometry((R + 0.035) * Math.sin(Math.PI * 0.38) + 0.01, 0.05, 10, 32), mat(stripes ? stripes : c, { roughness: 1 }));
+      const edge = HY + (R + 0.035) * Math.cos(Math.PI * 0.3);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry((R + 0.035) * Math.sin(Math.PI * 0.3) + 0.01, 0.05, 10, 32), mat(stripes ? stripes : c, { roughness: 1 }));
       rim.rotation.x = Math.PI / 2; rim.position.y = edge + 0.02; g.add(rim);
       return edge;
     };
@@ -104,16 +112,18 @@ export function makeItem(slot, n, R = 0.33) {
       knit('#d8443a', '#f2e6d2');
       const pom = ball(0.085, mat('#f6efe4', { roughness: 1 })); pom.position.y = top + 0.1; g.add(pom);
     } else if (n === 1) {                          // 산타 모자: 하얀 테, 뒤로 꺾인 빨간 고깔, 끝에 하얀 방울
-      const rimY = HY + R * 0.42;
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(R * 0.93, 0.065, 12, 32), mat('#ffffff', { roughness: 1 })); rim.rotation.x = Math.PI / 2; rim.position.y = rimY; g.add(rim);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(R * 0.92, 0.5, 28, 1, true), mat('#d63a34', { roughness: 0.95, side: THREE.DoubleSide }));
-      const pivot = new THREE.Group(); pivot.position.y = rimY; pivot.rotation.x = -0.55; g.add(pivot);
-      cone.position.y = 0.25; pivot.add(cone);
-      const pom = ball(0.075, mat('#ffffff', { roughness: 1 })); pom.position.y = 0.5; pivot.add(pom);
+      // 머리 윗부분을 통째로 덮는 빨간 모자 (머리가 뚫고 나오지 않게 머리보다 조금 큰 반구 위에 고깔을 얹는다)
+      const red = mat('#d63a34', { roughness: 0.95 });
+      const rimY = HY + R * 0.38;
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(R + 0.03, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.3), red); dome.position.y = HY; g.add(dome);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry((R + 0.03) * Math.sin(Math.PI * 0.3) + 0.01, 0.06, 12, 32), mat('#ffffff', { roughness: 1 })); rim.rotation.x = Math.PI / 2; rim.position.y = HY + (R + 0.03) * Math.cos(Math.PI * 0.3); g.add(rim);
+      const pivot = new THREE.Group(); pivot.position.y = HY + R * 0.82; pivot.rotation.x = -0.6; g.add(pivot);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(R * 0.55, 0.42, 24), red); cone.position.y = 0.17; pivot.add(cone);
+      const pom = ball(0.07, mat('#ffffff', { roughness: 1 })); pom.position.y = 0.4; pivot.add(pom);
     } else if (n === 2) {                          // 줄무늬 방울 모자 (초록과 흰 줄)
       knit('#3f9a6e', '#ffffff');
       for (let k = 1; k <= 2; k++) {
-        const a = Math.PI * (0.38 - k * 0.12), r = (R + 0.04) * Math.sin(a);
+        const a = Math.PI * (0.3 - k * 0.09), r = (R + 0.04) * Math.sin(a);
         const band = new THREE.Mesh(new THREE.TorusGeometry(r, 0.022, 6, 28), mat('#ffffff', { roughness: 1 })); band.rotation.x = Math.PI / 2; band.position.y = HY + (R + 0.035) * Math.cos(a); g.add(band);
       }
       const pom = ball(0.11, mat('#ffffff', { roughness: 1 })); pom.position.y = top + 0.12; g.add(pom);
@@ -149,8 +159,8 @@ export function makeItem(slot, n, R = 0.33) {
       const strip = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.655, R * 0.7, 0.08, 32, 1, true), band); strip.position.y = brimY + 0.045; g.add(strip);
     } else if (n === 7) {                          // 복슬복슬 털모자: 갈색 모자에 두툼한 크림색 털 테, 양옆으로 늘어진 털 귀덮개
       const fur = mat('#f3e7d3', { roughness: 1 }), brown = mat('#8a5a3c', { roughness: 1 });
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(R + 0.04, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.4), brown); cap.position.y = HY; g.add(cap);
-      const edge = HY + (R + 0.04) * Math.cos(Math.PI * 0.4), rr = (R + 0.04) * Math.sin(Math.PI * 0.4);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(R + 0.04, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.31), brown); cap.position.y = HY; g.add(cap);
+      const edge = HY + (R + 0.04) * Math.cos(Math.PI * 0.31), rr = (R + 0.04) * Math.sin(Math.PI * 0.31);
       const roll = new THREE.Mesh(new THREE.TorusGeometry(rr + 0.02, 0.06, 10, 36), fur); roll.rotation.x = Math.PI / 2; roll.position.y = edge + 0.01; g.add(roll);
       for (let k = 0; k < 26; k++) {             // 털 테: 두툼한 테 위에 털 뭉치를 촘촘히 둘러 복슬복슬하게
         const a = k / 26 * Math.PI * 2;
@@ -217,7 +227,8 @@ export function wear(root, slot, n) {
   if (old) { old.parent.remove(old); old.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); delete u.outfit[slot]; }
   if (n >= 0) {
     const item = makeItem(slot, n, u.cape ? 0.41 : 0.33);
-    u.skin.add(item);
+    if (!u.outfitGroup) { u.outfitGroup = new THREE.Group(); u.top.add(u.outfitGroup); }      // (몸과 따로: 눈사람이 되어도 그 머리에 맞춰 커져서 남는다)
+    u.outfitGroup.add(item);
     u.outfit[slot] = item;
   }
   u.hatOn = !!u.outfit.hat;
