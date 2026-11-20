@@ -1915,7 +1915,7 @@ try {
     assert(same(m.igloos, game.igloos) && same(m.ponds, game.ponds), '지도의 이글루·낚시터 자리가 게임과 다르다: ' + JSON.stringify([m.igloos, game.igloos]));
     assert(Math.hypot(m.fox[0] - game.fox[0], m.fox[1] - game.fox[1]) < 0.01, '지도의 여우 자리가 게임과 다르다: ' + JSON.stringify([m.fox, game.fox]));
     assert(m.me && Math.hypot(m.me[0] - game.me[0], m.me[1] - game.me[1]) < 0.01 && m.prints === game.prints, '내 펭귄의 자리와 발자국이 게임과 다르다: ' + JSON.stringify([m.me, game.me, m.prints, game.prints]));
-    assert(m.trail > 100 && m.santa && m.rows === 7, '여우가 지나온 길, 썰매가 지나갈 하늘, 자리 표가 있어야 한다: ' + JSON.stringify(m));
+    assert(m.trail > 100 && m.santa && m.rows === 10, '여우가 지나온 길, 썰매가 지나갈 하늘, 자리 표(이글루 셋, 낚시터 셋, 언덕, 썰매 길, 모닥불)가 있어야 한다: ' + JSON.stringify(m));
     assert(m.now.includes('오후 8:10') && /큰 눈은 (50분|1시간)쯤 뒤/.test(m.now) && /\d\d:\d\d · \d\d:\d\d · \d\d:\d\d/.test(m.now), '지금의 소식: ' + m.now);
     assert(m.wide && m.noindex, '화면보다 넓거나, 검색에 걸리지 않게 하는 표시가 없다');
   });
