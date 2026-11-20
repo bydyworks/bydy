@@ -1457,6 +1457,19 @@ try {
     assert(!r.stairSlide && r.stairD > H.top, '계단 쪽으로는 걸어 내려가야 한다: ' + JSON.stringify(r));
   });
 
+  await test('낚시 구멍·이글루·슬라이딩 언덕·썰매 길 곁에 들어서면 "해 볼래요?" 알림이 뜬다 (떠났다 다시 와야 또 뜬다)', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    const toastAt = async (fn, arg) => { await snow(p, () => { window.__snow.teleport(0, 25); }); await until(async () => !(await p.$eval('#toast', (e) => e.classList.contains('show'))), { what: '앞 알림이 사라짐', timeout: 6000 }); await sleep(700); await snow(p, fn, arg); await sleep(1300); return p.textContent('#toast'); };
+    const H = await snow(p, async () => ({ ...(await import('./js/hill.js')).HILL }));
+    const hill = await toastAt((H) => { const s = window.__snow, sa = (100 + 90) * Math.PI / 180; s.teleport(H.x + Math.sin(sa) * (H.r + 1.2), H.z + Math.cos(sa) * (H.r + 1.2)); }, H);
+    assert(hill.includes('슬라이딩 언덕'), '언덕 알림: ' + hill);
+    const lane = await toastAt(async () => { const { LANE } = await import('./js/sled.js'); window.__snow.teleport(LANE.start.x - LANE.dir.x, LANE.start.z - LANE.dir.z); });
+    assert(lane.includes('썰매 경주'), '썰매 길 알림: ' + lane);
+    const den = await toastAt(() => { const s = window.__snow, e = s.entrances[0]; s.teleport(e.x, e.z); });
+    assert(den.includes('이글루'), '이글루 알림: ' + den);
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);
