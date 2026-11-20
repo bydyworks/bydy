@@ -4,17 +4,19 @@
 
 ## 소리
 
-모든 효과음과 배경 소리는 이드가 코드로 직접 만든 것입니다 (`tests/sounds.py`, 녹음이나 남의 소리를 쓰지 않았습니다).
-트리 오르골의 캐롤은 저작권이 끝난 옛 캐롤의 가락을 코드로 연주합니다 (`js/carols.js`).
+누구나 자유롭게 쓸 수 있는 CC0(퍼블릭 도메인) 녹음을 OpenGameArt 에서 받아, 게임에 맞게 자르고 음색과 크기를 다듬었습니다 (`tests/sounds.py`).
+CC0 라 출처를 밝힐 의무는 없지만, 고마운 마음으로 적어 둡니다.
 
-| 파일 | 소리 |
-| --- | --- |
-| `audio/steps-fresh.mp3` | 새 눈 밟는 소리 열네 가지 |
-| `audio/steps-packed.mp3` | 밟힌 눈 밟는 소리 여덟 가지 |
-| `audio/snowfall.mp3` | 눈 내리는 소리 (돌려 튼다) |
-| `audio/blizzard.mp3` | 눈보라 바람 (돌려 튼다) |
-| `audio/fire.mp3` | 모닥불·장작 타는 소리 (돌려 튼다) |
-| `audio/fx.mp3` | 눈에 풀썩 눕는 소리, 눈을 쓰는 소리 |
+| 파일 | 원본 (CC0) | 만든 이 |
+| --- | --- | --- |
+| `audio/steps-fresh.mp3`, `audio/steps-packed.mp3` | [42 Snow and Gravel Footsteps](https://opengameart.org/content/42-snow-and-gravel-footsteps) | Corsica_S 녹음 · qubodup 정리 |
+| `audio/fx.mp3` (눈에 풀썩) | [41 snow shoe steps](https://opengameart.org/content/41-snow-shoe-steps) | Corsica_S 녹음 · qubodup 정리 |
+| `audio/fx.mp3` (눈 쓰는 소리) | [Shovel Sound](https://opengameart.org/content/shovel-sound) | OpenGameArt |
+| `audio/fire.mp3` | [Fireplace Sound loop](https://opengameart.org/content/fireplace-sound-loop) | PagDev |
+| `audio/blizzard.mp3` | [windy ambient noise](https://opengameart.org/content/windy-ambient-noise) | Some Weirdo |
+| `audio/snowfall.mp3` | 이드가 코드로 직접 만든 소리 | 이드 |
+
+트리 오르골의 캐롤은 저작권이 끝난 옛 캐롤의 가락을 코드로 연주합니다 (`js/carols.js`).
 
 ## 코드
 
