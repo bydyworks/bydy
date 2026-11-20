@@ -179,6 +179,18 @@ body.in #start { opacity: 0; pointer-events: none; }
 #enter:active { transform: scale(0.95); transition-duration: .08s; }
 .start-card .hint { margin: 14px 0 0; font-size: 12.5px; font-weight: 700; color: var(--brown-soft); display: flex; align-items: center; justify-content: center; gap: 5px; }
 .start-card .hint .g { width: 17px; height: 17px; color: var(--brown-soft); }
+/* 홈 화면에 추가하기: 들어가기 단추 아래 작은 글자 단추 (이미 앱으로 열었으면 보이지 않는다) */
+#install { margin: 10px auto 0; display: block; height: 34px; padding: 0 16px; border-radius: 17px; font-size: 13px; font-weight: 800; color: var(--brown); background: rgba(255, 255, 255, 0.7); box-shadow: 0 2px 6px rgba(80, 58, 36, 0.12); transition: transform .28s var(--squish); }
+#install[hidden] { display: none; }
+#install:active { transform: scale(0.94); transition-duration: .08s; }
+#install-help { position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+#install-help[hidden] { display: none; }
+#install-help .card { width: min(100%, 320px); padding: 20px 20px 14px; border-radius: 26px; text-align: center; color: var(--ink); background: var(--cream); box-shadow: 0 14px 34px rgba(36, 64, 110, 0.25); }
+#install-help img { width: 64px; height: 64px; border-radius: 16px; box-shadow: 0 4px 10px rgba(36, 64, 110, 0.18); }
+#install-help .title { margin: 10px 0 6px; font-size: 17px; font-weight: 900; color: var(--brown); }
+#install-help .how { margin: 0 0 12px; font-size: 14px; font-weight: 700; line-height: 1.7; word-break: keep-all; color: var(--ink); }
+#install-help .how b { color: var(--brown); }
+#install-help .close { height: 40px; padding: 0 22px; border-radius: 20px; font-size: 14px; font-weight: 800; color: var(--brown); background: var(--mint); }
 
 /* 찍은 사진을 보여 주는 자리: 어둑한 바탕 위에 사진 한 장과 안내 한 줄, 닫기 */
 #photo { position: fixed; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 20px; background: rgba(28, 34, 66, 0.72); }
@@ -537,6 +549,9 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 /* 상황 단추: 눈 굴리기(⛄), 소원판(🎄), 눈사람 보기(🔍) */
 #act.roll .roll-icon, #act.rollstop .quit-icon, #act.wish .wish-icon, #act.look .look-icon { display: block; }
 #act.roll { --c: var(--sky); } #act.rollstop { --c: var(--gray); } #act.wish { --c: var(--mint); } #act.look { --c: var(--sky); }
+/* 상황 단추: 모닥불 곁에서 마시멜로 굽기(🔥), 굽는 동안 먹기(😋) */
+#act.roast .roast-icon, #act.eat .eat-icon { display: block; }
+#act.roast { --c: var(--sun); } #act.eat { --c: var(--sun); }
 /* 소원판 */
 #wishes, #sculpt { position: fixed; inset: 0; z-index: 4; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(36, 52, 92, 0.32); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 #wishes[hidden], #sculpt[hidden], #snowcard[hidden] { display: none; }

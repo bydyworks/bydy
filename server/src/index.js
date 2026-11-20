@@ -13,7 +13,7 @@ const MARK_LIFE = 6 * 3600e3;         // 자국을 들고 있는 시간
 const SEND_ON_JOIN = 4000;            // 들어올 때 보내 주는 지난 자국의 최대 수
 const FIELD_R = 112, DEN = { x: 2000, z: 2000, step: 80, r: 7 };      // 펭귄이 있을 수 있는 곳: 들판, 그리고 이글루 셋의 방
 const OUTFIT = [5, 8, 5];            // 패션 아이템의 수: 안경, 모자, 귀마개
-const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 8, STATUSES = 15, SEATS = 6, IGLOOS = 3;
+const LOOKS = ['scarf', 'blanket'], COLORS = 8, ACTIONS = 9, STATUSES = 15, SEATS = 6, IGLOOS = 3;
 const MAX_MSG = 8192, MAX_RATE = 12;  // 한 번에 받는 글의 크기, 1초에 받는 글의 수
 const GAME_LIFE = 90e3, INVITE_GAP = 12e3;
 const WISH_LEN = 30, WISHES_SHOWN = 40;          // 소원: 길이, 소원판에 붙여 보여 주는 수 (한 기기에 한 철 한 번)

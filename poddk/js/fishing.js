@@ -23,6 +23,7 @@ export const CATCHES = [
   { id: 'can', name: '찌그러진 깡통', weight: 2, junk: true },
   { id: 'bottle', name: '병 속 편지', weight: 1.5, junk: true },
   { id: 'treasure', name: '작은 보물 상자', weight: 0.5, junk: true, rare: true },
+  { id: 'aurora', name: '오로라 빙어', weight: 0, aurora: 7, rare: true },      // 오로라가 뜬 밤에만 (그때는 weight 대신 aurora 만큼)
 ];
 /** 이름 뒤에 붙는 '을/를' (받침이 있으면 '을') */
 export const objectOf = (name) => { const c = name.charCodeAt(name.length - 1); return name + (c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 ? '을' : '를'); };
@@ -145,6 +146,11 @@ const MAKERS = {
   trout: () => fish(0.7, '#7f8fa8', '#eef0f2', '#ea8c9f'),
   carp: () => fish(0.42, '#8a7a3e', '#e9dfb6', null),
   catfish, goldcarp, boot, mitten, duck, can, bottle, treasure,
+  aurora: () => {      // 오로라 빙어: 초록에서 보랏빛으로 은은하게 빛나는 빙어
+    const g = fish(0.42, '#3fc9a4', '#e4dcff', '#a77bff');
+    g.traverse((o) => { if (o.isMesh && o.material.color) { o.material = o.material.clone(); o.material.emissive = o.material.color.clone().multiplyScalar(0.45); } });
+    return g;
+  },
 };
 
 /**
@@ -157,7 +163,7 @@ const MAKERS = {
 /** 낚인 것의 모형을 새로 하나 만든다 (낚은 것을 보여 주는 창에 쓴다) */
 export function makeCatch(id) { const o = MAKERS[id](); o.visible = true; return o; }
 
-export function createFishing(scene, { penguin, audio, crumble, toast, free, early = () => {}, caught = null }) {
+export function createFishing(scene, { penguin, audio, crumble, toast, free, early = () => {}, caught = null, aurora = () => false }) {
   // 낚싯대는 펭귄에 붙어 다닌다
   const rod = new THREE.Group();
   const stick = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.024, ROD_LEN, 8), mat('#8a5a36', 0.8));
@@ -206,8 +212,9 @@ export function createFishing(scene, { penguin, audio, crumble, toast, free, ear
   }
   function pick() {
     if (forcedKind) { const k = forcedKind; forcedKind = null; return k; }
-    let r = Math.random() * CATCHES.reduce((s, c) => s + c.weight, 0);
-    for (const c of CATCHES) { r -= c.weight; if (r <= 0) return c.id; }
+    const night = aurora(), w = (c) => (c.aurora && night ? c.aurora : c.weight);      // 오로라가 뜬 밤에만 오로라 빙어가 낚인다
+    let r = Math.random() * CATCHES.reduce((s, c) => s + w(c), 0);
+    for (const c of CATCHES) { r -= w(c); if (r <= 0 && w(c) > 0) return c.id; }
     return CATCHES[0].id;
   }
   /** 물결 고리 하나. size: 1(입질, 낚아 올림, 놓아줌) 또는 그보다 작게(가짜 입질의 잔물결) */

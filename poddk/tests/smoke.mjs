@@ -1470,6 +1470,69 @@ try {
     assert(den.includes('이글루'), '이글루 알림: ' + den);
   });
 
+  await test('들판 모닥불 곁에서 상황 단추를 누르면 앉아서 마시멜로를 굽고, 다시 누르면 먹는다 (노릇노릇·까맣게 탄 것은 한마디가 다르다)', async () => {
+    const p = await page('t=19:00&speed=0&xmas=0');
+    await byHand(p);
+    const C = await snow(p, async () => ({ ...(await import('./js/campfire.js')).CAMPFIRE }));
+    const roast = async (cookSec) => {
+      await snow(p, (C) => { const s = window.__snow; s.teleport(C.x + 2.3, C.z + 0.4); s.sim(0.1); }, C);
+      await until(async () => (await p.getAttribute('#act', 'aria-label')) === '마시멜로 굽기', { what: '굽기 단추' });
+      await p.click('#act');
+      const sat = await snow(p, (sec) => { const s = window.__snow; s.sim(0.7); const sat = { phase: s.roast && s.roast.phase, a: s.myState().a }; s.sim(sec); return sat; }, cookSec);
+      await until(async () => (await p.getAttribute('#act', 'aria-label')) === '마시멜로 먹기', { what: '먹기 단추' });
+      await p.click('#act');
+      const said = await p.textContent('#toast');
+      await snow(p, () => window.__snow.sim(2));
+      return { sat, said, done: await snow(p, () => window.__snow.roast) };
+    };
+    const gold = await roast(5.4);
+    assert(gold.sat.phase === 'cook' && gold.sat.a === 8, '불을 보고 앉아 굽지 않는다: ' + JSON.stringify(gold.sat));
+    assert(gold.said.includes('노릇노릇'), '알맞게 구웠는데: ' + gold.said);
+    assert(gold.done === null, '먹고 나서 일어나지 않았다');
+    const burnt = await roast(10);
+    assert(burnt.said.includes('까맣게'), '오래 두었는데: ' + burnt.said);
+  });
+
+  await test('오로라: 다섯 밤에 두 번쯤 뜨고(날짜로 정해져 모두에게 같다), 그 밤 저녁 8시~새벽 4시에만 보인다. ?aurora 로 띄우면 밤하늘에 일렁이고 알림이 뜬다', async () => {
+    const p = await page('t=21:30&speed=0&xmas=0&aurora');
+    const r = await snow(p, async () => {
+      const { auroraNight, auroraAt } = await import('./js/aurora.js');
+      const DAY = 86400000, base = Date.UTC(2026, 11, 1, 12, 0, 0);      // 2026-12-01 21:00 KST
+      let n = 0; for (let k = 0; k < 200; k++) if (auroraNight(base + k * DAY)) n++;
+      const on = Array.from({ length: 60 }, (_, k) => base + k * DAY).find((t) => auroraNight(t));
+      return { share: n / 200, night: auroraAt(on + 1.5 * 3600000), noon: auroraAt(on - 9 * 3600000), storm: auroraAt(on + 1.5 * 3600000, 0.9), same: auroraNight(on) === auroraNight(on + 4 * 3600000) };
+    });
+    assert(r.share > 0.25 && r.share < 0.55, '오로라가 뜨는 밤의 비율: ' + r.share);
+    assert(r.night > 0.9 && r.noon === 0 && r.storm < 0.05 && r.same, '밤에만, 맑을 때만, 자정을 넘어도 같은 밤: ' + JSON.stringify(r));
+    await until(async () => (await snow(p, () => window.__snow.aurora.strength)) > 0.4, { what: '오로라가 차오름' });
+    assert(await snow(p, () => window.__snow.aurora.group.visible), '오로라가 보이지 않는다');
+    assert((await p.textContent('#toast')).includes('오로라'), '오로라 알림이 없다');
+    const day = await page('t=13:00&speed=0&xmas=0&aurora');
+    await sleep(1500);
+    assert(!(await snow(day, () => window.__snow.aurora.group.visible)), '낮에 오로라가 보인다');
+  });
+
+  await test('공유 미리보기와 홈 화면 추가: 미리보기 태그·그림·아이콘·앱 정보가 있고, 첫 화면의 단추를 누르면 추가하는 방법이 뜬다', async () => {
+    const p = await page('', { enter: false });
+    const head = await p.evaluate(async () => {
+      const m = (k) => (document.querySelector(`meta[property="${k}"], meta[name="${k}"]`) || {}).content || '';
+      const man = await (await fetch(document.querySelector('link[rel=manifest]').href)).json();
+      const ok = async (u) => (await fetch(u)).ok;
+      return { title: m('og:title'), image: m('og:image'), card: m('twitter:card'), man, icons: await Promise.all(man.icons.map((i) => ok(i.src))), og: await ok('og.png'), apple: await ok(document.querySelector('link[rel=apple-touch-icon]').getAttribute('href')), sw: await ok('sw.js') };
+    });
+    assert(head.title.includes('뽀드득') && head.image === 'https://poddk.pages.dev/og.png' && head.card === 'summary_large_image', '미리보기 태그: ' + JSON.stringify(head));
+    assert(head.man.name === '뽀드득' && head.man.display === 'standalone' && head.man.icons.some((i) => i.purpose === 'maskable'), '앱 정보: ' + JSON.stringify(head.man));
+    assert(head.icons.every(Boolean) && head.og && head.apple && head.sw, '그림 파일이 없다: ' + JSON.stringify(head));
+    assert(await p.isVisible('#install'), '홈 화면에 추가하기 단추가 없다');
+    await p.click('#install');
+    assert(await p.isVisible('#install-help') && (await p.textContent('#install-help .how')).includes('설치'), '추가하는 방법이 뜨지 않는다');
+    await p.click('#install-help .close');
+    assert(!(await p.isVisible('#install-help')), '닫히지 않는다');
+    assert(!(await p.evaluate(() => document.body.classList.contains('in'))), '단추를 눌렀는데 게임이 시작됐다');
+    const how = await p.evaluate(async () => { const { howTo } = await import('./js/install.js'); return { ios: howTo('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit Version/17.0 Mobile Safari'), android: howTo('Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile'), naver: howTo('Mozilla/5.0 (iPhone) NAVER(inapp; search)') }; });
+    assert(how.ios.includes('공유') && how.android.includes('⋮') && how.naver.includes('네이버'), '기기별 안내: ' + JSON.stringify(how));
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);
