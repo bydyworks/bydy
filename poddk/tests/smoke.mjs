@@ -2000,14 +2000,23 @@ try {
       const parts = [r.hud, r.mute, r.flap, r.shot, r.act, r.slide, r.angel];
       assert(parts.every(inside), '화면 밖으로 나간 것이 있다: ' + JSON.stringify(r));
       assert(parts.every((a, i) => parts.every((b, j) => i >= j || !overlap(a, b))), '겹친다: ' + JSON.stringify(r));
-      // 오른쪽 위: 소리 단추 바로 아래에 캡쳐. 오른쪽 아래 한 줄: 위에서부터 (상황 단추 자리), 배 썰매, 눈 천사, 파닥파닥. 모두 같은 크기의 동그라미
       const size = (b) => [Math.round(b.r - b.l), Math.round(b.b - b.t)];
-      assert(size(r.shot).join() === size(r.mute).join() && Math.abs(r.shot.l - r.mute.l) < 0.5 && r.shot.t > r.mute.b && r.shot.t - r.mute.b < 16, '캡쳐 단추가 소리 단추 바로 아래에 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
-      const col = [r.act, r.slide, r.angel, r.flap];
-      assert(col.every((b) => size(b).join() === size(r.slide).join() && Math.abs(b.l - r.slide.l) < 0.5) && size(r.slide)[0] === size(r.slide)[1], '네 자리가 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
-      assert(r.act.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 상황 단추, 배 썰매, 눈 천사, 파닥파닥)');
-      assert(Math.abs((r.view[1] - r.flap.b) - (r.view[1] < 431 ? 12 : 26)) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
-      assert(size(r.slide)[0] >= 40 && size(r.slide).join() === size(r.mute).join(), '오른쪽 아래 단추가 소리 단추와 크기가 같아야 한다: ' + size(r.slide) + ' / ' + size(r.mute));
+      if (r.view[1] <= 520) {
+        // 낮은(가로) 화면: 오른쪽 위 도구는 한 줄 막대 (소리 왼쪽에 캡처), 오른쪽 아래 놀이 단추는 두 줄 묶음 — 아래 줄에 배 썰매·눈 천사·파닥파닥(오른쪽 끝), 그 위에 조금 큰 상황 단추
+        assert(Math.abs(r.shot.t - r.mute.t) < 0.5 && r.shot.r <= r.mute.l + 0.5 && r.mute.l - r.shot.r < 4, '캡처 단추가 소리 단추 바로 왼쪽에 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
+        const row = [r.slide, r.angel, r.flap];
+        assert(row.every((b) => Math.abs(b.t - r.flap.t) < 0.5 && size(b).join() === size(r.flap).join()) && r.slide.r < r.angel.l && r.angel.r < r.flap.l, '아래 줄이 배 썰매, 눈 천사, 파닥파닥 순서로 한 줄이 아니다: ' + JSON.stringify(row));
+        assert(r.act.b <= r.flap.t + 0.5 && size(r.act)[0] >= size(r.flap)[0] && Math.abs((r.act.l + r.act.r) / 2 - (r.flap.l + r.flap.r) / 2) < 1, '상황 단추가 파닥파닥 바로 위에 있지 않다: ' + JSON.stringify([r.act, r.flap]));
+        assert(Math.abs((r.view[1] - r.flap.b) - 12) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
+      } else {
+        // 오른쪽 위: 소리 단추 바로 아래에 캡쳐. 오른쪽 아래 한 줄: 위에서부터 (상황 단추 자리), 배 썰매, 눈 천사, 파닥파닥. 모두 같은 크기의 동그라미
+        assert(size(r.shot).join() === size(r.mute).join() && Math.abs(r.shot.l - r.mute.l) < 0.5 && r.shot.t > r.mute.b && r.shot.t - r.mute.b < 16, '캡쳐 단추가 소리 단추 바로 아래에 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
+        const col = [r.act, r.slide, r.angel, r.flap];
+        assert(col.every((b) => size(b).join() === size(r.slide).join() && Math.abs(b.l - r.slide.l) < 0.5) && size(r.slide)[0] === size(r.slide)[1], '네 자리가 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
+        assert(r.act.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 상황 단추, 배 썰매, 눈 천사, 파닥파닥)');
+        assert(Math.abs((r.view[1] - r.flap.b) - 26) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
+      }
+      assert(size(r.slide)[0] >= 40 && size(r.slide)[1] === size(r.mute)[1], '오른쪽 아래 단추가 소리 단추와 높이가 같아야 한다: ' + size(r.slide) + ' / ' + size(r.mute));
       assert(r.canvas[0] === r.view[0] && r.canvas[1] === r.view[1], '눈밭이 화면을 다 채우지 않는다');
       assert(r.scroll[0] <= r.view[0] && r.scroll[1] <= r.view[1], '화면이 밀린다');
     });

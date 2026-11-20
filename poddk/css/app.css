@@ -95,7 +95,6 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 #shot { --c: var(--coral); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 40px + 10px); width: 40px; height: 40px; }      /* 소리 단추 바로 아래 */
 #act { bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); height: var(--btn); }      /* 상황 단추: 오른쪽 단추 줄의 맨 위 */
 #social { bottom: calc(var(--col-b) + 4 * var(--btn) + 4 * var(--gap)); height: var(--btn); }      /* 상대 단추: 상황 단추 바로 위 (다른 펭귄·동물에게 하는 일) */
-@media (max-height: 520px) { #social { right: calc(var(--col-r) + var(--btn) + var(--gap)); bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); } }      /* 낮은 화면: 상황 단추 왼쪽 옆에 (위의 옷장 단추와 겹치지 않게) */
 /* 배 썰매: 사진과 눈 천사 사이 */
 #slide { --c: var(--sky); bottom: calc(var(--col-b) + 2 * var(--btn) + 2 * var(--gap)); height: var(--btn); }
 #slide .slide-icon { width: 34px; height: 26px; }
@@ -551,13 +550,6 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .peer-name.me { background: #ffd65e; color: #5a3600; box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(160, 110, 20, 0.3); }      /* 나에게 인사하는 중 */
 /* 옷장 단추 (캡쳐 단추 아래)와 옷장 */
 #closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px) + 84px + 10px); width: 40px; height: 40px; }      /* 가까이·멀리 알약 아래 */
-/* 낮은 화면(가로): 오른쪽 위 단추들을 한 줄로 — 소리, 캡처, 가까이·멀리(가로 알약), 옷장 (아래쪽 단추 줄과 겹치지 않게) */
-@media (max-height: 520px) {
-  #shot { top: calc(12px + var(--safe-t)); right: calc(14px + var(--safe-r) + 50px); }
-  #zoom { top: calc(12px + var(--safe-t)); right: calc(14px + var(--safe-r) + 100px); width: 84px; height: 40px; flex-direction: row; }
-  #zoom button + button { border-top: 0; border-left: 2.5px dotted var(--cream-line); }
-  #closet { top: calc(12px + var(--safe-t)); right: calc(14px + var(--safe-r) + 194px); }
-}
 #closet[hidden] { display: none; }
 #closet.new { animation: catch-pop .55s cubic-bezier(.3, 1.7, .6, 1); }
 #closet .g { width: 22px; height: 22px; }
@@ -656,3 +648,29 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #found.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
 #found b { color: #8a4b00; }
 #found small { margin-left: 4px; font-size: 11px; font-weight: 800; color: #a07a30; }
+
+/* 가로 화면: 오른쪽 위 도구는 이어 붙인 유리 막대 하나 [옷장 | + | − | 캡처 | 소리], 오른쪽 아래 놀이 단추는 엄지 곁의 작은 두 줄 묶음 */
+@media (max-height: 520px) {
+  :root { --tb: 40px; --tw: 44px; --tr: calc(14px + var(--safe-r)); --tt: calc(10px + var(--safe-t)); --big: 50px; }
+  /* top-right: one connected glass capsule  [closet | + | - | camera | sound] */
+  #mute, #shot, #closet, #zoom { top: var(--tt) !important; height: var(--tb) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -8px 12px rgba(140, 190, 238, 0.28), 0 7px 10px -6px rgba(36, 64, 110, 0.28) !important; }
+  #mute, #shot, #closet { width: var(--tw) !important; }
+  #mute::before, #shot::before, #closet::before { display: none; }
+  #mute { right: var(--tr) !important; border-radius: 0 20px 20px 0 !important; }
+  #shot { right: calc(var(--tr) + var(--tw)) !important; border-radius: 0 !important; border-right: 1px solid rgba(255, 255, 255, 0.75) !important; }
+  #zoom { right: calc(var(--tr) + 2 * var(--tw)) !important; width: calc(2 * var(--tw)) !important; flex-direction: row !important; border-radius: 20px 0 0 20px !important; border-right: 1px solid rgba(255, 255, 255, 0.75) !important; }
+  #zoom:has(~ #closet:not([hidden])) { border-radius: 0 !important; }
+  #zoom button + button { border-top: 0 !important; box-shadow: none !important; border-left: 1px solid rgba(255, 255, 255, 0.75) !important; }
+  #closet { right: calc(var(--tr) + 4 * var(--tw)) !important; border-radius: 20px 0 0 20px !important; border-right: 1px solid rgba(255, 255, 255, 0.75) !important; }
+
+  /* bottom-right: compact 2-row cluster
+       [social] [  ACT  ]
+     [slide] [angel] [flap]          */
+  #flap  { right: var(--col-r) !important; bottom: var(--col-b) !important; }
+  #angel { right: calc(var(--col-r) + var(--btn) + var(--gap)) !important; bottom: var(--col-b) !important; }
+  #slide { right: calc(var(--col-r) + 2 * (var(--btn) + var(--gap))) !important; bottom: var(--col-b) !important; }
+  #act { right: calc(var(--col-r) - (var(--big) - var(--btn)) / 2) !important; bottom: calc(var(--col-b) + var(--btn) + var(--gap)) !important; width: var(--big) !important; height: var(--big) !important; }
+  #act .emo { font-size: 25px; }
+  #social { right: calc(var(--col-r) + (var(--btn) + var(--big)) / 2 + var(--gap)) !important; bottom: calc(var(--col-b) + var(--btn) + var(--gap) + (var(--big) - var(--btn)) / 2) !important; }
+}
