@@ -33,13 +33,13 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preload" href="fonts/NanumSquareRoundEB.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/NanumSquareRoundB.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="css/fonts.css?v=ff51b4e8">
-<link rel="stylesheet" href="css/app.css?v=ff51b4e8">
+<link rel="stylesheet" href="css/fonts.css?v=b637bd5d">
+<link rel="stylesheet" href="css/app.css?v=b637bd5d">
 <script>
       // 이 게임은 poddk.pages.dev 에서만 한다: 예전 주소(GitHub Pages)로 오면 그리로 옮겨 간다 (주소 뒤의 ?… 는 그대로)
       if (/(^|\.)github\.io$/.test(location.hostname)) location.replace('https://poddk.pages.dev/' + location.search + location.hash);
     </script>
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=ff51b4e8","./js/aurora.js":"./js/aurora.js?v=ff51b4e8","./js/campfire.js":"./js/campfire.js?v=ff51b4e8","./js/capture.js":"./js/capture.js?v=ff51b4e8","./js/carols.js":"./js/carols.js?v=ff51b4e8","./js/clock.js":"./js/clock.js?v=ff51b4e8","./js/controls.js":"./js/controls.js?v=ff51b4e8","./js/critters.js":"./js/critters.js?v=ff51b4e8","./js/crumble.js":"./js/crumble.js?v=ff51b4e8","./js/den.js":"./js/den.js?v=ff51b4e8","./js/field.js":"./js/field.js?v=ff51b4e8","./js/fishing.js":"./js/fishing.js?v=ff51b4e8","./js/flakes.js":"./js/flakes.js?v=ff51b4e8","./js/fox.js":"./js/fox.js?v=ff51b4e8","./js/hill.js":"./js/hill.js?v=ff51b4e8","./js/igloo.js":"./js/igloo.js?v=ff51b4e8","./js/install.js":"./js/install.js?v=ff51b4e8","./js/main.js":"./js/main.js?v=ff51b4e8","./js/map.js":"./js/map.js?v=ff51b4e8","./js/names.js":"./js/names.js?v=ff51b4e8","./js/net.js":"./js/net.js?v=ff51b4e8","./js/outfit.js":"./js/outfit.js?v=ff51b4e8","./js/penguin.js":"./js/penguin.js?v=ff51b4e8","./js/postbox.js":"./js/postbox.js?v=ff51b4e8","./js/santa.js":"./js/santa.js?v=ff51b4e8","./js/showcase.js":"./js/showcase.js?v=ff51b4e8","./js/sky.js":"./js/sky.js?v=ff51b4e8","./js/sled.js":"./js/sled.js?v=ff51b4e8","./js/snowball.js":"./js/snowball.js?v=ff51b4e8","./js/snowman.js":"./js/snowman.js?v=ff51b4e8","./js/tracks.js":"./js/tracks.js?v=ff51b4e8","./js/weather.js":"./js/weather.js?v=ff51b4e8","./js/wishboard.js":"./js/wishboard.js?v=ff51b4e8","./js/xmas.js":"./js/xmas.js?v=ff51b4e8"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=b637bd5d","./js/aurora.js":"./js/aurora.js?v=b637bd5d","./js/campfire.js":"./js/campfire.js?v=b637bd5d","./js/capture.js":"./js/capture.js?v=b637bd5d","./js/carols.js":"./js/carols.js?v=b637bd5d","./js/clock.js":"./js/clock.js?v=b637bd5d","./js/controls.js":"./js/controls.js?v=b637bd5d","./js/critters.js":"./js/critters.js?v=b637bd5d","./js/crumble.js":"./js/crumble.js?v=b637bd5d","./js/den.js":"./js/den.js?v=b637bd5d","./js/field.js":"./js/field.js?v=b637bd5d","./js/fishing.js":"./js/fishing.js?v=b637bd5d","./js/flakes.js":"./js/flakes.js?v=b637bd5d","./js/fox.js":"./js/fox.js?v=b637bd5d","./js/hill.js":"./js/hill.js?v=b637bd5d","./js/igloo.js":"./js/igloo.js?v=b637bd5d","./js/install.js":"./js/install.js?v=b637bd5d","./js/main.js":"./js/main.js?v=b637bd5d","./js/map.js":"./js/map.js?v=b637bd5d","./js/names.js":"./js/names.js?v=b637bd5d","./js/net.js":"./js/net.js?v=b637bd5d","./js/outfit.js":"./js/outfit.js?v=b637bd5d","./js/penguin.js":"./js/penguin.js?v=b637bd5d","./js/postbox.js":"./js/postbox.js?v=b637bd5d","./js/santa.js":"./js/santa.js?v=b637bd5d","./js/showcase.js":"./js/showcase.js?v=b637bd5d","./js/sky.js":"./js/sky.js?v=b637bd5d","./js/sled.js":"./js/sled.js?v=b637bd5d","./js/snowball.js":"./js/snowball.js?v=b637bd5d","./js/snowman.js":"./js/snowman.js?v=b637bd5d","./js/tracks.js":"./js/tracks.js?v=b637bd5d","./js/weather.js":"./js/weather.js?v=b637bd5d","./js/wishboard.js":"./js/wishboard.js?v=b637bd5d","./js/xmas.js":"./js/xmas.js?v=b637bd5d"}}</script>
 </head>
 <body>
 <canvas id="view" aria-label="눈밭"></canvas>
@@ -283,6 +283,31 @@
     <button id="enter" type="button">눈 밟으러 가기</button>
     <p class="hint"><svg class="g" viewBox="0 0 24 24" aria-hidden="true"><path class="f" d="M4.6 9.6h2.8l4-3.3c.7-.6 1.7-.1 1.7.8v9.8c0 .9-1 1.4-1.7.8l-4-3.3H4.6c-.6 0-1.1-.5-1.1-1.1v-2.6c0-.6.5-1.1 1.1-1.1z"/><path class="s" d="M16.3 9.3c1.2 1.6 1.2 3.8 0 5.4M18.9 6.9c2.4 3 2.4 7.2 0 10.2"/></svg>소리를 켜면 뽀드득 소리가 들려요</p>
     <button id="install" type="button" hidden>📲 홈 화면에 추가하기</button>
+    <p class="copy">© 2026 이드 · <button id="credits-open" type="button">만든 이와 쓰인 것</button></p>
+  </div>
+</div>
+
+<!-- 만든 이와 쓰인 것 (저작권과 출처) -->
+<div id="credits" hidden>
+  <div class="card" role="dialog" aria-label="만든 이와 쓰인 것">
+    <p class="title">뽀드득</p>
+    <p class="by">만든 이 · 이드<br><small>© 2026 이드. 모든 권리 보유.</small></p>
+    <h3>소리</h3>
+    <p class="note">Artlist 효과음을 게임에 맞게 잘라 다듬었어요 (Artlist 라이선스).</p>
+    <ul>
+      <li>발소리 — <i>Ice Cold: Stepping in The Pace, Frozen Snow</i> · Ivo Vicic</li>
+      <li>눈 내리는 소리 — <i>Ruthless Winter: Forest Ambience, Snow Falling On Branches</i> · Sonophile Audio</li>
+      <li>눈보라 — <i>Extreme Climate: Blizzard Ambience, Wind Howling</i> · Unrealsfx</li>
+      <li>모닥불 — <i>Fire Experiments: Bonfire Burning, Pop, Crackle</i> · Blackguard Sound</li>
+      <li>눈에 풀썩 · 눈 삽질 — <i>Foley body falling in the snow</i> · re:focus, <i>Mixed Materials: Shoveling Snow</i> · InspectorJ</li>
+    </ul>
+    <h3>글꼴</h3>
+    <ul><li>나눔스퀘어라운드 — NAVER Corporation · Sandoll Communications (<a href="fonts/LICENSE.txt" target="_blank" rel="noopener">SIL Open Font License 1.1</a>)</li></ul>
+    <h3>3D</h3>
+    <ul><li><a href="https://threejs.org" target="_blank" rel="noopener">three.js</a> — © 2010-2024 three.js authors (<a href="vendor/three.LICENSE" target="_blank" rel="noopener">MIT</a>)</li></ul>
+    <h3>캐롤</h3>
+    <ul><li>트리 오르골의 캐롤은 저작권이 끝난 옛 노래의 가락이에요.</li></ul>
+    <button class="close" type="button">닫기</button>
   </div>
 </div>
 
@@ -297,6 +322,6 @@
 </div>
 
 <noscript>이 공간은 자바스크립트가 켜져 있어야 보여요.</noscript>
-<script type="module" src="js/main.js?v=ff51b4e8"></script>
+<script type="module" src="js/main.js?v=b637bd5d"></script>
 </body>
 </html>
