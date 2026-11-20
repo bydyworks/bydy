@@ -2002,8 +2002,8 @@ try {
       assert(parts.every((a, i) => parts.every((b, j) => i >= j || !overlap(a, b))), '겹친다: ' + JSON.stringify(r));
       const size = (b) => [Math.round(b.r - b.l), Math.round(b.b - b.t)];
       if (r.view[1] <= 520) {
-        // 낮은(가로) 화면: 오른쪽 위 도구는 한 줄 막대 (소리 왼쪽에 캡처), 오른쪽 아래 놀이 단추는 두 줄 묶음 — 아래 줄에 배 썰매·눈 천사·파닥파닥(오른쪽 끝), 그 위에 조금 큰 상황 단추
-        assert(Math.abs(r.shot.t - r.mute.t) < 0.5 && r.shot.r <= r.mute.l + 0.5 && r.mute.l - r.shot.r < 4, '캡처 단추가 소리 단추 바로 왼쪽에 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
+        // 낮은(가로) 화면: 오른쪽 위 도구는 따로 떨어진 동그라미 한 줄 (소리 왼쪽에 캡처), 오른쪽 아래 놀이 단추는 두 줄 묶음 — 아래 줄에 배 썰매·눈 천사·파닥파닥(오른쪽 끝), 그 위에 조금 큰 상황 단추
+        assert(Math.abs(r.shot.t - r.mute.t) < 0.5 && r.shot.r < r.mute.l && r.mute.l - r.shot.r < 16, '캡처 단추가 소리 단추 바로 왼쪽에 (조금 떨어져) 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
         const row = [r.slide, r.angel, r.flap];
         assert(row.every((b) => Math.abs(b.t - r.flap.t) < 0.5 && size(b).join() === size(r.flap).join()) && r.slide.r < r.angel.l && r.angel.r < r.flap.l, '아래 줄이 배 썰매, 눈 천사, 파닥파닥 순서로 한 줄이 아니다: ' + JSON.stringify(row));
         assert(r.act.b <= r.flap.t + 0.5 && size(r.act)[0] >= size(r.flap)[0] && Math.abs((r.act.l + r.act.r) / 2 - (r.flap.l + r.flap.r) / 2) < 1, '상황 단추가 파닥파닥 바로 위에 있지 않다: ' + JSON.stringify([r.act, r.flap]));

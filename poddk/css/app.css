@@ -649,20 +649,14 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #found b { color: #8a4b00; }
 #found small { margin-left: 4px; font-size: 11px; font-weight: 800; color: #a07a30; }
 
-/* 가로 화면: 오른쪽 위 도구는 이어 붙인 유리 막대 하나 [옷장 | + | − | 캡처 | 소리], 오른쪽 아래 놀이 단추는 엄지 곁의 작은 두 줄 묶음 */
+/* 가로 화면: 오른쪽 위 도구는 따로따로 떨어진 동그라미 한 줄 [옷장] [＋/－] [캡처] [소리], 오른쪽 아래 놀이 단추는 엄지 곁의 작은 두 줄 묶음 */
 @media (max-height: 520px) {
-  :root { --tb: 40px; --tw: 44px; --tr: calc(14px + var(--safe-r)); --tt: calc(10px + var(--safe-t)); --big: 50px; }
-  /* top-right: one connected glass capsule  [closet | + | - | camera | sound] */
-  #mute, #shot, #closet, #zoom { top: var(--tt) !important; height: var(--tb) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -8px 12px rgba(140, 190, 238, 0.28), 0 7px 10px -6px rgba(36, 64, 110, 0.28) !important; }
-  #mute, #shot, #closet { width: var(--tw) !important; }
-  #mute::before, #shot::before, #closet::before { display: none; }
-  #mute { right: var(--tr) !important; border-radius: 0 20px 20px 0 !important; }
-  #shot { right: calc(var(--tr) + var(--tw)) !important; border-radius: 0 !important; border-right: 1px solid rgba(255, 255, 255, 0.75) !important; }
-  #zoom { right: calc(var(--tr) + 2 * var(--tw)) !important; width: calc(2 * var(--tw)) !important; flex-direction: row !important; border-radius: 20px 0 0 20px !important; border-right: 1px solid rgba(255, 255, 255, 0.75) !important; }
-  #zoom:has(~ #closet:not([hidden])) { border-radius: 0 !important; }
-  #zoom button + button { border-top: 0 !important; box-shadow: none !important; border-left: 1px solid rgba(255, 255, 255, 0.75) !important; }
-  #closet { right: calc(var(--tr) + 4 * var(--tw)) !important; border-radius: 20px 0 0 20px !important; border-right: 1px solid rgba(255, 255, 255, 0.75) !important; }
+  :root { --tr: calc(14px + var(--safe-r)); --tt: calc(12px + var(--safe-t)); --big: 50px; }
+  #mute { top: var(--tt) !important; right: var(--tr) !important; }
+  #shot { top: var(--tt) !important; right: calc(var(--tr) + 40px + 10px) !important; }
+  #zoom { top: var(--tt) !important; right: calc(var(--tr) + 2 * (40px + 10px)) !important; width: 84px !important; height: 40px !important; flex-direction: row !important; }
+  #zoom button + button { border-top: 0 !important; border-left: 2.5px dotted var(--cream-line) !important; }
+  #closet { top: var(--tt) !important; right: calc(var(--tr) + 2 * (40px + 10px) + 84px + 10px) !important; }
 
   /* bottom-right: compact 2-row cluster
        [social] [  ACT  ]
