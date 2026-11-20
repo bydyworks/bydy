@@ -8,7 +8,7 @@ import { startStatic, launch, open, sleep } from './harness.mjs';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const site = await startStatic(); const browser = await launch(); const errors = [];
 try {
-  const { page } = await open(browser, site.url, { query: 't=16:55&speed=0&server=off&xmas=1&look=scarf&color=2', errors, viewport: { width: 1200, height: 630 }, scale: 1 });
+  const { page } = await open(browser, site.url, { query: 't=16:55&speed=0&server=off&xmas=1&look=scarf&color=0', errors, viewport: { width: 1200, height: 630 }, scale: 1 });
   await page.addStyleTag({ content: `
     #hud, #stick, #act, #slide, #angel, #flap, #zoom, #mute, #shot, #closet, #coach, #toast, #catch, #ticker, .peer-name, .peer-say, .seal-say { display: none !important; }
     #og { position: fixed; left: 64px; top: 70px; z-index: 50; font-family: NanumSquareRound, sans-serif; color: #fff; text-shadow: 0 4px 18px rgba(40, 50, 110, 0.45); }
