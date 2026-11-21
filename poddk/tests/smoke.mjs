@@ -1586,18 +1586,18 @@ try {
     assert(after.owned.length === 1 && after.closet && JSON.stringify(after.worn) === JSON.stringify(worn) && worn.some((n) => n >= 0), '옷장이 그대로가 아니다: ' + JSON.stringify({ worn, after }));
   });
 
-  await test('캡처 단추 아래의 멀리 보기 단추: 누르면 카메라가 멀리 물러나고, 다시 누르면 원래 거리로', async () => {
+  await test('캡처 단추 아래의 가까이·멀리 단추: 누를 때마다 다가가고 물러나며, 끝까지 가면 흐려진다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     const d0 = await snow(p, () => window.__snow.me.camDist);
-    await p.click('#zoomout');
-    const wide = await snow(p, () => window.__snow.me.camDist);
-    assert(wide >= 14 && (await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기' || wide >= 14, '멀리 물러나지 않았다: ' + wide);
-    await sleep(300);
-    assert((await p.getAttribute('#zoomout', 'aria-label')) === '가까이 보기', '단추가 가까이 보기로 바뀌지 않았다');
-    await p.click('#zoomout');
-    const back = await snow(p, () => window.__snow.me.camDist);
-    assert(Math.abs(back - d0) < 0.01, '원래 거리로 돌아오지 않았다: ' + JSON.stringify({ d0, back }));
-    const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoomout'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
+    await p.click('#zoom-out');
+    const far = await snow(p, () => window.__snow.me.camDist);
+    await p.click('#zoom-in'); await p.click('#zoom-in');
+    const near = await snow(p, () => window.__snow.me.camDist);
+    assert(far > d0 * 1.3 && near < d0 * 0.8, '다가가거나 물러나지 않는다: ' + JSON.stringify({ d0, far, near }));
+    for (let i = 0; i < 8; i++) await p.click('#zoom-in', { force: true });
+    await sleep(200);
+    assert(await p.isDisabled('#zoom-in'), '가장 가까이 갔는데 더하기 단추가 흐려지지 않는다');
+    const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoom'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
     assert(zoom.top >= shot.top + shot.h && Math.abs(zoom.left - shot.left) < 2, '캡처 단추 바로 아래가 아니다: ' + JSON.stringify({ shot, zoom }));
   });
 
@@ -1635,11 +1635,11 @@ try {
     const g = await snow(p, async () => {
       const { onIce, IGLOOS } = await import('./js/igloo.js');
       const s = window.__snow, list = s.xmas.gifts.map((x) => ({ x: x.x, z: x.z }));
-      return { on: s.xmas.on, n: list.length, ice: list.filter((q) => onIce(q.x, q.z)).length, nearIgloo: list.filter((q) => IGLOOS.some((i) => Math.hypot(q.x - i.x, q.z - i.z) < 5)).length, nearTree: list.filter((q) => Math.hypot(q.x, q.z) < 6).length,
-        spread: (() => { const far = list.filter((q) => Math.hypot(q.x, q.z) >= 7); return Math.min(...far.flatMap((a, i) => far.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))); })(),      // (트리 둘레의 선물은 빼고 잰다)
-        treeGap: (() => { const t = list.filter((q) => Math.hypot(q.x, q.z) < 7); return t.length < 2 ? 99 : Math.min(...t.flatMap((a, i) => t.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))); })() };
+      return { on: s.xmas.on, n: list.length, ice: list.filter((q) => onIce(q.x, q.z)).length, nearIgloo: list.filter((q) => IGLOOS.some((i) => Math.hypot(q.x - i.x, q.z - i.z) < 5)).length, nearTree: list.filter((q) => Math.hypot(q.x, q.z) < 9).length,
+        spread: (() => { const far = list.filter((q) => Math.hypot(q.x, q.z) >= 9); return Math.min(...far.flatMap((a, i) => far.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))); })(),      // (트리 둘레의 선물은 빼고 잰다)
+        treeGap: (() => { const t = list.filter((q) => Math.hypot(q.x, q.z) < 9); return t.length < 2 ? 99 : Math.min(...t.flatMap((a, i) => t.slice(i + 1).map((b) => Math.hypot(a.x - b.x, a.z - b.z)))); })() };
     });
-    assert(g.on && g.n === 10 && g.ice === 0 && g.nearIgloo === 0 && g.nearTree <= 3 && g.treeGap >= 2.5 && g.spread >= 11.9,      // (셋쯤은 트리 둘레에)
+    assert(g.on && g.n === 10 && g.ice === 0 && g.nearIgloo === 0 && g.nearTree >= 2 && g.nearTree <= 5 && g.treeGap >= 2.5 && g.spread >= 11.9,      // (둘에서 다섯쯤은 트리 둘레에)
       '선물 상자: ' + JSON.stringify(g));
     // 상자 쪽으로 걸어가 닿으면 선물 창이 뜨고, 그동안은 걷지 않는다
     await byHand(p);
@@ -2000,14 +2000,23 @@ try {
       const parts = [r.hud, r.mute, r.flap, r.shot, r.act, r.slide, r.angel];
       assert(parts.every(inside), '화면 밖으로 나간 것이 있다: ' + JSON.stringify(r));
       assert(parts.every((a, i) => parts.every((b, j) => i >= j || !overlap(a, b))), '겹친다: ' + JSON.stringify(r));
-      // 오른쪽 위: 소리 단추 바로 아래에 캡쳐. 오른쪽 아래 한 줄: 위에서부터 (상황 단추 자리), 배 썰매, 눈 천사, 파닥파닥. 모두 같은 크기의 동그라미
       const size = (b) => [Math.round(b.r - b.l), Math.round(b.b - b.t)];
-      assert(size(r.shot).join() === size(r.mute).join() && Math.abs(r.shot.l - r.mute.l) < 0.5 && r.shot.t > r.mute.b && r.shot.t - r.mute.b < 16, '캡쳐 단추가 소리 단추 바로 아래에 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
-      const col = [r.act, r.slide, r.angel, r.flap];
-      assert(col.every((b) => size(b).join() === size(r.slide).join() && Math.abs(b.l - r.slide.l) < 0.5) && size(r.slide)[0] === size(r.slide)[1], '네 자리가 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
-      assert(r.act.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 상황 단추, 배 썰매, 눈 천사, 파닥파닥)');
-      assert(Math.abs((r.view[1] - r.flap.b) - (r.view[1] < 431 ? 12 : 26)) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
-      assert(size(r.slide)[0] >= 40 && size(r.slide).join() === size(r.mute).join() && (await p.$('#zoom')) === null, '오른쪽 아래 단추가 소리 단추와 크기가 같아야 한다: ' + size(r.slide) + ' / ' + size(r.mute));
+      if (r.view[1] <= 520) {
+        // 낮은(가로) 화면: 오른쪽 위 도구는 따로 떨어진 동그라미 한 줄 (소리 왼쪽에 캡처), 오른쪽 아래 놀이 단추는 두 줄 묶음 — 아래 줄에 배 썰매·눈 천사·파닥파닥(오른쪽 끝), 그 위에 조금 큰 상황 단추
+        assert(Math.abs(r.shot.t - r.mute.t) < 0.5 && r.shot.r < r.mute.l && r.mute.l - r.shot.r < 16, '캡처 단추가 소리 단추 바로 왼쪽에 (조금 떨어져) 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
+        const row = [r.slide, r.angel, r.flap];
+        assert(row.every((b) => Math.abs(b.t - r.flap.t) < 0.5 && size(b).join() === size(r.flap).join()) && r.slide.r < r.angel.l && r.angel.r < r.flap.l, '아래 줄이 배 썰매, 눈 천사, 파닥파닥 순서로 한 줄이 아니다: ' + JSON.stringify(row));
+        assert(r.act.b <= r.flap.t + 0.5 && size(r.act)[0] >= size(r.flap)[0] && Math.abs((r.act.l + r.act.r) / 2 - (r.flap.l + r.flap.r) / 2) < 1, '상황 단추가 파닥파닥 바로 위에 있지 않다: ' + JSON.stringify([r.act, r.flap]));
+        assert(Math.abs((r.view[1] - r.flap.b) - 12) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
+      } else {
+        // 오른쪽 위: 소리 단추 바로 아래에 캡쳐. 오른쪽 아래 한 줄: 위에서부터 (상황 단추 자리), 배 썰매, 눈 천사, 파닥파닥. 모두 같은 크기의 동그라미
+        assert(size(r.shot).join() === size(r.mute).join() && Math.abs(r.shot.l - r.mute.l) < 0.5 && r.shot.t > r.mute.b && r.shot.t - r.mute.b < 16, '캡쳐 단추가 소리 단추 바로 아래에 있지 않다: ' + JSON.stringify([r.mute, r.shot]));
+        const col = [r.act, r.slide, r.angel, r.flap];
+        assert(col.every((b) => size(b).join() === size(r.slide).join() && Math.abs(b.l - r.slide.l) < 0.5) && size(r.slide)[0] === size(r.slide)[1], '네 자리가 같은 크기로 한 줄에 서 있지 않다: ' + JSON.stringify(col));
+        assert(r.act.b < r.slide.t && r.slide.b < r.angel.t && r.angel.b < r.flap.t, '순서가 다르다 (위에서부터 상황 단추, 배 썰매, 눈 천사, 파닥파닥)');
+        assert(Math.abs((r.view[1] - r.flap.b) - 26) < 1, '파닥파닥이 맨 아래에 있어야 한다: ' + JSON.stringify(r.flap));
+      }
+      assert(size(r.slide)[0] >= 40 && size(r.slide)[1] === size(r.mute)[1], '오른쪽 아래 단추가 소리 단추와 높이가 같아야 한다: ' + size(r.slide) + ' / ' + size(r.mute));
       assert(r.canvas[0] === r.view[0] && r.canvas[1] === r.view[1], '눈밭이 화면을 다 채우지 않는다');
       assert(r.scroll[0] <= r.view[0] && r.scroll[1] <= r.view[1], '화면이 밀린다');
     });
