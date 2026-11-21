@@ -126,15 +126,15 @@ export function createXmas(scene, { free, nearTree = () => false, crumble }) {
   let rng = (Date.now() % 100000) + 1;
   const rand = () => { rng = (rng * 16807) % 2147483647; return rng / 2147483647; };
   function spot() {
-    // 셋에 하나쯤은 트리 둘레에 (트리 밑에 놓인 선물처럼)
-    if (rand() < 0.3 && pool.filter((g) => !g.off && !g.open && Math.hypot(g.x, g.z) < 7).length < 3) {
+    // 둘에 하나쯤은 트리 둘레에 (트리 밑에 놓인 선물처럼, 한꺼번에 다섯까지)
+    if (rand() < 0.5 && pool.filter((g) => !g.off && !g.open && Math.hypot(g.x, g.z) < 9).length < 5) {
       for (let k = 0; k < 60; k++) {
-        const a = rand() * Math.PI * 2, r = 3.4 + rand() * 2.6, x = Math.sin(a) * r, z = Math.cos(a) * r;
+        const a = rand() * Math.PI * 2, r = 3.4 + rand() * 5, x = Math.sin(a) * r, z = Math.cos(a) * r;
         if (nearTree(x, z) && Math.hypot(x - SANTA_AT.x, z - SANTA_AT.z) > 2.4 && !pool.some((g) => !g.off && !g.open && Math.hypot(g.x - x, g.z - z) < 2.6)) return { x, z };
       }
     }
     for (let k = 0; k < 200; k++) {
-      const a = rand() * Math.PI * 2, r = 9 + Math.sqrt(rand()) * 62;
+      const a = rand() * Math.PI * 2, r = 10 + Math.pow(rand(), 1.4) * 58;      // (나머지도 트리 쪽에 조금 더 많이)
       const x = Math.sin(a) * r, z = Math.cos(a) * r;
       if (!free(x, z)) continue;
       if (pool.some((g) => !g.off && !g.open && Math.hypot(g.x - x, g.z - z) < (want > 14 ? 8 : 12))) continue;      // 서로 떨어져 흩어져 있게 (많을 때는 조금 더 붙어도)
