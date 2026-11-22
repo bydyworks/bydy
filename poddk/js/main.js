@@ -118,6 +118,7 @@ function chooseLook() {
 }
 const look = chooseLook();
 const penguin = buildPenguin(look);
+let builtParts = [...penguin.children];      // (모습을 바꿀 때 갈아 끼울 몸 — 낚싯대·마시멜로 막대 같은 것은 빼고)
 scene.add(penguin);
 
 const me = {
@@ -974,6 +975,24 @@ let name = myName(!TEST_MODE);
 function showName() { $('#my-name').textContent = name; }
 showName();
 $('#rename').addEventListener('click', () => { name = rename(!TEST_MODE); showName(); });
+// 첫 화면의 내 펭귄 모습: 작은 그림으로 빙글빙글 보여 주고, 🔄 로 목도리·담요와 색을 새로 뽑는다 (들어가기 전에만)
+function showLook() { showcase.show($('.start-card .look-view'), buildPenguin(look), { tilt: 0.12, turn: 1.1, zoom: 2.3 }); }
+$('#relook').addEventListener('click', () => {
+  if (started) return;
+  let next; do { next = randomLook(); } while (next.color === look.color && next.blanket === look.blanket);
+  Object.assign(look, next);
+  try { (TEST_MODE ? sessionStorage : localStorage).setItem('snow.look', JSON.stringify(look)); } catch { /* 이번만 */ }
+  const was = worn(penguin), fresh = buildPenguin(look);      // 몸을 갈아 끼우고, 쓰고 있던 것은 다시 씌운다
+  for (const c of builtParts) penguin.remove(c);
+  builtParts = [...fresh.children];
+  for (const c of builtParts) penguin.add(c);
+  penguin.userData = fresh.userData;
+  was.forEach((n, j) => { if (n >= 0) wear(penguin, SLOTS[j], n); });
+  showLook(); audio.snowFx && audio.snowFx('pop');
+});
+// 나가기: 지금 자리와 옷장을 저장하고 처음 화면으로 (다시 들어올 때 이름·모습을 바꿀 수 있다)
+$('#exit').addEventListener('click', () => { if (!started) return; save(); try { sessionStorage.setItem('poddk.exited', '1'); } catch { /* 무시 */ } location.reload(); });
+showLook();      // (첫 화면에 내 펭귄을 보여 준다)
 
 // ---------- 함께 걷는 눈밭 ----------
 const net = createNet({
@@ -1752,6 +1771,7 @@ $('#enter').addEventListener('click', () => {
   net.start();
   controls.setEnabled(true);
   document.body.classList.add('in');
+  showcase.hide();      // (첫 화면의 내 펭귄 그림을 거둔다)
   coach.show();
 });
 $('#mute').addEventListener('click', () => {
@@ -1761,7 +1781,7 @@ $('#mute').addEventListener('click', () => {
 });
 
 // 손가락이나 마우스로 누른 버튼에는 초점을 남기지 않는다 (그래야 그 뒤의 스페이스가 눈 천사로 간다. 키보드로 고른 버튼은 그대로 둔다)
-for (const el of document.querySelectorAll('#mute, #shot, #zoom-in, #zoom-out, #closet, #act, #social, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
+for (const el of document.querySelectorAll('#exit, #mute, #shot, #zoom-in, #zoom-out, #closet, #act, #social, #slide, #angel, #flap')) el.addEventListener('click', (e) => { if (e.detail > 0) el.blur(); });
 // (눌렀다가 단추 밖에서 떼면 click 이 오지 않는다: 마우스로 누르는 것만으로는 아예 초점을 받지 않게 한다)
 for (const el of document.querySelectorAll('#mute, #shot, #zoom-in, #zoom-out, #act, #social, #slide, #angel, #flap')) el.addEventListener('mousedown', (e) => e.preventDefault());
 

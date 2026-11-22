@@ -1601,6 +1601,22 @@ try {
     assert(zoom.top >= shot.top + shot.h && Math.abs(zoom.left - shot.left) < 2, '캡처 단추 바로 아래가 아니다: ' + JSON.stringify({ shot, zoom }));
   });
 
+  await test('소리 단추 위의 나가기: 처음 화면으로 돌아가 이름과 펭귄 모습을 바꿀 수 있고, 자리는 그대로다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0&persist=1');
+    const [ex, mu] = await p.evaluate(() => ['#exit', '#mute'].map((q) => { const e = document.querySelector(q).getBoundingClientRect(); return { t: e.top, b: e.bottom, l: e.left }; }));
+    assert(ex.b <= mu.t && Math.abs(ex.l - mu.l) < 1, '나가기가 소리 단추 바로 위가 아니다: ' + JSON.stringify({ ex, mu }));
+    await snow(p, () => { const s = window.__snow; s.teleport(-12, 20); s.sim(0.1); });
+    await p.click('#exit');
+    await p.waitForFunction(() => window.__snow && !window.__snow.started && !document.body.classList.contains('in'));
+    const look0 = await p.evaluate(() => localStorage.getItem('snow.look'));
+    await p.click('#relook'); await p.click('#rename');
+    const look1 = await p.evaluate(() => localStorage.getItem('snow.look'));
+    assert(look1 && look1 !== look0, '모습이 바뀌지 않았다: ' + JSON.stringify({ look0, look1 }));
+    await p.click('#enter'); await p.waitForFunction(() => window.__snow.started);
+    const me = await snow(p, () => ({ x: window.__snow.me.x, z: window.__snow.me.z }));
+    assert(Math.hypot(me.x + 12, me.z - 20) < 0.5, '나갔다 들어오니 자리가 바뀌었다: ' + JSON.stringify(me));
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);
