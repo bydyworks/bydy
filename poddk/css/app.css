@@ -86,13 +86,16 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 .round:active { transform: scale(0.92); transition-duration: .6s, .08s, .2s; }
 #act, #social, #slide, #angel, #flap { right: var(--col-r); width: var(--btn); }
 
-#mute { --c: var(--mint); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t)); width: 40px; height: 40px; }
+#mute { --c: var(--mint); right: calc(14px + var(--safe-r)); top: calc(62px + var(--safe-t)); width: 40px; height: 40px; }
+#exit { --c: var(--gray); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t)); width: 40px; height: 40px; }      /* 나가기: 맨 위 (소리 단추 위) */
+#exit .g { width: 21px; height: 21px; } #exit .g .s { stroke-width: 2.4; }
+body:not(.in) #exit { opacity: 0; pointer-events: none; }
 #mute .g { width: 22px; height: 22px; }
 #mute .off, #mute[aria-pressed="true"] .on { display: none; }
 #mute[aria-pressed="true"] .off { display: block; }
 #mute[aria-pressed="true"] { --c: var(--gray); }
 
-#shot { --c: var(--coral); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 40px + 10px); width: 40px; height: 40px; }      /* 소리 단추 바로 아래 */
+#shot { --c: var(--coral); right: calc(14px + var(--safe-r)); top: calc(62px + var(--safe-t) + 40px + 10px); width: 40px; height: 40px; }      /* 소리 단추 바로 아래 */
 #act { bottom: calc(var(--col-b) + 3 * var(--btn) + 3 * var(--gap)); height: var(--btn); }      /* 상황 단추: 오른쪽 단추 줄의 맨 위 */
 #social { bottom: calc(var(--col-b) + 4 * var(--btn) + 4 * var(--gap)); height: var(--btn); }      /* 상대 단추: 상황 단추 바로 위 (다른 펭귄·동물에게 하는 일) */
 /* 배 썰매: 사진과 눈 천사 사이 */
@@ -126,7 +129,7 @@ body:not([data-storm="calm"])[data-storm] .badge.snow .wild { display: block; }
 @keyframes bite { 0%, 100% { transform: scale(1) rotate(-5deg); } 50% { transform: scale(1.16) rotate(5deg); } }
 
 /* 가까이·멀리: 캡처 단추 아래, 크림색 알약 하나에 더하기와 빼기 (사이에 점선) */
-#zoom { position: fixed; right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px)); width: 40px; height: 84px; z-index: 2; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;
+#zoom { position: fixed; right: calc(14px + var(--safe-r)); top: calc(62px + var(--safe-t) + 2 * (40px + 10px)); width: 40px; height: 84px; z-index: 2; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden;
   background: var(--cream); box-shadow: 0 0 0 3px var(--cream), 0 5px 12px rgba(80, 58, 36, 0.16); color: var(--brown); transition: opacity .3s; }
 #zoom button { flex: 1; display: flex; align-items: center; justify-content: center; padding: 0; background: none; color: inherit; transition: transform .25s var(--squish); }
 #zoom button + button { border-top: 2.5px dotted var(--cream-line); }
@@ -366,6 +369,12 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 /* 내 이름: 처음 화면과 위쪽 정보 상자에 */
 .start-card .me-name { margin: -8px 0 14px; font-size: 14px; font-weight: 700; color: var(--brown-soft); display: flex; align-items: center; justify-content: center; gap: 4px; }
 .start-card .me-name b { color: var(--brown); font-weight: 900; }
+/* 첫 화면: 내 펭귄 모습 (작게 빙글빙글) 과 모습 바꾸기 */
+.start-card .me-look { margin: -6px 0 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.start-card .look-view { position: relative; width: 58px; height: 58px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, #ffffff, #e2eefb); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8); }
+.start-card .look-view canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+#relook { height: 30px; padding: 0 12px; border-radius: 15px; font-size: 12.5px; font-weight: 800; color: #2f5f96; background: rgba(255, 255, 255, 0.6); }
+@media (max-height: 430px) { .start-card .me-look { margin: -4px 0 6px; } .start-card .look-view { width: 44px; height: 44px; } }
 #rename { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; padding: 0; background: rgba(255, 255, 255, 0.55); color: #2f5f96; }
 #rename .g { width: 17px; height: 17px; } #rename .g .s { stroke-width: 2.4; }
 #hud-name { font-size: 13.5px; font-weight: 800; }
@@ -549,7 +558,7 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .peer-name.wave { background: #fff3c4; color: #7a4b00; }      /* 손을 흔드는 동안 */
 .peer-name.me { background: #ffd65e; color: #5a3600; box-shadow: 0 0 0 2px #fff, 0 4px 10px rgba(160, 110, 20, 0.3); }      /* 나에게 인사하는 중 */
 /* 옷장 단추 (캡쳐 단추 아래)와 옷장 */
-#closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(12px + var(--safe-t) + 2 * (40px + 10px) + 84px + 10px); width: 40px; height: 40px; }      /* 가까이·멀리 알약 아래 */
+#closet { --c: var(--sky); right: calc(14px + var(--safe-r)); top: calc(62px + var(--safe-t) + 2 * (40px + 10px) + 84px + 10px); width: 40px; height: 40px; }      /* 가까이·멀리 알약 아래 */
 #closet[hidden] { display: none; }
 #closet.new { animation: catch-pop .55s cubic-bezier(.3, 1.7, .6, 1); }
 #closet .g { width: 22px; height: 22px; }
@@ -649,14 +658,15 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #found b { color: #8a4b00; }
 #found small { margin-left: 4px; font-size: 11px; font-weight: 800; color: #a07a30; }
 
-/* 가로 화면: 오른쪽 위 도구는 따로따로 떨어진 동그라미 한 줄 [옷장] [＋/－] [캡처] [소리], 오른쪽 아래 놀이 단추는 엄지 곁의 작은 두 줄 묶음 */
+/* 가로 화면: 오른쪽 위 도구는 따로따로 떨어진 동그라미 한 줄 [옷장] [＋/－] [캡처] [소리] [나가기], 오른쪽 아래 놀이 단추는 엄지 곁의 작은 두 줄 묶음 */
 @media (max-height: 520px) {
   :root { --tr: calc(14px + var(--safe-r)); --tt: calc(12px + var(--safe-t)); --big: 50px; }
-  #mute { top: var(--tt) !important; right: var(--tr) !important; }
-  #shot { top: var(--tt) !important; right: calc(var(--tr) + 40px + 10px) !important; }
-  #zoom { top: var(--tt) !important; right: calc(var(--tr) + 2 * (40px + 10px)) !important; width: 84px !important; height: 40px !important; flex-direction: row !important; }
+  #exit { top: var(--tt) !important; right: var(--tr) !important; }
+  #mute { top: var(--tt) !important; right: calc(var(--tr) + 50px) !important; }
+  #shot { top: var(--tt) !important; right: calc(var(--tr) + 100px) !important; }
+  #zoom { top: var(--tt) !important; right: calc(var(--tr) + 150px) !important; width: 84px !important; height: 40px !important; flex-direction: row !important; }
   #zoom button + button { border-top: 0 !important; border-left: 2.5px dotted var(--cream-line) !important; }
-  #closet { top: var(--tt) !important; right: calc(var(--tr) + 2 * (40px + 10px) + 84px + 10px) !important; }
+  #closet { top: var(--tt) !important; right: calc(var(--tr) + 244px) !important; }
 
   /* bottom-right: compact 2-row cluster
        [social] [  ACT  ]
