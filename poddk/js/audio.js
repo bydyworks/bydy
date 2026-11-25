@@ -225,6 +225,12 @@ export function createAudio(baseUrl = 'audio/') {
         src.start(t + at);
         src.onended = () => { src.disconnect(); band.disconnect(); gain.disconnect(); };
       };
+      if (kind === 'steam') {                               // 증기시계: 증기 피리가 차례로 노래하고 (웨스트민스터 가락), 칙 하고 김이 샌다
+        const notes = [659, 523, 587, 392, 392, 587, 659, 523], v = 0.11 * level;
+        notes.forEach((f, i) => { tone('sine', f, f * 0.995, i * 0.55, 0.5, v); tone('triangle', f * 2, f * 1.99, i * 0.55, 0.45, v * 0.25); puff(i * 0.55, 0.5, 2600, 0.05 * level); });
+        puff(notes.length * 0.55, 1.4, 1800, 0.12 * level);
+        return;
+      }
       if (kind === 'flap') {                                // 파닥파닥: 날개가 공기를 "푸드득" 치는 소리 여섯 번 (위로 쳐올릴 때 크게, 내릴 때 작게)
         const beat = (at, peak, freq) => {
           const len = 0.11, buffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * len), ctx.sampleRate), d = buffer.getChannelData(0);

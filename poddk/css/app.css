@@ -583,7 +583,8 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 #act.roll .roll-icon, #act.rollstop .quit-icon, #act.wish .wish-icon, #act.look .look-icon { display: block; }
 #act.roll { --c: var(--sky); } #act.rollstop { --c: var(--gray); } #act.wish { --c: var(--mint); } #act.look { --c: var(--sky); }
 /* 상황 단추: 모닥불 곁에서 마시멜로 굽기(🔥), 굽는 동안 먹기(😋) */
-#act.roast .roast-icon, #act.eat .eat-icon, #act.lantern .lantern-icon { display: block; }
+#act.roast .roast-icon, #act.eat .eat-icon, #act.lantern .lantern-icon, #act.glass .glass-icon, #act.clock .clock-icon { display: block; }
+#act.glass { --c: var(--sky); } #act.clock { --c: var(--mint); }
 #act.lantern { --c: var(--sun); }
 #act.roast { --c: var(--sun); } #act.eat { --c: var(--sun); }
 /* 소원판 */

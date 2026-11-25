@@ -2,7 +2,7 @@
 // 직접 걸어야 뽀드득 소리가 나고, 지나간 자리에 발자국이 남는다. 실제 시각에 따라 하늘과 그림자가 바뀌고,
 // 세 시간마다 폭설이 모든 발자국을 지운다.
 import * as THREE from 'three';
-import { createClock, snowfallAt, stormPhase, clockText, stormText } from './clock.js';
+import { createClock, snowfallAt, stormPhase, clockText, stormText, kst } from './clock.js';
 import { createSky } from './sky.js';
 import { createField, FIELD_RADIUS } from './field.js';
 import { build as buildPenguin, pose, setSnow, lie, belly, flap, sit, wave, randomLook, COLORS, STEP, STANCE, POP_SWAP, ROD_GRIP } from './penguin.js';
@@ -14,7 +14,7 @@ import { createFlakes, makeFlake, makeHeadStar, bobHeadStar } from './flakes.js'
 import { createRabbit, createSeals } from './critters.js';
 import { createCampfire, makeStick, CAMPFIRE, STUMP_BLOCKS, STUMP_SEAT_Y, ROAST_REACH, STICK_LEN, donenessAt, marshmallowColor } from './campfire.js';
 import { createAurora, auroraAt, nightId } from './aurora.js';
-import { createOtaru, CANAL_BLOCKS, CANAL_CLEAR, CANAL, SHOP, onWalk, nearCanal } from './otaru.js';
+import { createOtaru, makeBead, BEADS, CANAL_BLOCKS, CANAL_CLEARS, CANAL, SHOP, GLASS_DOOR, CLOCK, RAIL_MID, onWalk, onRail, nearCanal } from './otaru.js';
 import { createHill, heightAt, onHill, canWalk, slidesOff, nearStairFoot, onTop, HILL } from './hill.js';
 import { createCrumble } from './crumble.js';
 import { createFox, COATS } from './fox.js';
@@ -66,7 +66,7 @@ const camera = new THREE.PerspectiveCamera(46, 1, 0.3, 1200);
 const clock = createClock();
 const sky = createSky(scene, { shadowSize: coarse ? 1024 : 2048 });
 const fieldBlocks = [...BLOCKS, POSTBOX, WISHBOARD, CAMPFIRE, ...STUMP_BLOCKS, ...CANAL_BLOCKS];      // (눈사람이 서면 여기에 더한다)
-const field = createField(scene, { clearings: [...CLEARINGS, CANAL_CLEAR], blocks: fieldBlocks });
+const field = createField(scene, { clearings: [...CLEARINGS, ...CANAL_CLEARS], blocks: fieldBlocks });
 const wishboard = createWishboard(scene);  // 트리 뒤쪽의 크리스마스 소원판
 const sled = createSled(scene);            // 썰매 경주 길
 const hill = createHill(scene);            // 슬라이딩 언덕
@@ -88,7 +88,7 @@ const santa = createSanta(scene);
 /** 눈 위의 빈자리인가 (얼음, 이글루, 나무 곁, 썰매 길이 아닌 곳): 선물 상자와 특별한 눈송이가 놓이는 자리 */
 const openSnow = (x, z) => {
   if (Math.hypot(x, z) < 7 || PONDS.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius + 1.5) || IGLOOS.some((g) => Math.hypot(x - g.x, z - g.z) < g.radius + 4)) return false;
-  if (Math.hypot(x - HILL.x, z - HILL.z) < HILL.r + 2.5 || Math.hypot(x - CAMPFIRE.x, z - CAMPFIRE.z) < 4.5 || Math.hypot(x - CANAL_CLEAR.x, z - CANAL_CLEAR.z) < CANAL_CLEAR.r) return false;
+  if (Math.hypot(x - HILL.x, z - HILL.z) < HILL.r + 2.5 || Math.hypot(x - CAMPFIRE.x, z - CAMPFIRE.z) < 4.5 || CANAL_CLEARS.some((c) => Math.hypot(x - c.x, z - c.z) < c.r)) return false;
   const c = laneCoord(x, z); if (c.along > -LANE.pad - 3 && c.along < LANE.len + 2 && Math.abs(c.side) < LANE.half + 3) return false;
   const f = field.confine(x, z); return Math.hypot(f.x - x, f.z - z) < 1e-6;
 };
@@ -177,7 +177,7 @@ function firstTime(name) {
 }
 // ---------- 새 놀이 발견 ----------
 // 처음 해 본 놀이마다 위쪽에 작은 쪽지가 뿅: "✨ 새 놀이 발견! 눈 천사 · 3/15" — 아 이것도 되네~ 하고 알게 되도록 (기기마다 한 번씩)
-const FINDS = { walk: '뽀드득 걷기', slide: '배 썰매', angel: '눈 천사', flap: '파닥파닥', wave: '친구에게 인사', snowball: '눈덩이 던지기', snowman: '눈사람 만들기', fish: '얼음 낚시', igloo: '이글루 놀러 가기', hill: '언덕 슬라이딩', race: '썰매 경주', roast: '마시멜로 굽기', lantern: '눈 등불 밝히기', wish: '소원 붙이기', mail: '엽서 보내기', flake: '특별한 눈송이' };
+const FINDS = { walk: '뽀드득 걷기', slide: '배 썰매', angel: '눈 천사', flap: '파닥파닥', wave: '친구에게 인사', snowball: '눈덩이 던지기', snowman: '눈사람 만들기', fish: '얼음 낚시', igloo: '이글루 놀러 가기', hill: '언덕 슬라이딩', race: '썰매 경주', roast: '마시멜로 굽기', lantern: '눈 등불 밝히기', glass: '유리 구슬 만들기', clock: '증기시계 노래', wish: '소원 붙이기', mail: '엽서 보내기', flake: '특별한 눈송이' };
 let foundTimer = 0;
 function found(key) {
   if (!FINDS[key] || !firstTime('found-' + key)) return;
@@ -257,6 +257,38 @@ function startFishing() {
   me.idle = 0;
   if (firstTime('fish')) toast('찌가 쑥 들어가면 물고기 단추를 눌러요. ✕는 그만두기예요', 4800);
 }
+// ---------- 오타루 거리: 증기시계, 유리 공방, 인력거 ----------
+let clockSang = -1, clockAt = -Infinity, glassAt = -Infinity;
+const clockDist = () => Math.hypot(me.x - CLOCK.x, me.z - CLOCK.z);
+const canClock = () => free() && !me.roll && clockDist() < 3.2;
+const canGlass = () => free() && !me.roll && Math.hypot(me.x - GLASS_DOOR.x, me.z - GLASS_DOOR.z) < 2.4;
+/** 증기시계를 노래하게 한다 (byHand: 단추로 울렸다) */
+function singClock(byHand) {
+  const now = performance.now(); if (byHand && now - clockAt < 8000) return;
+  clockAt = now; otaru.toot(5);
+  const d = me.inside === null ? clockDist() : Infinity;
+  if (d < 45) audio.snowFx('steam', Math.max(0.15, 1 - d / 45));
+  if (byHand) { found('clock'); if (firstTime('clock')) toast('🎶 증기시계가 노래해요! 진짜 오타루 증기시계도 15분마다 이렇게 울려요', 3800); }
+}
+/** 유리 공방에서 유리 구슬을 하나 만든다 */
+function makeGlass() {
+  const now = performance.now(); if (now - glassAt < 2500) return;
+  glassAt = now;
+  const rare = Math.random() < 0.06, pool = BEADS.filter((b) => !!b.rare === rare), b = pool[Math.floor(Math.random() * pool.length)];
+  const el = $('#catch');
+  el.querySelector('.name').textContent = '🔮 ' + objectOf(b.name) + ' 만들었어요!';
+  el.querySelector('.say').textContent = b.say;
+  el.dataset.kind = 'bead-' + b.id;
+  el.hidden = false; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  el.classList.toggle('rare', !!b.rare);
+  const ok = showcase.show(el.querySelector('.view'), makeBead(b.id), { tilt: 0.3, turn: 1.6, zoom: 3 });
+  el.classList.toggle('flat', !ok);
+  audio.snowFx(b.rare ? 'ding' : 'pop');
+  stats.beads = (stats.beads || 0) + 1;
+  found('glass');
+  clearTimeout(catchHide); catchHide = setTimeout(hideCatch, 3200);
+}
+
 // ---------- 운하 거리의 눈 등불 ----------
 // 운하 둑길에서 상황 단추(🕯️)를 누르면 발치 조금 앞에 작은 눈 등불을 놓는다. 다른 펭귄에게도 보이고 여섯 시간 남는다
 let lanternAt = -Infinity;
@@ -374,7 +406,7 @@ function showAction() {
   const now = fishing.active ? (fishing.button === 'pull' ? 'pull' : fishing.button === 'quit' ? 'quit' : fishing.nibbling ? 'nib' : 'wait')
     : me.inside !== null ? (me.seat ? (me.seat.phase === 'sat' ? 'standup' : 'none') : dens.seatNear(me.inside, me.x, me.z) >= 0 ? 'sitdown' : dens.nearDoor(me.inside, me.x, me.z) ? 'exit' : 'none')
     : me.roast ? (me.roast.phase === 'cook' ? 'eat' : me.roast.phase === 'seated' ? 'roast' : me.roast.phase === 'eat' ? 'eatwait' : 'none')
-    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'stump' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : canLantern() ? 'lantern' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
+    : canFish() ? 'fish' : canEnter() >= 0 ? 'enter' : canRoast() ? 'stump' : canMail() ? 'mail' : canWish() ? 'wish' : snowmanNear() ? 'look' : canGlass() ? 'glass' : canClock() ? 'clock' : canLantern() ? 'lantern' : me.roll ? 'rollstop' : canRoll() ? 'roll' : 'angel';
   // 눈 천사 단추: 눈 천사를 할 수 없을 때(이글루 안, 낚시·썰매·파닥 중, 방석) 흐려진다
   const angelOff = me.inside !== null || (fishing.active || !!me.roast) || !!me.slide || !!me.flap || !!me.seat || !!me.roll;
   if ($('#angel').classList.contains('off') !== angelOff) $('#angel').classList.toggle('off', angelOff);
@@ -397,10 +429,10 @@ function showAction() {
   el.classList.toggle('quit', now === 'quit' || now === 'wait' || now === 'nib');
   el.classList.toggle('hold', now === 'wait' || now === 'eatwait');            // 낚아 올리거나 놓아주는 동안: 누를 수 없다
   el.classList.toggle('rest', now === 'nib');             // 가짜 입질이 지나가는 잠깐: 흐려져 쉰다 (눌러도 그만두지 않는다)
-  for (const c of ['enter', 'exit', 'sitdown', 'standup', 'mail', 'wave', 'throw', 'roll', 'rollstop', 'wish', 'look', 'roast', 'eat', 'lantern']) el.classList.toggle(c, now === c);
+  for (const c of ['enter', 'exit', 'sitdown', 'standup', 'mail', 'wave', 'throw', 'roll', 'rollstop', 'wish', 'look', 'roast', 'eat', 'lantern', 'glass', 'clock']) el.classList.toggle(c, now === c);
   el.classList.toggle('eat', now === 'eat' || now === 'eatwait'); if (now === 'eatwait') el.classList.add('hold');
   if (now === 'stump') el.classList.add('sitdown');      // 그루터기에 앉기: 이글루 방석과 같은 앉기 그림
-  el.setAttribute('aria-label', { angel: '할 수 있는 것이 없어요', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기', wave: '인사하기', throw: '눈덩이 던지기', roll: '눈 굴리기', rollstop: '그만 굴리기', wish: '소원판 보기', look: '눈사람 보기', roast: '마시멜로 굽기', eat: '마시멜로 먹기', eatwait: '마시멜로 먹기', stump: '그루터기에 앉기', lantern: '눈 등불 놓기' }[now]);
+  el.setAttribute('aria-label', { angel: '할 수 있는 것이 없어요', fish: '낚시하기', pull: '낚아 올리기', quit: '낚시 그만두기', wait: '낚시 그만두기', nib: '낚시 그만두기', enter: '이글루에 들어가기', exit: '이글루에서 나가기', sitdown: '방석에 앉기', standup: '일어나기', none: '할 수 있는 것이 없어요', mail: '친구에게 엽서 보내기', wave: '인사하기', throw: '눈덩이 던지기', roll: '눈 굴리기', rollstop: '그만 굴리기', wish: '소원판 보기', look: '눈사람 보기', roast: '마시멜로 굽기', eat: '마시멜로 먹기', eatwait: '마시멜로 먹기', stump: '그루터기에 앉기', lantern: '눈 등불 놓기', glass: '유리 구슬 만들기', clock: '증기시계 울리기' }[now]);
 }
 
 /** 오른쪽 아래의 가운데 버튼(과 스페이스): 낚시 구멍 곁에서는 낚시, 낚시 중에는 낚아 올리기나 그만두기, 그 밖에서는 눈 천사 */
@@ -426,6 +458,8 @@ function act(how = 'button') {
   else if (canMail()) openPostcard();
   else if (canWish()) openWishes();
   else if (snowmanNear()) openSnowcard();
+  else if (canGlass()) makeGlass();
+  else if (canClock()) singClock(true);
   else if (canLantern()) placeLantern();
   else if (me.roll) stopRoll();
   else if (canRoll() && !key) startRoll();
@@ -651,6 +685,7 @@ function greetTarget() {
   for (const f of foxes) take('fox', f.state.x, f.state.z, f, f === arctic ? '북극여우' : '여우');
   if (rabbit.visible) take('rabbit', rabbit.pos.x, rabbit.pos.z, rabbit, '눈토끼');
   for (const s of seals.seals) take('seal', s.x, s.z, s, '아기 물개');
+  { const r = otaru.rickshaw; take('rickshaw', r.x, r.z, null, '인력거꾼'); }
   return best;
 }
 /** 눈덩이를 던질 상대: 조금 떨어진 가장 가까운 펭귄 */
@@ -672,6 +707,7 @@ function startWave() {
   else if (t.kind === 'rabbit') rabbit.greet(me);
   else if (t.kind === 'seal') seals.greet(me);
   else if (t.kind === 'santa') { xmas.greet(() => audio.snowFx('hohoho')); santaLine('안녕~ 허허허!', 3200); }
+  if (t.kind === 'rickshaw') toast(['🛺 인력거꾼: 어서 오세요~ 운하 구경 즐거우세요!', '🛺 인력거꾼: 밤에 오면 가스등이 정말 예뻐요', '🛺 인력거꾼: 증기시계는 15분마다 노래해요'][Math.floor(Math.random() * 3)], 2800);
   if (t.kind === 'peer') { toast(`👋 ${t.who}에게 인사했어요`, 2000); if (net.connected) net.wave(t.obj); }
   found('wave');      // (상대 화면에서도 내 펭귄이 손을 흔든다)
   stats.waves++;
@@ -1447,6 +1483,8 @@ const NUDGE = {
   wish: ['#act', '🎄 다른 펭귄들이 남긴 소원을 보고, 내 소원도 붙여요'],
   look: ['#act', '🔍 누가 만든 눈사람인지 봐요'],
   lantern: ['#act', '🕯️ 눈 등불을 놓아요. 밤이면 운하를 따라 반짝여요'],
+  glass: ['#act', '🔮 유리 구슬을 만들어요. 색과 무늬는 그때그때 달라요'],
+  clock: ['#act', '🎶 증기시계를 노래하게 해요'],
   sitdown: ['#act', '방석에 앉아 지금 하는 일을 골라요'],
   // 상대 단추
   wave: ['#social', '👋 위 단추로 인사해요. 상대 화면에서도 손을 흔들어요'],
@@ -1685,7 +1723,11 @@ function tick(t) {
   for (const [i, d] of dens.dens.entries()) d.group.visible = me.inside === i;
   dens.update(dt, camera);
   campfire.update(seconds, Math.min(1, Math.max(0, (6 - palette.elev) / 14)));
-  otaru.update(seconds, Math.min(1, Math.max(0, (4 - palette.elev) / 12)));      // 운하 거리: 해가 지면 가스등과 창이 켜진다      // 모닥불: 해가 낮을수록 불빛이 밝다
+  otaru.update(seconds, Math.min(1, Math.max(0, (4 - palette.elev) / 12)), dt);      // 오타루 거리: 해가 지면 가스등과 창이 켜진다
+  { // 메르헨 교차로의 증기시계: 15분마다 증기를 뿜으며 노래한다 (가까이 있으면 소리도)
+    const min = Math.floor(kst(now).hour * 60);
+    if (min % 15 === 0 && min !== clockSang) { clockSang = min; singClock(false); }
+  }      // 모닥불: 해가 낮을수록 불빛이 밝다
   postbox.update(dt);
   // 해가 지평선 가까이 내려오면 나무의 전구에 불이 들어온다
   const night = THREE.MathUtils.clamp((3 - palette.elev) / 9, 0, 1);
@@ -1755,7 +1797,10 @@ const SPOTS = [
   { key: 'hill', near: () => nearStairFoot(me.x, me.z), say: '슬라이딩 언덕이에요. 계단으로 올라가 볼래요? 🐧' },
   { key: 'top', near: () => onTop(me.x, me.z), say: '비탈 쪽으로 걸어 나가면 슬라이딩으로 쌩 내려가요!' },
   { key: 'lane', near: () => onPad(me.x, me.z), say: '썰매 경주 길이에요. 슬라이딩으로 기록을 세워 볼래요? 🏁' },
-  { key: 'canal', near: () => onWalk(me.x, me.z), say: '오타루 운하 거리예요. 밤에는 가스등이 켜지고, 🕯️ 눈 등불을 놓을 수 있어요' },
+  { key: 'rail', near: () => onRail(me.x, me.z), say: '옛 데미야선 철길이에요. 여기에도 🕯️ 눈 등불을 놓을 수 있어요' },
+  { key: 'glass', near: () => Math.hypot(me.x - GLASS_DOOR.x, me.z - GLASS_DOOR.z) < 2.6, say: '유리 공방이에요. 🔮 단추로 유리 구슬을 만들어 볼래요?' },
+  { key: 'clock', near: () => clockDist() < 4, say: '메르헨 교차로의 증기시계예요. 🎶 단추를 누르면 노래해요' },
+  { key: 'canal', near: () => onWalk(me.x, me.z) && !onRail(me.x, me.z), say: '오타루 운하 거리예요. 밤에는 가스등이 켜지고, 🕯️ 눈 등불을 놓을 수 있어요' },
   { key: 'shop', near: () => Math.hypot(me.x - SHOP.x, me.z - SHOP.z) < 3, say: '오르골 가게 앞이에요. 오르골 캐롤이 크게 들려요 🎶' },
   { key: 'fire', near: () => campfire.dist(me.x, me.z) < ROAST_REACH, say: '모닥불이에요. 그루터기에 앉아 마시멜로 구워 볼래요? 🔥' },
 ];
@@ -1771,6 +1816,9 @@ const SIGHTS = [
   { key: 'pond', far: 18, at: () => nearestPt(PONDS), say: '저기 얼음 연못에서는 낚시를 할 수 있어요 🎣 구멍 곁으로 가 봐요' },
   { key: 'hill', far: 22, at: () => HILL, say: '저 언덕은 계단으로 올라가서 슬라이딩으로 쌩 내려올 수 있어요 🐧' },
   { key: 'lane', far: 16, at: () => LANE.start, say: '얼음 썰매 길이 있어요! 출발선에서 슬라이딩하면 얼마나 갔는지 재요 🏁' },
+  { key: 'clock', far: 26, at: () => CLOCK, say: '저기 증기시계가 보여요! 15분마다 증기를 뿜으며 노래해요 🎶' },
+  { key: 'glasshall', far: 16, at: () => GLASS_DOOR, say: '다리 건너 유리 공방이 있어요. 기름 램프가 가득한 곳에서 유리 구슬을 만들 수 있어요 🔮' },
+  { key: 'rail', far: 20, at: () => RAIL_MID, say: '눈에 묻힌 옛 철길이 보여요. 눈빛거리 축제처럼 🕯️ 등불을 놓을 수 있어요' },
   { key: 'canal', far: 30, at: () => CANAL, say: '저기 운하 거리가 보여요! 가스등이 줄지어 선 둑길에서 🕯️ 눈 등불을 놓을 수 있어요' },
   { key: 'campfire', far: 14, at: () => CAMPFIRE, say: '모닥불이 보여요! 그루터기에 앉아 마시멜로를 구울 수 있어요 🔥' },
   { key: 'gift', far: 11, dist: () => xmas.nearest(me.x, me.z), say: '반짝이는 선물 상자! 다가가서 열면 모자나 선글라스가 나올지도 몰라요 🎁' },

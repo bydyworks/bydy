@@ -13,6 +13,7 @@ import { HILL, STAIR_DIR, STAIR_HALF } from './hill.js';
 import { LANE } from './sled.js';
 import { CAMPFIRE, STUMP_BLOCKS } from './campfire.js';
 import { POSTBOX } from './postbox.js';
+import { at as otaruAt, CANAL, BRIDGE, CLOCK } from './otaru.js';
 import { WISHBOARD } from './wishboard.js';
 
 const WALK = 1.25;                 // 펭귄이 걷는 빠르기 (단위/초) — main.js 의 WALK_SPEED 와 같다
@@ -87,6 +88,20 @@ IGLOOS.forEach((g0, i) => {
 {
   const g = el('g', { 'data-kind': 'campfire' });
   g.append(el('circle', { cx: CAMPFIRE.x, cy: CAMPFIRE.z, r: 2.2, fill: '#ffb35c', stroke: '#e0503f', 'stroke-width': 0.6 }), ...STUMP_BLOCKS.map((b) => el('circle', { cx: b.x, cy: b.z, r: 0.9, fill: '#8a5a36' })), label(CAMPFIRE.x - 9.5, CAMPFIRE.z + 1.6, '모닥불'));
+  base.append(g);
+}
+// 오타루 거리: 운하와 돌다리, 창고들, 유리 공방, 메르헨 교차로(증기시계·오르골당), 옛 데미야선
+{
+  const g = el('g', { 'data-kind': 'otaru' }), P = (s, t) => { const p = otaruAt(s, t); return `${r1(p.x)} ${r1(p.z)}`; };
+  const quad = (s0, s1, t0, t1, fill, stroke = 'none') => el('path', { d: `M${P(s0, t0)} L${P(s1, t0)} L${P(s1, t1)} L${P(s0, t1)} Z`, fill, stroke, 'stroke-width': 0.5 });
+  g.append(quad(-CANAL.len, CANAL.len, -CANAL.water, CANAL.water, '#9fc6d8', '#6f9db4'));
+  g.append(quad(BRIDGE.s - BRIDGE.half, BRIDGE.s + BRIDGE.half, -CANAL.water - 0.8, CANAL.water + 0.8, '#c8c0b4'));
+  for (const s of [-19, -11.5, 9, 16.5]) g.append(quad(s - 3.5, s + 3.5, 3.6, 9.6, '#b5aca0', '#8d847a'));
+  g.append(quad(BRIDGE.s - 4, BRIDGE.s + 4, 10, 15.6, '#c9c0b0', '#8d847a'));      // 유리 공방
+  g.append(quad(26.5, 35.5, 3.8, 9.8, '#b5644c', '#8a4433'));                      // 오르골당
+  g.append(el('circle', { cx: CLOCK.x, cy: CLOCK.z, r: 1.4, fill: '#3f6e5e' }));   // 증기시계
+  g.append(el('path', { d: `M${P(-31, -18)} L${P(-31, 9)}`, stroke: '#6b4a33', 'stroke-width': 1.4, 'stroke-dasharray': '1 0.6' }));      // 옛 데미야선
+  const lp = otaruAt(0, -12); g.append(label(lp.x, lp.z, '오타루 거리'));
   base.append(g);
 }
 // 우체통과 소원판 (트리 곁)
