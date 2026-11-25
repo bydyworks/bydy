@@ -993,7 +993,26 @@ function showName() { $('#my-name').textContent = name; }
 showName();
 $('#rename').addEventListener('click', () => { name = rename(!TEST_MODE); showName(); });
 // 첫 화면의 내 펭귄 모습: 작은 그림으로 빙글빙글 보여 주고, 🔄 로 목도리·담요와 색을 새로 뽑는다 (들어가기 전에만)
-function showLook() { showcase.show($('.start-card .look-view'), buildPenguin(look), { tilt: 0.12, turn: 1.1, zoom: 2.3 }); }
+/** 첫 화면의 내 펭귄 그림: 한 번 그려 그림(PNG)으로 넣고, 그린 그림판은 곧바로 치운다 (화면마다 WebGL 그림판이 하나 더 늘지 않게) */
+function showLook() {
+  const box = $('.start-card .look-view'); if (!box) return;
+  let r = null;
+  try {
+    const size = 128;
+    r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r.setPixelRatio(1); r.setSize(size, size, false); r.outputColorSpace = THREE.SRGBColorSpace;
+    const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#ffffff', '#b9d3ee', 2.1));
+    const sun = new THREE.DirectionalLight('#fff4e0', 2.2); sun.position.set(2, 3, 4); sc.add(sun);
+    const p = buildPenguin(look), was = worn(penguin); was.forEach((n, j) => { if (n >= 0) wear(p, SLOTS[j], n); });
+    p.rotation.y = -0.45; sc.add(p);
+    const b = new THREE.Box3().setFromObject(p), c = b.getCenter(new THREE.Vector3()), h = b.max.y - b.min.y;
+    const cam = new THREE.PerspectiveCamera(30, 1, 0.05, 50); cam.position.set(c.x, c.y + h * 0.12, c.z + h * 2.3); cam.lookAt(c);
+    r.render(sc, cam);
+    box.style.backgroundImage = `url(${r.domElement.toDataURL('image/png')}), radial-gradient(circle at 50% 40%, #ffffff, #e2eefb)`;
+    p.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
+  } catch { /* 그림을 못 그리면 빈 동그라미 */ }
+  finally { if (r) { r.dispose(); r.forceContextLoss(); } }
+}
 $('#relook').addEventListener('click', () => {
   if (started) return;
   let next; do { next = randomLook(); } while (next.color === look.color && next.blanket === look.blanket);
@@ -1794,7 +1813,6 @@ $('#enter').addEventListener('click', () => {
   net.start();
   controls.setEnabled(true);
   document.body.classList.add('in');
-  showcase.hide();      // (첫 화면의 내 펭귄 그림을 거둔다)
   coach.show();
 });
 $('#mute').addEventListener('click', () => {

@@ -371,7 +371,8 @@ body[data-sky="night"] .badge.time { color: #5a63c4; }
 .start-card .me-name b { color: var(--brown); font-weight: 900; }
 /* 첫 화면: 내 펭귄 모습 (작게 빙글빙글) 과 모습 바꾸기 */
 .start-card .me-look { margin: -6px 0 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.start-card .look-view { position: relative; width: 58px; height: 58px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, #ffffff, #e2eefb); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8); }
+.start-card .look-view { position: relative; width: 58px; height: 58px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, #ffffff, #e2eefb); background-size: cover; background-position: center; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8); animation: look-bob 2.4s ease-in-out infinite; }
+@keyframes look-bob { 0%, 100% { background-position: center 52%; } 50% { background-position: center 46%; } }
 .start-card .look-view canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
 #relook { height: 30px; padding: 0 12px; border-radius: 15px; font-size: 12.5px; font-weight: 800; color: #2f5f96; background: rgba(255, 255, 255, 0.6); }
 @media (max-height: 430px) { .start-card .me-look { margin: -4px 0 6px; } .start-card .look-view { width: 44px; height: 44px; } }
