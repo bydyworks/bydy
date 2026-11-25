@@ -110,6 +110,38 @@ function clockFace() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
+/**
+ * 움직이지 않는 조각들을 재질마다 하나로 합친다 (그리기 부름이 수백에서 수십으로: 휴대폰과 점검용 브라우저가 덜 힘들다).
+ * g 의 바로 아래 Mesh 들만, keep 에 든 것은 빼고. 합친 것은 그림자를 드리우고 받는다.
+ */
+function mergeStatic(g, keep) {
+  g.updateMatrixWorld(true);
+  const groups = new Map();
+  for (const m of [...g.children]) {
+    if (!m.isMesh || keep.has(m)) continue;
+    let geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+    geo.applyMatrix4(m.matrix);
+    if (!geo.attributes.uv) geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
+    if (!geo.attributes.normal) geo.computeVertexNormals();
+    const key = m.material.uuid;
+    if (!groups.has(key)) groups.set(key, { mat: m.material, geos: [] });
+    groups.get(key).geos.push(geo);
+    g.remove(m); m.geometry.dispose();
+  }
+  for (const { mat, geos } of groups.values()) {
+    const merged = new THREE.BufferGeometry();
+    for (const name of ['position', 'normal', 'uv']) {
+      const size = geos[0].attributes[name].itemSize, total = geos.reduce((a, q) => a + q.attributes[name].count, 0), arr = new Float32Array(total * size);
+      let off = 0; for (const q of geos) { arr.set(q.attributes[name].array, off); off += q.attributes[name].array.length; }
+      merged.setAttribute(name, new THREE.Float32BufferAttribute(arr, size));
+    }
+    geos.forEach((q) => q.dispose());
+    merged.computeBoundingSphere();
+    const mesh = new THREE.Mesh(merged, mat); mesh.castShadow = !mat.transparent && !mat.blending; mesh.receiveShadow = true;
+    g.add(mesh);
+  }
+}
+
 /** 유리 구슬 모형 (만든 것을 보여 주는 창에 쓴다) */
 export function makeBead(id) {
   const b = BEADS.find((x) => x.id === id) || BEADS[0];
@@ -270,14 +302,16 @@ export function createOtaru(scene) {
   // ---------- 가스등 (둑길·다리 양끝·교차로·철길) ----------
   const lampHead = new THREE.MeshStandardMaterial({ color: '#fff2c8', emissive: '#ffcc77', emissiveIntensity: 0, roughness: 0.3 });
   const glows = [], reflections = [];
+  const lampGlowMat = new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
+  const reflectMat = new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 });
   const gasLamp = (s, t, reflect) => {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 2.6, 8), iron); place(pole, s, 1.3, t); pole.castShadow = true;
     place(new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.25, 4), iron), s, 2.98, t, Math.PI / 4);
     place(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.36, 0.3), lampHead), s, 2.7, t);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+    const glow = new THREE.Sprite(lampGlowMat);
     glow.scale.setScalar(2.2); const gp = at(s, t); glow.position.set(gp.x, 2.7, gp.z); g.add(glow); glows.push(glow);
     if (reflect) {
-      const ref = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 3.4), new THREE.MeshBasicMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+      const ref = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 3.4), reflectMat);
       ref.rotation.x = -Math.PI / 2; const rp = at(s, 0.3); ref.position.set(rp.x, 0.05, rp.z); ref.rotation.z = -yaw + Math.PI / 2; g.add(ref); reflections.push(ref);
     }
   };
@@ -305,6 +339,8 @@ export function createOtaru(scene) {
   const puller = buildPenguin({ scarf: true, color: '#3f4a6b' });
   const rickshaw = new THREE.Group(); rickshaw.add(cart, puller); puller.position.set(0, 0, 0.35); g.add(rickshaw);
   cart.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+
+  mergeStatic(g, new Set([water]));      // (인력거·등불·증기·불빛은 따로 움직이므로 합치지 않는다 — 모두 Group/Sprite 이거나 아래에서 만든다)
 
   // ---------- 눈 등불 ----------
   const lanterns = [];
@@ -343,8 +379,8 @@ export function createOtaru(scene) {
       windowMat.emissiveIntensity = 1.4 * dark;
       lampsMat.emissiveIntensity = 0.25 + 0.75 * dark;
       waterMat.color.setRGB(0.18 - 0.08 * dark, 0.35 - 0.15 * dark, 0.4 - 0.12 * dark);
-      for (let k = 0; k < glows.length; k++) glows[k].material.opacity = 0.9 * dark * (1 + 0.05 * Math.sin(time * 3 + k * 1.7));
-      for (let k = 0; k < reflections.length; k++) reflections[k].material.opacity = 0.55 * dark * (1 + 0.15 * Math.sin(time * 1.3 + k));
+      lampGlowMat.opacity = 0.9 * dark * (1 + 0.04 * Math.sin(time * 3)); reflectMat.opacity = 0.55 * dark * (1 + 0.12 * Math.sin(time * 1.3));
+      for (const s of glows) s.visible = dark > 0.02;
       domeMat.emissiveIntensity = 0.15 + 0.9 * dark;
       lanternGlow.opacity = 0.15 + 0.75 * dark;
       for (const l of lanterns) { const s = 1 + 0.18 * Math.sin(time * 9 + l.k) + 0.1 * Math.sin(time * 23 + l.k); l.flame.scale.set(1, s, 1); }
