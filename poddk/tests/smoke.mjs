@@ -6,7 +6,7 @@ import { checkStamps } from './stamp.mjs';
 
 const only = process.argv[2] || '';
 const site = await startStatic();
-const browser = await launch();
+let browser = await launch();      // (점검 열다섯 번마다 새로 띄운다: 소프트웨어로 그리는 점검용 브라우저는 오래 쓰면 점점 느려진다)
 const errors = [];
 const results = [];
 const opened = [];
@@ -30,12 +30,13 @@ const byHand = (p) => snow(p, () => { window.__snow.manual = true; });
 /** 첫 낚시 구멍 곁(트리 쪽으로 1.8 떨어진 자리)으로 옮긴다 */
 const toHole = (p) => snow(p, () => { const s = window.__snow, h = s.place.hole, d = Math.hypot(h.x, h.z); s.teleport(h.x - h.x / d * 1.8, h.z - h.z / d * 1.8); s.me.idle = 0; });
 
-let testNo = 0;
+let testNo = 0, ran = 0;
 const RANGE = (process.env.SMOKE_RANGE || '').split('-').map(Number);      // 예: SMOKE_RANGE=30-60 → 30번째부터 60번째 점검만 (느려지는 곳을 찾을 때)
 async function test(name, fn) {
   testNo++;
   if (only && !name.includes(only)) return;
   if (RANGE.length === 2 && (testNo < RANGE[0] || testNo > RANGE[1])) return;
+  if (++ran % 15 === 0) { await browser.close().catch(() => {}); browser = await launch(); }
   const t0 = Date.now();
   try { await fn(); results.push([true, name]); console.log(`  PASS  ${name} (${Date.now() - t0}ms)`); } catch (e) { results.push([false, name]); console.log(`  FAIL  ${name}\n        ${String(e.message).split('\n')[0]}`); }
   while (opened.length) await opened.pop().close().catch(() => {});
