@@ -1600,8 +1600,8 @@ try {
     const near = await snow(p, () => window.__snow.me.camDist);
     assert(far > d0 * 1.3 && near < d0 * 0.8, '다가가거나 물러나지 않는다: ' + JSON.stringify({ d0, far, near }));
     for (let i = 0; i < 8; i++) await p.click('#zoom-in', { force: true });
-    await sleep(200);
-    assert(await p.isDisabled('#zoom-in'), '가장 가까이 갔는데 더하기 단추가 흐려지지 않는다');
+    await until(() => p.isDisabled('#zoom-in'), { what: '더하기 단추가 흐려짐', timeout: 4000 }).catch(() => {});      // (단추 모양은 다음 그림에서 바뀐다: 느린 점검용 브라우저에서도 기다린다)
+    assert(await p.isDisabled('#zoom-in'), '가장 가까이 갔는데 더하기 단추가 흐려지지 않는다: ' + JSON.stringify(await snow(p, () => ({ d: window.__snow.me.camDist, inside: window.__snow.inside }))));
     const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoom'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
     assert(zoom.top >= shot.top + shot.h && Math.abs(zoom.left - shot.left) < 2, '캡처 단추 바로 아래가 아니다: ' + JSON.stringify({ shot, zoom }));
   });
