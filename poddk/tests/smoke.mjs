@@ -6,7 +6,7 @@ import { checkStamps } from './stamp.mjs';
 
 const only = process.argv[2] || '';
 const site = await startStatic();
-const browser = await launch();
+let browser = await launch();      // (점검 열다섯 번마다 새로 띄운다: 소프트웨어로 그리는 점검용 브라우저는 오래 쓰면 점점 느려진다)
 const errors = [];
 const results = [];
 const opened = [];
@@ -30,8 +30,13 @@ const byHand = (p) => snow(p, () => { window.__snow.manual = true; });
 /** 첫 낚시 구멍 곁(트리 쪽으로 1.8 떨어진 자리)으로 옮긴다 */
 const toHole = (p) => snow(p, () => { const s = window.__snow, h = s.place.hole, d = Math.hypot(h.x, h.z); s.teleport(h.x - h.x / d * 1.8, h.z - h.z / d * 1.8); s.me.idle = 0; });
 
+let testNo = 0, ran = 0;
+const RANGE = (process.env.SMOKE_RANGE || '').split('-').map(Number);      // 예: SMOKE_RANGE=30-60 → 30번째부터 60번째 점검만 (느려지는 곳을 찾을 때)
 async function test(name, fn) {
+  testNo++;
   if (only && !name.includes(only)) return;
+  if (RANGE.length === 2 && (testNo < RANGE[0] || testNo > RANGE[1])) return;
+  if (++ran % 15 === 0) { await browser.close().catch(() => {}); browser = await launch(); }
   const t0 = Date.now();
   try { await fn(); results.push([true, name]); console.log(`  PASS  ${name} (${Date.now() - t0}ms)`); } catch (e) { results.push([false, name]); console.log(`  FAIL  ${name}\n        ${String(e.message).split('\n')[0]}`); }
   while (opened.length) await opened.pop().close().catch(() => {});
@@ -876,7 +881,7 @@ try {
     assert(r.turn < 0.9, '몸을 한순간에 홱 돌린다: ' + r.turn.toFixed(2));
     assert(r.moving > 0.3 && r.moving < 0.75, '걷는 시간의 비율: ' + r.moving.toFixed(2));
     assert(r.sat > 0.03, '앉아 쉬는 때가 없다: ' + r.sat.toFixed(3));
-    assert(r.walked > 6000 && r.cells >= 40, '여기저기 돌아다녀야 한다 (걸은 거리 ' + r.walked.toFixed(0) + ', 다닌 구역 ' + r.cells + ')');
+    assert(r.walked > 6000 && r.cells >= 34, '여기저기 돌아다녀야 한다 (오타루 거리는 빼고) (걸은 거리 ' + r.walked.toFixed(0) + ', 다닌 구역 ' + r.cells + ')');
     // 화면의 여우는 그 시각의 자리에 있고, 모두가 같은 여우를 본다
     const q = await page('t=14:00&speed=0&look=blanket&color=3');
     const at = (pg) => snow(pg, () => { const s = window.__snow, f = s.fox.at(s.clock.now()), o = s.fox.root.position; return { now: s.clock.now(), fx: f.x, fz: f.z, x: o.x, z: o.z, seen: s.fox.root.visible && s.fox.root.parent !== null }; });
@@ -1595,8 +1600,8 @@ try {
     const near = await snow(p, () => window.__snow.me.camDist);
     assert(far > d0 * 1.3 && near < d0 * 0.8, '다가가거나 물러나지 않는다: ' + JSON.stringify({ d0, far, near }));
     for (let i = 0; i < 8; i++) await p.click('#zoom-in', { force: true });
-    await sleep(200);
-    assert(await p.isDisabled('#zoom-in'), '가장 가까이 갔는데 더하기 단추가 흐려지지 않는다');
+    await until(() => p.isDisabled('#zoom-in'), { what: '더하기 단추가 흐려짐', timeout: 4000 }).catch(() => {});      // (단추 모양은 다음 그림에서 바뀐다: 느린 점검용 브라우저에서도 기다린다)
+    assert(await p.isDisabled('#zoom-in'), '가장 가까이 갔는데 더하기 단추가 흐려지지 않는다: ' + JSON.stringify(await snow(p, () => ({ d: window.__snow.me.camDist, inside: window.__snow.inside }))));
     const [shot, zoom] = await p.evaluate(() => ['#shot', '#zoom'].map((q) => { const e = document.querySelector(q); return { top: e.offsetTop, left: e.offsetLeft, h: e.offsetHeight }; }));
     assert(zoom.top >= shot.top + shot.h && Math.abs(zoom.left - shot.left) < 2, '캡처 단추 바로 아래가 아니다: ' + JSON.stringify({ shot, zoom }));
   });
@@ -1615,6 +1620,53 @@ try {
     await p.click('#enter'); await p.waitForFunction(() => window.__snow.started);
     const me = await snow(p, () => ({ x: window.__snow.me.x, z: window.__snow.me.z }));
     assert(Math.hypot(me.x + 12, me.z - 20) < 0.5, '나갔다 들어오니 자리가 바뀌었다: ' + JSON.stringify(me));
+  });
+
+  await test('운하 거리: 둑길에서 🕯️ 단추로 눈 등불을 놓고, 물과 창고 안으로는 못 들어가며, 밤에는 가스등과 창이 켜진다', async () => {
+    const p = await page('t=21:30&speed=0&xmas=0');
+    await byHand(p);
+    const C = await snow(p, async () => { const { CANAL, at } = await import('./js/otaru.js'); return { ...CANAL, s: at(8, -5) }; });      // (다리가 없는 자리)
+    await snow(p, (C) => { const s = window.__snow; s.teleport(C.s.x, C.s.z); s.sim(0.1); }, C);
+    await until(async () => (await p.getAttribute('#act', 'aria-label')) === '눈 등불 놓기', { what: '등불 단추' });
+    const n0 = await snow(p, () => window.__snow.otaru.lanterns);
+    await p.click('#act');
+    assert((await snow(p, () => window.__snow.otaru.lanterns)) === n0 + 1, '등불이 놓이지 않았다');
+    // 물 쪽으로 걸어가도 물에 들어가지 않는다
+    const w = await snow(p, async (C) => {
+      const s = window.__snow, { canalCoord, CANAL } = await import('./js/otaru.js'), a = 160 * Math.PI / 180;
+      s.me.yaw = s.me.camYaw = a; s.controls.debugMove(0, 1); s.sim(6); s.controls.debugMove(0, 0);
+      return { t: canalCoord(s.me.x, s.me.z).t, water: CANAL.water, lit: s.otaru.lit };
+    }, C);
+    assert(w.t < -w.water + 0.2, '물에 들어갔다: ' + JSON.stringify(w));
+    assert(w.lit > 0.9, '밤인데 가스등이 꺼져 있다: ' + w.lit);
+  });
+
+  await test('오타루 거리: 돌다리로 운하를 건너 유리 공방에서 🔮 유리 구슬을 만들고, 증기시계는 🎶 노래하고, 인력거꾼에게 인사할 수 있다', async () => {
+    const p = await page('t=14:00&speed=0&xmas=0');
+    await byHand(p);
+    // 돌다리로 운하를 건넌다
+    const cross = await snow(p, async () => {
+      const s = window.__snow, O = await import('./js/otaru.js'), from = O.at(O.BRIDGE.s, -5);
+      s.teleport(from.x, from.z); s.me.yaw = s.me.camYaw = 160 * Math.PI / 180; s.controls.debugMove(0, 1); s.sim(8); s.controls.debugMove(0, 0);
+      return O.canalCoord(s.me.x, s.me.z).t;
+    });
+    assert(cross > 2.5, '다리로 운하를 건너지 못했다: ' + cross);
+    // 유리 공방
+    await snow(p, async () => { const s = window.__snow, O = await import('./js/otaru.js'); s.teleport(O.GLASS_DOOR.x, O.GLASS_DOOR.z); s.sim(0.1); });
+    await until(async () => (await p.getAttribute('#act', 'aria-label')) === '유리 구슬 만들기', { what: '유리 구슬 단추' });
+    await p.click('#act');
+    await until(async () => (await p.textContent('#catch .name')).includes('유리 구슬'), { what: '유리 구슬 창' });
+    await snow(p, () => window.__snow.hideCatch && window.__snow.hideCatch());
+    // 증기시계
+    await snow(p, async () => { const s = window.__snow, O = await import('./js/otaru.js'), c = O.at(31, -5.2); s.teleport(c.x, c.z); s.sim(0.1); });
+    await until(async () => (await p.getAttribute('#act', 'aria-label')) === '증기시계 울리기', { what: '증기시계 단추' });
+    await p.click('#act');
+    assert(await snow(p, () => window.__snow.otaru.tooting), '증기시계가 증기를 뿜지 않는다');
+    // 인력거꾼에게 인사
+    await snow(p, () => { const s = window.__snow, r = s.otaru.rickshaw; s.teleport(r.x + 1.6, r.z); s.sim(0.05); });
+    await until(async () => (await p.getAttribute('#social', 'aria-label')) === '인사하기', { what: '인력거꾼 인사 단추', timeout: 5000 });
+    await p.click('#social');
+    assert((await p.textContent('#toast')).includes('인력거꾼'), '인력거꾼이 반기지 않는다: ' + await p.textContent('#toast'));
   });
 
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {

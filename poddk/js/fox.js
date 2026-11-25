@@ -3,6 +3,7 @@
 // 펭귄을 피해 달아나지 않고 제 갈 길을 가되, 가까이 오면 고개를 돌려 쳐다본다. 지나간 자리에는 작은 발자국이 남는다.
 // 펭귄처럼 공·원뿔 같은 기본 도형만 쓴다.
 import * as THREE from 'three';
+import { keepOut } from './otaru.js';
 import { printAlpha } from './clock.js';
 import { IGLOOS, HOLES } from './igloo.js';
 import { HILL } from './hill.js';
@@ -39,7 +40,7 @@ function keepIn(p) {
     const dx = p.x - o.x, dz = p.z - o.z, d = Math.hypot(dx, dz), keep = o.r + 2;
     if (d < keep) { const k = d < 1e-6 ? 0 : keep / d; p.x = d < 1e-6 ? o.x - keep : o.x + dx * k; p.z = o.z + dz * k; }
   }
-  return p;
+  return keepOut(p);      // 오타루 거리 밖으로 (트리 쪽 가장자리)
 }
 /** b 번째 목적지 */
 function spot(b, k = 0) {

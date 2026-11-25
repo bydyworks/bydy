@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#eef2fa">
-<link rel="stylesheet" href="css/fonts.css?v=8759bf42">
-<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=8759bf42","./js/aurora.js":"./js/aurora.js?v=8759bf42","./js/campfire.js":"./js/campfire.js?v=8759bf42","./js/capture.js":"./js/capture.js?v=8759bf42","./js/carols.js":"./js/carols.js?v=8759bf42","./js/clock.js":"./js/clock.js?v=8759bf42","./js/controls.js":"./js/controls.js?v=8759bf42","./js/critters.js":"./js/critters.js?v=8759bf42","./js/crumble.js":"./js/crumble.js?v=8759bf42","./js/den.js":"./js/den.js?v=8759bf42","./js/field.js":"./js/field.js?v=8759bf42","./js/fishing.js":"./js/fishing.js?v=8759bf42","./js/flakes.js":"./js/flakes.js?v=8759bf42","./js/fox.js":"./js/fox.js?v=8759bf42","./js/hill.js":"./js/hill.js?v=8759bf42","./js/igloo.js":"./js/igloo.js?v=8759bf42","./js/install.js":"./js/install.js?v=8759bf42","./js/main.js":"./js/main.js?v=8759bf42","./js/map.js":"./js/map.js?v=8759bf42","./js/names.js":"./js/names.js?v=8759bf42","./js/net.js":"./js/net.js?v=8759bf42","./js/outfit.js":"./js/outfit.js?v=8759bf42","./js/penguin.js":"./js/penguin.js?v=8759bf42","./js/postbox.js":"./js/postbox.js?v=8759bf42","./js/santa.js":"./js/santa.js?v=8759bf42","./js/showcase.js":"./js/showcase.js?v=8759bf42","./js/sky.js":"./js/sky.js?v=8759bf42","./js/sled.js":"./js/sled.js?v=8759bf42","./js/snowball.js":"./js/snowball.js?v=8759bf42","./js/snowman.js":"./js/snowman.js?v=8759bf42","./js/tracks.js":"./js/tracks.js?v=8759bf42","./js/weather.js":"./js/weather.js?v=8759bf42","./js/wishboard.js":"./js/wishboard.js?v=8759bf42","./js/xmas.js":"./js/xmas.js?v=8759bf42"}}</script>
+<link rel="stylesheet" href="css/fonts.css?v=431c0add">
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js","./js/audio.js":"./js/audio.js?v=431c0add","./js/aurora.js":"./js/aurora.js?v=431c0add","./js/campfire.js":"./js/campfire.js?v=431c0add","./js/capture.js":"./js/capture.js?v=431c0add","./js/carols.js":"./js/carols.js?v=431c0add","./js/clock.js":"./js/clock.js?v=431c0add","./js/controls.js":"./js/controls.js?v=431c0add","./js/critters.js":"./js/critters.js?v=431c0add","./js/crumble.js":"./js/crumble.js?v=431c0add","./js/den.js":"./js/den.js?v=431c0add","./js/field.js":"./js/field.js?v=431c0add","./js/fishing.js":"./js/fishing.js?v=431c0add","./js/flakes.js":"./js/flakes.js?v=431c0add","./js/fox.js":"./js/fox.js?v=431c0add","./js/hill.js":"./js/hill.js?v=431c0add","./js/igloo.js":"./js/igloo.js?v=431c0add","./js/install.js":"./js/install.js?v=431c0add","./js/main.js":"./js/main.js?v=431c0add","./js/map.js":"./js/map.js?v=431c0add","./js/names.js":"./js/names.js?v=431c0add","./js/net.js":"./js/net.js?v=431c0add","./js/otaru.js":"./js/otaru.js?v=431c0add","./js/outfit.js":"./js/outfit.js?v=431c0add","./js/penguin.js":"./js/penguin.js?v=431c0add","./js/postbox.js":"./js/postbox.js?v=431c0add","./js/santa.js":"./js/santa.js?v=431c0add","./js/showcase.js":"./js/showcase.js?v=431c0add","./js/sky.js":"./js/sky.js?v=431c0add","./js/sled.js":"./js/sled.js?v=431c0add","./js/snowball.js":"./js/snowball.js?v=431c0add","./js/snowman.js":"./js/snowman.js?v=431c0add","./js/tracks.js":"./js/tracks.js?v=431c0add","./js/weather.js":"./js/weather.js?v=431c0add","./js/wishboard.js":"./js/wishboard.js?v=431c0add","./js/xmas.js":"./js/xmas.js?v=431c0add"}}</script>
 <style>
   /* 만드는 사람끼리 보는 지도: 게임 화면에는 나오지 않고, 게임에서 이리로 오는 길도 없다 */
   :root { --ink: #2a3158; --soft: #5d6787; --line: #d5ddef; }
@@ -53,6 +53,7 @@
       <span><i style="background:#e8853b"></i>여우 (지나온 길, 갈 길)</span>
       <span><i style="background:#d0312d"></i>들어오는 자리</span>
       <span><i style="background:#c9a25a"></i>썰매가 다음에 지나갈 하늘 (점 쪽으로)</span>
+      <span><i style="background:#9fc6d8;border:1.5px solid #6f9db4"></i>오타루 거리 (운하·창고·유리 공방·증기시계·오르골당·옛 철길)</span>
       <span><i style="border:1.5px dashed #c5d0e8"></i>점선 원: 트리에서 걸어서 30초 · 1분</span>
       <span id="legend-me" hidden><i style="background:#2f66c0"></i>내 펭귄이 마지막으로 있던 자리</span>
     </div>
@@ -66,6 +67,6 @@
 
   <p class="foot">아래쪽이 들어오는 자리이고, 들어오면 트리를 바라보고 섭니다. 점선 원은 트리에서 걸어서 30초, 1분이 걸리는 거리이고, 큰 원이 걸어 다닐 수 있는 끝입니다. 이 지도는 게임의 자리 값을 그대로 읽어 그리므로, 게임에서 자리를 옮기면 함께 바뀝니다.</p>
 </main>
-<script type="module" src="js/map.js?v=8759bf42"></script>
+<script type="module" src="js/map.js?v=431c0add"></script>
 </body>
 </html>

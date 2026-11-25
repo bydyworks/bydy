@@ -40,7 +40,7 @@ function deviceId() {
 /**
  * @param {{ url: string, scene: THREE.Scene, camera: THREE.Camera, tracks: object, name: () => string, look: { blanket: boolean, color: string }, onCount: (n: number) => void }} o
  */
-export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {}, onBall = () => {}, onSocial = () => {}, onWave = () => {} }) {
+export function createNet({ url, scene, camera, tracks, name, look, onCount = () => {}, onGame = () => {}, onBall = () => {}, onSocial = () => {}, onWave = () => {}, onLantern = () => {} }) {
   const peers = new Map();                 // id → { root, name, s(받은 모습), x, z, yaw, phase, t(시각), bubble }
   const stats = { connected: false, sent: 0, got: 0, marksIn: 0, marksOut: 0, tries: 0 };
   let ws = null, myId = null, wait = 2, sendIn = 0, beatIn = 0, lastSent = '', outbox = [], closed = !url, time = 0;
@@ -98,6 +98,7 @@ export function createNet({ url, scene, camera, tracks, name, look, onCount = ()
     if (kind === 0) tracks.addPrint(x, z, yaw, side, birth);
     else if (kind === 1) { const it = tracks.addAngel(x, z, yaw, birth); it.grow = 1; }
     else if (kind === 2) tracks.addSlide(x, z, yaw, birth);
+    else if (kind === 3) onLantern(x, z, birth);      // 운하 거리의 눈 등불
   }
   function receive(m) {
     if (m.t === 'hello') {
