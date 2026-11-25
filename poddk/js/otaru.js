@@ -49,6 +49,8 @@ export function onWalk(x, z) { const c = canalCoord(x, z); return (Math.abs(c.s)
 export function onRail(x, z) { return inRail(canalCoord(x, z)); }
 /** 오타루 거리 언저리인가 */
 export function nearCanal(x, z) { const c = canalCoord(x, z); return c.s > RAIL.s - 6 && c.s < CROSS.s + 8 && c.t > -14 && c.t < 16; }
+/** 여우 같은 들짐승이 오타루 거리에 들어오지 않게: 거리 안이면 트리 쪽 가장자리로 옮긴다 (트리 쪽 반평면이라 두 점 사이 길도 거리 밖) */
+export function keepOut(p) { const c = canalCoord(p.x, p.z); if (c.s > RAIL.s - 6 && c.s < CROSS.s + 9 && c.t > -15) { const q = at(c.s, -15); p.x = q.x; p.z = q.z; } return p; }
 /** 유리 구슬: 색과 무늬 (만들 때마다 하나를 고른다) */
 export const BEADS = [
   { id: 'sky', name: '하늘빛 유리 구슬', color: '#8fd3ff', swirl: '#ffffff', say: '맑은 겨울 하늘을 담았어요' },

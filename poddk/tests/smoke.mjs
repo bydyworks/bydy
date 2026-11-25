@@ -876,7 +876,7 @@ try {
     assert(r.turn < 0.9, '몸을 한순간에 홱 돌린다: ' + r.turn.toFixed(2));
     assert(r.moving > 0.3 && r.moving < 0.75, '걷는 시간의 비율: ' + r.moving.toFixed(2));
     assert(r.sat > 0.03, '앉아 쉬는 때가 없다: ' + r.sat.toFixed(3));
-    assert(r.walked > 6000 && r.cells >= 40, '여기저기 돌아다녀야 한다 (걸은 거리 ' + r.walked.toFixed(0) + ', 다닌 구역 ' + r.cells + ')');
+    assert(r.walked > 6000 && r.cells >= 34, '여기저기 돌아다녀야 한다 (오타루 거리는 빼고) (걸은 거리 ' + r.walked.toFixed(0) + ', 다닌 구역 ' + r.cells + ')');
     // 화면의 여우는 그 시각의 자리에 있고, 모두가 같은 여우를 본다
     const q = await page('t=14:00&speed=0&look=blanket&color=3');
     const at = (pg) => snow(pg, () => { const s = window.__snow, f = s.fox.at(s.clock.now()), o = s.fox.root.position; return { now: s.clock.now(), fx: f.x, fz: f.z, x: o.x, z: o.z, seen: s.fox.root.visible && s.fox.root.parent !== null }; });
