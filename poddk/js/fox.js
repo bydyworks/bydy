@@ -3,6 +3,7 @@
 // 펭귄을 피해 달아나지 않고 제 갈 길을 가되, 가까이 오면 고개를 돌려 쳐다본다. 지나간 자리에는 작은 발자국이 남는다.
 // 펭귄처럼 공·원뿔 같은 기본 도형만 쓴다.
 import * as THREE from 'three';
+import { CANAL_CLEAR } from './otaru.js';
 import { printAlpha } from './clock.js';
 import { IGLOOS, HOLES } from './igloo.js';
 import { HILL } from './hill.js';
@@ -16,7 +17,7 @@ const ROAM = 68;                 // 가운데에서 이만큼까지 돌아다닌
 const KEEP = 6;                  // 목적지는 나무에서 이만큼은 떨어진 곳에 잡는다
 const CLEAR = 4;                 // 걷는 길은 나무 둥치에서 이만큼은 떨어져 지나간다
 /** 돌아가야 하는 곳들: 나무, 이글루(문간까지), 낚시 구멍 */
-const AVOID = [{ x: 0, z: 0, r: CLEAR }, { x: HILL.x, z: HILL.z, r: HILL.r + 1.5 }, ...IGLOOS.map((g) => ({ x: g.x, z: g.z, r: g.radius + 2.4 })), ...HOLES.map((h) => ({ x: h.x, z: h.z, r: 2.6 }))];
+const AVOID = [{ x: 0, z: 0, r: CLEAR }, { x: HILL.x, z: HILL.z, r: HILL.r + 1.5 }, { x: CANAL_CLEAR.x, z: CANAL_CLEAR.z, r: CANAL_CLEAR.r }, ...IGLOOS.map((g) => ({ x: g.x, z: g.z, r: g.radius + 2.4 })), ...HOLES.map((h) => ({ x: h.x, z: h.z, r: 2.6 }))];
 const WALK = 1.15;               // 평소 걷는 빠르기 (단위/초) — 펭귄보다 조금 느려서 따라잡을 수 있다
 const STRIDE = 0.5;              // 걸음 한 주기에 나아가는 거리
 const PAW_STEP = 0.3;            // 발자국 사이의 거리

@@ -1617,6 +1617,25 @@ try {
     assert(Math.hypot(me.x + 12, me.z - 20) < 0.5, '나갔다 들어오니 자리가 바뀌었다: ' + JSON.stringify(me));
   });
 
+  await test('운하 거리: 둑길에서 🕯️ 단추로 눈 등불을 놓고, 물과 창고 안으로는 못 들어가며, 밤에는 가스등과 창이 켜진다', async () => {
+    const p = await page('t=21:30&speed=0&xmas=0');
+    await byHand(p);
+    const C = await snow(p, async () => { const { CANAL, canalCoord } = await import('./js/otaru.js'); return { ...CANAL, s: CANAL.start }; });
+    await snow(p, (C) => { const s = window.__snow; s.teleport(C.s.x, C.s.z); s.sim(0.1); }, C);
+    await until(async () => (await p.getAttribute('#act', 'aria-label')) === '눈 등불 놓기', { what: '등불 단추' });
+    const n0 = await snow(p, () => window.__snow.otaru.lanterns);
+    await p.click('#act');
+    assert((await snow(p, () => window.__snow.otaru.lanterns)) === n0 + 1, '등불이 놓이지 않았다');
+    // 물 쪽으로 걸어가도 물에 들어가지 않는다
+    const w = await snow(p, async (C) => {
+      const s = window.__snow, { canalCoord, CANAL } = await import('./js/otaru.js'), a = 160 * Math.PI / 180;
+      s.me.yaw = s.me.camYaw = a; s.controls.debugMove(0, 1); s.sim(6); s.controls.debugMove(0, 0);
+      return { t: canalCoord(s.me.x, s.me.z).t, water: CANAL.water, lit: s.otaru.lit };
+    }, C);
+    assert(w.t < -w.water + 0.2, '물에 들어갔다: ' + JSON.stringify(w));
+    assert(w.lit > 0.9, '밤인데 가스등이 꺼져 있다: ' + w.lit);
+  });
+
   await test('밤에만 눈토끼가 나와 깡총거리고, 가까이 가면 달아난다', async () => {
     const p = await page('t=14:00&speed=0&xmas=0');
     await sleep(800);

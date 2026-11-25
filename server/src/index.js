@@ -119,12 +119,12 @@ export class Field {
       return;
     }
     if (m.t === 'm' && Array.isArray(m.l) && m.l.length <= 24) {
-      // 남긴 자국들: [종류(0 발자국, 1 눈 천사, 2 배 썰매), x, z, 방향, 발(±1)]. 찍힌 시각은 서버의 시각으로 적는다
+      // 남긴 자국들: [종류(0 발자국, 1 눈 천사, 2 배 썰매, 3 눈 등불), x, z, 방향, 발(±1)]. 찍힌 시각은 서버의 시각으로 적는다
       const out = [];
       for (const q of m.l) {
         if (!Array.isArray(q) || q.length !== 5) continue;
         const [kind, x, z, yaw, side] = q;
-        if (!int(kind, 0, 2) || !num(x, -FIELD_R, FIELD_R) || !num(z, -FIELD_R, FIELD_R) || Math.hypot(x, z) > FIELD_R || !num(yaw, -100, 100) || !(side === 1 || side === -1)) continue;
+        if (!int(kind, 0, 3) || !num(x, -FIELD_R, FIELD_R) || !num(z, -FIELD_R, FIELD_R) || Math.hypot(x, z) > FIELD_R || !num(yaw, -100, 100) || !(side === 1 || side === -1)) continue;
         const row = [kind, r2(x), r2(z), r2(yaw), side, now];
         this.sql.exec('INSERT INTO marks (kind, x, z, yaw, side, birth, owner) VALUES (?, ?, ?, ?, ?, ?, ?)', ...row, me.device);
         out.push(row);
